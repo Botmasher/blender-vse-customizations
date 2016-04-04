@@ -11,6 +11,7 @@ class Transitions (object):
         playhead = bpy.context.scene.frame_current
         # edge of screen width accounting for image scale
         width = 50 + strip.scale_start_x * 50
+        starting_x = strip.translate_start_x
         if toggle_mid:
             strip.keyframe_insert ('translate_start_x', -1, playhead)
             playhead += frames
@@ -23,7 +24,7 @@ class Transitions (object):
             strip.keyframe_insert ('translate_start_x', -1, strip.frame_start)
             # change frames and keyframe x position to center of screen
             playhead = strip.frame_start+frames
-            strip.translate_start_x = 0
+            strip.translate_start_x = starting_x
             strip.keyframe_insert ('translate_start_x', -1, strip.frame_start+frames)
         if toggle_out:
             # keyframe the x position to end frame minus transition frames
@@ -44,6 +45,7 @@ class Transitions (object):
         playhead = bpy.context.scene.frame_current
         # edge of screen width accounting for image scale
         width = 50 + strip.scale_start_x * 50
+        starting_x = strip.translate_start_x
         if toggle_mid:
             strip.keyframe_insert ('translate_start_x', -1, playhead)
             playhead += frames
@@ -56,7 +58,7 @@ class Transitions (object):
             strip.keyframe_insert ('translate_start_x', -1, strip.frame_start)
             # change frames and keyframe x position to center of screen
             playhead = strip.frame_start+frames
-            strip.translate_start_x = 0
+            strip.translate_start_x = starting_x
             strip.keyframe_insert ('translate_start_x', -1, strip.frame_start+frames)
         if toggle_out:
             # keyframe the x position to end frame minus transition duration
@@ -80,10 +82,11 @@ class Transitions (object):
             height = 50 + strip.scale_start_x * 50
         else:
             height = 50 + strip.scale_start_y * 50
+        starting_y = strip.translate_start_y
         if toggle_mid:
             strip.keyframe_insert ('translate_start_y', -1, playhead)
             playhead += frames
-            strip.translate_start_x = height
+            strip.translate_start_y = height
             strip.keyframe_insert ('translate_start_y', -1, playhead)
         if toggle_in:
             # keyframe the y position to just beyond bottom edge of screen
@@ -92,7 +95,7 @@ class Transitions (object):
             strip.keyframe_insert ('translate_start_y', -1, strip.frame_start)
             # change frames and keyframe y position to center of screen
             playhead = strip.frame_start+frames
-            strip.translate_start_y = 0
+            strip.translate_start_y = starting_y
             strip.keyframe_insert ('translate_start_y', -1, strip.frame_start+frames)
         if toggle_out:
             # keyframe the y position to end of strip minus transition duration
@@ -116,10 +119,11 @@ class Transitions (object):
             height = 50 + strip.scale_start_x * 50
         else:
             height = 50 + strip.scale_start_y * 50
+        starting_y = strip.translate_start_y
         if toggle_mid:
             strip.keyframe_insert ('translate_start_y', -1, playhead)
             playhead += frames
-            strip.translate_start_x = -height
+            strip.translate_start_y = -height
             strip.keyframe_insert ('translate_start_y', -1, playhead)
         if toggle_in:
             # keyframe the y position to just beyond top edge of screen
@@ -128,7 +132,7 @@ class Transitions (object):
             strip.keyframe_insert ('translate_start_y', -1, strip.frame_start)
             # change frames and keyframe y position to center of screen
             playhead = strip.frame_start+frames
-            strip.translate_start_y = 0
+            strip.translate_start_y = starting_y
             strip.keyframe_insert ('translate_start_y', -1, strip.frame_start+frames)
         if toggle_out:
             # keyframe the y position to end of strip minus transition duration
@@ -147,6 +151,7 @@ class Transitions (object):
         parent = bpy.context.scene.sequence_editor.active_strip.input_1
         # get the current frame on the timeline
         playhead = bpy.context.scene.frame_current
+        starting_alpha = strip.blend_alpha
         if toggle_mid:
             strip.keyframe_insert ('blend_alpha', -1, playhead)
             playhead += frames
@@ -159,7 +164,7 @@ class Transitions (object):
             strip.keyframe_insert ('blend_alpha', -1, strip.frame_start)
             # change frames and keyframe to opaque
             playhead = strip.frame_start+frames
-            strip.blend_alpha = 1.0
+            strip.blend_alpha = starting_alpha
             strip.keyframe_insert ('blend_alpha', -1, strip.frame_start+frames)
         if toggle_out:
             # keyframe to current opacity
