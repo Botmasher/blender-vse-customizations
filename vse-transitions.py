@@ -26,4 +26,37 @@ def slide_in ():
         strip.keyframe_insert("translate_start_x",-1,strip.frame_start+13)
     return None
 
-slide_in()
+class CustomTransitionsPanel (bpy.types.Panel):
+    """Creates a Panel in the Strip properties window"""
+    bl_label = "Transitions"
+    bl_idname = "strip.transitions.panel"
+    bl_space_type = 'SEQUENCE_EDITOR'
+    bl_region_type = 'UI'
+    #bl_context = "PROPERTIES"
+    def draw (self, context):
+        layout = self.layout
+        strip = bpy.data.scene[scene_name].sequence_editor.active_strip
+        row = layout.row()
+        row.label(text="Strip ")
+        row = layout.row()
+        row.operator("strip.transitions")
+
+class CustomTransitions (bpy.types.Operator):
+    bl_label = "Custom Transitions"
+    bl_idname = "strip.transitions"
+    bl_description = "Transition in and out"
+    def execute(self, context):
+        print ("executing")
+        return {'FINISHED'}
+
+def register():
+    bpy.utils.register_class(CustomTransitionsPanel)
+    bpy.utils.register_class(CustomTransitions)
+
+def unregister():
+    bpy.utils.unregister_class(CustomTransitions)
+    bpy.utils.unregister_class(CustomTransitionsPanel)
+
+if __name__ == "__main__":
+    register()
+    #unregister()
