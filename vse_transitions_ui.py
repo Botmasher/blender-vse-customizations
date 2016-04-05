@@ -87,10 +87,15 @@ class AddTransition (bpy.types.Operator):
     bl_idname = 'strip.transition_add'
     bl_description = 'Use transition settings to create keyframes in active strip'
     def execute (self, context):
-        try:
-            Transition.handler()
-        except:
-            raise NotImplementedError('Method Transition.handler() not implemented in Transition object')
+        # add the selected transition if this is a transform strip
+        if context.scene.sequence_editor.active_strip.type == 'TRANSFORM':
+            try:
+                Transition.handler()
+            except:
+                raise NotImplementedError ('Method Transition.handler() not implemented in Transition object')
+        # otherwise add a transform strip
+        else:
+            add_transform_strip(context.scene.sequence_editor.active_strip)
         return{'FINISHED'}
 
 class DeleteTransition (bpy.types.Operator):
@@ -98,11 +103,30 @@ class DeleteTransition (bpy.types.Operator):
     bl_idname = 'strip.transition_delete'
     bl_description = 'Delete ALL visible keyframes from strip transition fields (opacity, position, scale, rotation)'
     def execute (self, context):
-        try:
-            Transition.clear(context.scene.sequence_editor.active_strip)
-        except:
-            raise NotImplementedError('Method Transition.clear(strip) not implemented in Transition object')
-        return{'FINISHED'}
+        # delete all keyframes if this is a transform strip
+        if context.scene.sequence_editor.active_strip.type == 'TRANSFORM':
+            try:
+                Transition.clear(context.scene.sequence_editor.active_strip)
+            except:
+                raise NotImplementedError('Method Transition.clear(strip) not implemented in Transition object')
+        # otherwise add a transform strip
+        else:
+            add_transform_strip(context.scene.sequence_editor.active_strip)
+        return {'FINISHED'}
+
+def add_transform_strip (base_strip):
+    # deselect all strips to avoid adding multiple effect strips
+    for s in bpy.context.scene.sequence_editor.sequences_all:
+        s.select = False
+    # make sure this is a transform-ready image or movie
+    if base_strip.type in ('IMAGE', 'MOVIE'):
+        # select this strip and add a transform effect strip
+        base_strip.select = True
+        transform_strip = bpy.ops.sequencer.effect_strip_add(type='TRANSFORM')
+        # make this parent strip invisible
+        base_strip.blend_type = 'ALPHA_OVER'
+        base_strip.blend_alpha = 0.0
+    return None
 
 def register():
     bpy.utils.register_class(CustomTransitionsPanel)

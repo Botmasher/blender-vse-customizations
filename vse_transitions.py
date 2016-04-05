@@ -64,7 +64,12 @@ class Transition (object):
         else:
             pass
 
+        # insert keyframe on the property at the final frame
         strip.keyframe_insert (property_name, -1, starting_frame+duration)
+        # set transparency type to stack with other images/movies
+        strip.blend_type = 'ALPHA_OVER'
+        # refresh the sequence editor window
+        bpy.ops.sequencer.refresh_all()
         return None
 
     def clear (strip):
@@ -95,6 +100,9 @@ class Transition (object):
         strip.use_uniform_scale = True
         strip.scale_start_x = 1.0
         strip.rotation_start = 1.0
+        # refresh the sequence editor
+        bpy.ops.sequencer.refresh_all()
+        return None
 
     def strip_properties (strip):
         """Strip property values to transition when given a property name string as key"""
@@ -143,17 +151,17 @@ class Transition (object):
         Transition.set (strip, 'blend_alpha', end_value, start_frame, duration)
 
     def scale_up (strip, start_frame, duration):
-        end_value = strip.scale_start_x * 3.5 * strip.transition_strength
+        end_value = strip.scale_start_x + 3.5 * strip.transition_strength
         Transition.set (strip, 'scale_start_x', end_value, start_frame, duration)
         if not strip.use_uniform_scale:
-            end_value = strip.scale_start_y *3.5 * strip.transition_strength
+            end_value = strip.scale_start_y + (3.5 * (strip.scale_start_y/strip.scale_start_x) * strip.transition_strength)
             Transition.set (strip, 'scale_start_y', end_value, start_frame, duration)
 
     def scale_down (strip, start_frame, duration):
-        end_value = strip.scale_start_x * 0.05 / strip.transition_strength
+        end_value = 0.05 / strip.transition_strength
         Transition.set (strip, 'scale_start_x', end_value, start_frame, duration)
         if not strip.use_uniform_scale:
-            end_value = strip.scale_start_y * 0.05 / strip.transition_strength
+            end_value = (0.05 * (strip.scale_start_y/strip.scale_start_x)) / strip.transition_strength
             Transition.set (strip, 'scale_start_y', end_value, start_frame, duration)
 
     def rotate_clock (strip, start_frame, duration):
