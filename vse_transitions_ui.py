@@ -2,14 +2,25 @@ import bpy
 from bpy.props import *
 import vse_transitions
 
+#
+# Custom properties for Transition object to read as transition options
+#
 bpy.types.TransformSequence.transition_type = EnumProperty(
-    items = [('push', 'Push', 'from left to right'),
-             ('pull', 'Pull', 'from right to left'),
-             ('drop', 'Drop', 'from top to bottom'),
-             ('hoist', 'Hoist', 'from bottom to top'),
-             ('fade', 'Fade', 'to or from transparent')],
-    name = 'Type',
+    items = [('fade', 'Fade', 'to or from transparent'),
+             ('bottom', 'Bottom', 'to or from bottom'),
+             ('top', 'Top', 'to or from top'),
+             ('right', 'Right', 'to or from right edge'),
+             ('left', 'Left', 'to or from left edge')],
+    name = 'Transition Type',
     description = 'Type of transition to add to this strip'
+    )
+
+bpy.types.TransformSequence.transition_placement = EnumProperty(
+    items = [('in', 'In', 'Add transition to left edge of strip'),
+             ('out', 'Out', 'Add transition to right edge of strip'),
+             ('mid', 'Mid', 'Add transition at the current frame')],
+    name = 'Placement',
+    description = 'Where to add transition within this strip'
     )
 
 bpy.types.TransformSequence.transition_frames = IntProperty (
@@ -18,20 +29,20 @@ bpy.types.TransformSequence.transition_frames = IntProperty (
     description = 'Number of frames the transition will last'
     )
 
-bpy.types.TransformSequence.transition_in = BoolProperty(
-    name = 'In',
-    description = 'Add left edge transition (duration counted forwards from left edge of of this strip)'
-    )
+# bpy.types.TransformSequence.transition_in = BoolProperty(
+#     name = 'In',
+#     description = 'Add edge transition (duration counted forwards from left edge of this strip)'
+#     )
 
-bpy.types.TransformSequence.transition_out = BoolProperty(
-    name = 'Out',
-    description = 'Add right edge transition (duration counted backwards from right edge of this strip)'
-    )
+# bpy.types.TransformSequence.transition_out = BoolProperty(
+#     name = 'Out',
+#     description = 'Add edge transition (duration counted backwards from right edge of this strip)'
+#     )
     
-bpy.types.TransformSequence.transition_mid = BoolProperty(
-    name = 'Current Frame',
-    description = 'Add transition at this point (duration counted forwards from current frame)'
-    )
+# bpy.types.TransformSequence.transition_mid = BoolProperty(
+#     name = 'Current Frame',
+#     description = 'Add transition at this point (duration counted forwards from current frame)'
+#     )
 
 class CustomTransitionsPanel (bpy.types.Panel):
     """Create a Panel in Strip Properties"""
@@ -45,35 +56,35 @@ class CustomTransitionsPanel (bpy.types.Panel):
         self.layout.row().prop(strip,'transition_type')
         # integer input for setting transition length in frames
         self.layout.row().prop(strip,'transition_frames')
-        # check boxes for toggling transition in/out
-        row_1 = self.layout.split(0.4)
-        row_1.prop(strip,'transition_in')
-        row_1.prop(strip,'transition_out')
-        self.layout.row().prop(strip,'transition_mid')
+        # check boxes for toggling transition in/out/mid
+        #row_1 = self.layout.split(0.4)
+        #row_1.prop(strip,'transition_in')
+        #row_1.prop(strip,'transition_out')
+        #self.layout.row().prop(strip,'transition_mid')
+        # button series for choosing placement (in/out/current)
+        self.layout.prop(strip,'transition_placement', expand=True)
         # execute button
         self.layout.separator()
-        self.layout.operator('strip.transitions', text="Keyframe Transition")
+        self.layout.operator('strip.transition_add', text="Keyframe Transition")
 
-class CustomTransitions (bpy.types.Operator):
-    bl_label = 'Custom Transitions'
-    bl_idname = 'strip.transitions'
+class AddTransition (bpy.types.Operator):
+    bl_label = 'Add Transitions'
+    bl_idname = 'strip.transition_add'
     bl_description = 'Use transition settings to create keyframes in active strip'
     def execute (self, context):
-        strip = context.scene.sequence_editor.active_strip
         try:
-            func = getattr(Transitions,strip.transition_type)
-            func(strip.transition_in, strip.transition_out, strip.transition_frames)
+            Transition.handler()
         except:
-            raise NotImplementedError('Method %s not implemented'%func)
+            raise NotImplementedError('Method %s not implemented in Transition object'%func)
         return{'FINISHED'}
 
 def register():
     bpy.utils.register_class(CustomTransitionsPanel)
-    bpy.utils.register_class(CustomTransitions)
+    bpy.utils.register_class(AddTransition)
 
 def unregister():
-    bpy.utils.unregister_class(CustomTransitions)
     bpy.utils.unregister_class(CustomTransitionsPanel)
+    bpy.utils.unregister_class(AddTransition)
 
 if __name__ == '__main__':
     register()

@@ -1,177 +1,100 @@
 import bpy
 import math
 
-class Transitions (object):
-    def push (toggle_in, toggle_out, toggle_mid, frames):
-        """Slide a transform strip's position from left to right"""
-        # references to active transform strip and its parent strip
+class Transition (object):
+    def handler ():
+        effect = {'left':Transition.left,'right':Transition.right,'top':Transition.top,'bottom':Transition.bottom,'fade':Transition.fade}
+        # references to active transform strip and its parent
         strip = bpy.context.scene.sequence_editor.active_strip
-        parent = bpy.context.scene.sequence_editor.active_strip.input_1
-        # get the current frame on the timeline
-        playhead = bpy.context.scene.frame_current
-        # edge of screen width accounting for image scale
-        width = 50 + strip.scale_start_x * 50
-        starting_x = strip.translate_start_x
-        if toggle_mid:
-            strip.keyframe_insert ('translate_start_x', -1, playhead)
-            playhead += frames
-            strip.translate_start_x = width
-            strip.keyframe_insert ('translate_start_x', -1, playhead)
-        if toggle_in:
-            # keyframe the x position to just beyond L edge of screen
-            playhead = strip.frame_start
-            strip.translate_start_x = -(width)
-            strip.keyframe_insert ('translate_start_x', -1, strip.frame_start)
-            # change frames and keyframe x position to center of screen
-            playhead = strip.frame_start+frames
-            strip.translate_start_x = starting_x
-            strip.keyframe_insert ('translate_start_x', -1, strip.frame_start+frames)
-        if toggle_out:
-            # keyframe the x position to end frame minus transition frames
-            playhead = strip.frame_start - frames + strip.frame_final_duration
-            strip.keyframe_insert ('translate_start_x', -1, playhead)
-            # change frames and keyframe x position to just beyond R edge of screen
-            playhead = strip.frame_start + strip.frame_final_duration
-            strip.translate_start_x = width
-            strip.keyframe_insert ('translate_start_x', -1, playhead)
+        parent = strip.input_1
+        # length of the transition (distance between keyframes)
+        duration = strip.transition_frames
+        if strip.transition_placement == 'mid':
+            # current frame
+            start_frame = bpy.context.scene.frame_current
+            # call the effect function
+            effect[strip.transition_type] (strip, start_frame, duration)
+        elif strip.transition_placement == 'in':
+            # count frames from left edge of the strip
+            start_frame = strip.frame_start + duration
+            # call the effect function, reversing duration for transition "in" effect
+            effect[strip.transition_type] (strip, start_frame, -duration)
+        elif strip.transition_placement == 'out':
+            # count frames from right edge of the strip
+            start_frame = strip.frame_start + strip.frame_final_duration - duration
+            # call the effect function
+            effect[strip.transition_type] (strip, start_frame, duration)        
         return None
 
-    def pull (toggle_in, toggle_out, toggle_mid, frames):
-        """Slide a transform strip's position from right to left"""
-        # references to active transform strip and its parent strip
-        strip = bpy.context.scene.sequence_editor.active_strip
-        parent = bpy.context.scene.sequence_editor.active_strip.input_1
-        # get the current frame on the timeline
-        playhead = bpy.context.scene.frame_current
-        # edge of screen width accounting for image scale
+    def get_screen_dimensions (strip):
+        # edges of screen (as percentage) accounting for image scale and uniform scale toggled
         width = 50 + strip.scale_start_x * 50
-        starting_x = strip.translate_start_x
-        if toggle_mid:
-            strip.keyframe_insert ('translate_start_x', -1, playhead)
-            playhead += frames
-            strip.translate_start_x = -width
-            strip.keyframe_insert ('translate_start_x', -1, playhead)
-        if toggle_in:
-            # keyframe the x position to just beyond R edge of screen
-            playhead = strip.frame_start
-            strip.translate_start_x = width
-            strip.keyframe_insert ('translate_start_x', -1, strip.frame_start)
-            # change frames and keyframe x position to center of screen
-            playhead = strip.frame_start+frames
-            strip.translate_start_x = starting_x
-            strip.keyframe_insert ('translate_start_x', -1, strip.frame_start+frames)
-        if toggle_out:
-            # keyframe the x position to end frame minus transition duration
-            playhead = strip.frame_start - frames + strip.frame_final_duration
-            strip.keyframe_insert ('translate_start_x', -1, playhead)
-            # change frames and keyframe x position to just beyond L edge of screen
-            playhead = strip.frame_start + strip.frame_final_duration
-            strip.translate_start_x = -width
-            strip.keyframe_insert ('translate_start_x', -1, playhead)
-        return None
-
-    def hoist (toggle_in, toggle_out, toggle_mid, frames):
-        """Slide a transform strip's position from bottom to top"""
-        # references to active transform strip and its parent strip
-        strip = bpy.context.scene.sequence_editor.active_strip
-        parent = bpy.context.scene.sequence_editor.active_strip.input_1
-        # get the current frame on the timeline
-        playhead = bpy.context.scene.frame_current
-        # edge of screen height accounting for image scale and uniform scale toggled
         if strip.use_uniform_scale:
             height = 50 + strip.scale_start_x * 50
         else:
             height = 50 + strip.scale_start_y * 50
-        starting_y = strip.translate_start_y
-        if toggle_mid:
-            strip.keyframe_insert ('translate_start_y', -1, playhead)
-            playhead += frames
-            strip.translate_start_y = height
-            strip.keyframe_insert ('translate_start_y', -1, playhead)
-        if toggle_in:
-            # keyframe the y position to just beyond bottom edge of screen
-            playhead = strip.frame_start
-            strip.translate_start_y = -height
-            strip.keyframe_insert ('translate_start_y', -1, strip.frame_start)
-            # change frames and keyframe y position to center of screen
-            playhead = strip.frame_start+frames
-            strip.translate_start_y = starting_y
-            strip.keyframe_insert ('translate_start_y', -1, strip.frame_start+frames)
-        if toggle_out:
-            # keyframe the y position to end of strip minus transition duration
-            playhead = strip.frame_start - frames + strip.frame_final_duration
-            strip.keyframe_insert ('translate_start_y', -1, playhead)
-            # change frames and keyframe y position to just beyond top edge of screen
-            playhead = strip.frame_start + strip.frame_final_duration
-            strip.translate_start_y = height
-            strip.keyframe_insert ('translate_start_y', -1, playhead)
-        return None
+        return (width,height)
 
-    def drop (toggle_in, toggle_out, toggle_mid, frames):
-        """Slide a strip's opacity between opaque and transparent over time"""
-        # references to active transform strip and its parent strip
-        strip = bpy.context.scene.sequence_editor.active_strip
-        parent = bpy.context.scene.sequence_editor.active_strip.input_1
-        # get the current frame on the timeline
-        playhead = bpy.context.scene.frame_current
-        # edge of screen height accounting for image scale and uniform scale toggled
-        if strip.use_uniform_scale:
-            height = 50 + strip.scale_start_x * 50
+    def set (strip, property_name, end_value, starting_frame, duration):
+        """Move to starting frame, set a keyframe for a property, move to final frame (starting frame plus duration), change property value, set keyframe for the property."""
+        # move to and keyframe the starting frame
+        bpy.context.scene.frame_current = starting_frame
+        strip.keyframe_insert (property_name, -1, starting_frame)
+        # move to and keyframe the ending frame with the final property value
+        bpy.context.scene.frame_current += duration
+        
+        # set keyframe values on the appropriate property_name
+        if property_name == 'translate_start_x':
+            strip.translate_start_x = end_value
+        elif property_name == 'translate_start_y':
+            strip.translate_start_y = end_value
+        elif property_name == 'scale_start_x':
+            strip.scale_start_x = end_value
+        elif property_name == 'scale_start_y':
+            strip.scale_start_y = end_value
+        elif property_name == 'blend_alpha':
+            strip.blend_alpha = end_value
         else:
-            height = 50 + strip.scale_start_y * 50
-        starting_y = strip.translate_start_y
-        if toggle_mid:
-            strip.keyframe_insert ('translate_start_y', -1, playhead)
-            playhead += frames
-            strip.translate_start_y = -height
-            strip.keyframe_insert ('translate_start_y', -1, playhead)
-        if toggle_in:
-            # keyframe the y position to just beyond top edge of screen
-            playhead = strip.frame_start
-            strip.translate_start_y = height
-            strip.keyframe_insert ('translate_start_y', -1, strip.frame_start)
-            # change frames and keyframe y position to center of screen
-            playhead = strip.frame_start+frames
-            strip.translate_start_y = starting_y
-            strip.keyframe_insert ('translate_start_y', -1, strip.frame_start+frames)
-        if toggle_out:
-            # keyframe the y position to end of strip minus transition duration
-            playhead = strip.frame_start - frames + strip.frame_final_duration
-            strip.keyframe_insert ('translate_start_y', -1, playhead)
-            # change frames and keyframe y position to just beyond bottom of screen
-            playhead = strip.frame_start + strip.frame_final_duration
-            strip.translate_start_y = -height
-            strip.keyframe_insert ('translate_start_y', -1, playhead)
+            pass
+
+        strip.keyframe_insert (property_name, -1, starting_frame+duration)
         return None
 
-    def fade (toggle_in, toggle_out, toggle_mid, frames):
-        """Slide a transform strip's position from left to right"""
-        # references to active transform strip and its parent strip
-        strip = bpy.context.scene.sequence_editor.active_strip
-        parent = bpy.context.scene.sequence_editor.active_strip.input_1
-        # get the current frame on the timeline
-        playhead = bpy.context.scene.frame_current
-        starting_alpha = strip.blend_alpha
-        if toggle_mid:
-            strip.keyframe_insert ('blend_alpha', -1, playhead)
-            playhead += frames
-            strip.blend_alpha = 0.0
-            strip.keyframe_insert ('blend_alpha', -1, playhead)
-        if toggle_in:
-            # keyframe to transparent
-            playhead = strip.frame_start
-            strip.blend_alpha = 0.0
-            strip.keyframe_insert ('blend_alpha', -1, strip.frame_start)
-            # change frames and keyframe to opaque
-            playhead = strip.frame_start+frames
-            strip.blend_alpha = starting_alpha
-            strip.keyframe_insert ('blend_alpha', -1, strip.frame_start+frames)
-        if toggle_out:
-            # keyframe to current opacity
-            playhead = strip.frame_start - frames + strip.frame_final_duration
-            strip.keyframe_insert ('blend_alpha', -1, playhead)
-            # change positions and keyframe to transparent
-            playhead = strip.frame_start + strip.frame_final_duration
-            strip.blend_alpha = 0.0
-            strip.keyframe_insert ('blend_alpha', -1, playhead)
-        return None
+    def strip_properties (strip):
+        """Strip property values to transition when given a property name string as key"""
+        return {'translate_start_x': strip.translate_start_x,
+                'translate_start_y': strip.translate_start_y,
+                'scale_start_x': strip.scale_start_x,
+                'scale_start_y': strip.scale_start_y,
+                'blend_alpha': strip.blend_alpha
+                }
+
+    def left (strip, start_frame, duration):
+        """Set up values to slide a strip's position to or from left edge of screen"""
+        end_value = -(Transition.get_screen_dimensions(strip)[0])
+        # setup the keyframing function
+        Transition.set (strip, 'translate_start_x', end_value, start_frame, duration)
+
+    def right (strip, start_frame, duration):
+        """Set up values to slide a strip's position to or from right edge of screen"""
+        end_value = Transition.get_screen_dimensions(strip)[0]
+        # setup the keyframing function
+        Transition.set (strip, 'translate_start_x', end_value, start_frame, duration)
+
+    def top (strip, start_frame, duration):
+        """Set up values to slide a strip's position to or from top edge of screen"""
+        end_value = Transition.get_screen_dimensions(strip)[1]
+        # setup the keyframing function
+        Transition.set (strip, 'translate_start_y', end_value, start_frame, duration)
+
+    def bottom (strip, start_frame, duration):
+        """Set up values to slide a strip's position to or from bottom edge of screen"""
+        end_value = -(Transition.get_screen_dimensions(strip)[1])
+        # setup the keyframing function
+        Transition.set (strip, 'translate_start_y', end_value, start_frame, duration)
+
+    def fade (strip, start_frame, duration):
+        """Set up values to slide a strip's opacity to or from transparent"""
+        end_value = 0.0
+        # setup the keyframing function
+        Transition.set (strip, 'blend_alpha', end_value, start_frame, duration)
