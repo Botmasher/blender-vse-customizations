@@ -3,7 +3,7 @@ import math
 
 class Transition (object):
     def handler ():
-        effect = {'left':Transition.left,'right':Transition.right,'top':Transition.top,'bottom':Transition.bottom,'fade':Transition.fade}
+        effect = {'left':Transition.left,'right':Transition.right,'top':Transition.top,'bottom':Transition.bottom,'fade':Transition.fade,'scale_up':Transition.scale_up,'scale_down':Transition.scale_down}
         # references to active transform strip and its parent
         strip = bpy.context.scene.sequence_editor.active_strip
         parent = strip.input_1
@@ -98,3 +98,17 @@ class Transition (object):
         end_value = 0.0
         # setup the keyframing function
         Transition.set (strip, 'blend_alpha', end_value, start_frame, duration)
+
+    def scale_up (strip, start_frame, duration):
+        end_value = strip.scale_start_x * 3.5
+        Transition.set (strip, 'scale_start_x', end_value, start_frame, duration)
+        if not strip.use_uniform_scale:
+            end_value = strip.scale_start_y *3.5
+            Transition.set (strip, 'scale_start_y', end_value, start_frame, duration)
+
+    def scale_down (strip, start_frame, duration):
+        end_value = strip.scale_start_x * 0.05
+        Transition.set (strip, 'scale_start_x', end_value, start_frame, duration)
+        if not strip.use_uniform_scale:
+            end_value = strip.scale_start_y * 0.05
+            Transition.set (strip, 'scale_start_y', end_value, start_frame, duration)

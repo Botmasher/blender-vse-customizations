@@ -6,7 +6,9 @@ import vse_transitions
 # Custom properties for Transition object to read as transition options
 #
 bpy.types.TransformSequence.transition_type = EnumProperty(
-    items = [('fade', 'Fade', 'to or from transparent'),
+    items = [('scale_down', 'Scale down', 'to or from small scale (zoom out)'),
+             ('scale_up', 'Scale up', 'to or from large scale (zoom in)'),
+             ('fade', 'Fade', 'to or from transparent'),
              ('bottom', 'Bottom', 'to or from bottom'),
              ('top', 'Top', 'to or from top'),
              ('right', 'Right', 'to or from right edge'),
