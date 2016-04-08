@@ -9,7 +9,7 @@ bpy.types.Scene.cut_smash_direction = EnumProperty(
     )
 
 class CutSmashPanel (bpy.types.Panel):
-    bl_label = 'Super Cut & Smash'
+    bl_label = 'Soft Cut & Smash'
     bl_idname = 'strip.cut_smash_panel'
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
@@ -20,17 +20,18 @@ class CutSmashPanel (bpy.types.Panel):
         self.layout.operator('strip.cut_smash', text="Jumpcut Smash")
 
 def cut_smash_left(memos):
-    """Offset selected strips at current frame and close gap with previous strips"""
+    """Offset beginning of selected strips to current frame and close gap with previous strips"""
+    vse = bpy.context.scene.sequence_editor
     # store location of the gap created by this soft cut
     gap = bpy.context.scene.frame_current - 1
     # iterate through all strips in sequencer
-    for strip in bpy.context.scene.sequence_editor.sequences_all:
+    for strip_name in memos:
         # check only selected strips that haven't been analyzed
-        if strip.select and strip.name not in memos:
+        if memos[strip_name] == 0:
             # "soft cut" (offset) the strip and store solution in memos
             try:
-                strip.frame_offset_start = bpy.context.scene.frame_current-strip.frame_start
-                memos.append(strip.name)
+                vse.sequences_all[strip_name].frame_offset_start = bpy.context.scene.frame_current - vse.sequences_all[strip_name].frame_start
+                memos[strip_name] = 1
                 # run function again to catch any uncut selected strips
                 #cut_smash(memos)
             except:
@@ -41,7 +42,22 @@ def cut_smash_left(memos):
     return None
 
 def cut_smash_right (memo):
-    print ('cut_smash_right')
+    """Offset end of selected strips to current frame and close gap with next strips"""
+    # store shortened reference to sequencer
+    vse = bpy.context.scene.sequence_editor
+    # store location of the gap created by this soft cut
+    playhead = bpy.context.scene.frame_current
+    # "soft cut" (offset) the strips and set as solved in memo ('name':1)
+    for strip_name in memo:
+        # select the sequence and its ending handle
+        vse.sequences_all[strip_name].select = True
+        vse.sequences_all[strip_name].select_right_handle = True
+        bpy.ops.sequencer.snap (frame=playhead)
+        vse.sequences_all[strip_name].select = False
+        vse.sequences_all[strip_name].select_right_handle = False
+        memo[strip_name] = 1
+    # close gap to the right of the playhead (note playhead frame is now empty)
+    bpy.ops.sequencer.gap_remove()
     return None
 
 class CutSmashOperator (bpy.types.Operator):
@@ -50,7 +66,11 @@ class CutSmashOperator (bpy.types.Operator):
     bl_description = 'Cut strip at current location and place against previous strip'
     def execute (self, context):
         # memoization for cut_smash
-        memos = []
+        memos = {}
+        for strip in bpy.context.scene.sequence_editor.sequences_all:
+            if strip.select:
+                memos[strip.name] = 0
+                strip.select = False
         if bpy.context.scene.cut_smash_direction == 'left':
             cut_smash_left(memos)
         else:
