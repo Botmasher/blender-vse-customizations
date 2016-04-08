@@ -1,7 +1,7 @@
 import bpy
 from bpy.props import *
 
-bpy.types.Sequence.cut_smash_direction = EnumProperty(
+bpy.types.Scene.cut_smash_direction = EnumProperty(
     items = [('left', 'Left', 'Cut and close gap after playhead'),
              ('right', 'Right', 'Cut and close gap before playhead')],
     name = 'Cut off the:',
@@ -15,27 +15,46 @@ class CutSmashPanel (bpy.types.Panel):
     bl_region_type = 'UI'
     def draw (self, context):
         strip = bpy.context.scene.sequence_editor.active_strip
-        try:
-            self.layout.row().prop(strip,'cut_smash_direction', expand=True)
-        except:
-            # /!\ location: <unknown location>:-1
+        self.layout.row().prop(bpy.context.scene,'cut_smash_direction', expand=True)
         # execute button
         self.layout.operator('strip.cut_smash', text="Jumpcut Smash")
+
+def cut_smash_left(memos):
+    """Offset selected strips at current frame and close gap with previous strips"""
+    # store location of the gap created by this soft cut
+    gap = bpy.context.scene.frame_current - 1
+    # iterate through all strips in sequencer
+    for strip in bpy.context.scene.sequence_editor.sequences_all:
+        # check only selected strips that haven't been analyzed
+        if strip.select and strip.name not in memos:
+            # "soft cut" (offset) the strip and store solution in memos
+            try:
+                strip.frame_offset_start = bpy.context.scene.frame_current-strip.frame_start
+                memos.append(strip.name)
+                # run function again to catch any uncut selected strips
+                #cut_smash(memos)
+            except:
+                pass
+    # skip to the frame before this strip and close gap
+    bpy.context.scene.frame_current = gap
+    bpy.ops.sequencer.gap_remove()
+    return None
+
+def cut_smash_right (memo):
+    print ('cut_smash_right')
+    return None
 
 class CutSmashOperator (bpy.types.Operator):
     bl_label = 'Jumpcut Smash'
     bl_idname = 'strip.cut_smash'
     bl_description = 'Cut strip at current location and place against previous strip'
     def execute (self, context):
-        for strip in context.scene.sequence_editor.sequences_all:
-            if strip.select:
-                strip.frame_offset_start = bpy.context.scene.frame_current-strip.frame_start
-                print (strip)
-                # store frame location of the gap created by this soft cut
-                #gap = strip.frame_start + strip.frame_offset_start - 1
-        # skip to the frame before this strip and close gap
-        #context.scene.frame_current = gap
-        #bpy.ops.sequencer.gap_remove()
+        # memoization for cut_smash
+        memos = []
+        if bpy.context.scene.cut_smash_direction == 'left':
+            cut_smash_left(memos)
+        else:
+            cut_smash_right(memos)
         return{'FINISHED'}
 
 def register():
