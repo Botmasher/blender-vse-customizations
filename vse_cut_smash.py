@@ -39,6 +39,9 @@ def cut_smash_left(memos):
     # skip to the frame before this strip and close gap
     bpy.context.scene.frame_current = gap
     bpy.ops.sequencer.gap_remove()
+    # set the playhead to new beginning of strip to resume editing at same video location
+    if strip_name != None:
+        bpy.context.scene.frame_current = vse.sequences_all[strip_name].frame_offset_start + vse.sequences_all[strip_name].frame_start
     return None
 
 def cut_smash_right (memo):
