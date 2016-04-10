@@ -97,6 +97,9 @@ def cut_simple (memo):
     return None
 
 def mark_in ():
+    if bpy.context.scene.lift_in_marker != '':
+            in_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_in_marker)]
+            bpy.context.scene.timeline_markers.remove(in_marker)   
     playhead = bpy.context.scene.frame_current
     markers = bpy.context.scene.timeline_markers
     bpy.context.scene.lift_in_marker = "in_"+str(playhead)
@@ -106,9 +109,11 @@ def mark_in ():
 def mark_out ():
     # check that in and out markers exist for lifting and extraction
     if bpy.context.scene.lift_in_marker != '':
+        # if both in and out are marked, lift strip between them
         if bpy.context.scene.lift_out_marker != '':
             lift_clip()
         else:
+            # create and name a new out marker at this location
             playhead = bpy.context.scene.frame_current
             markers = bpy.context.scene.timeline_markers
             bpy.context.scene.lift_out_marker = "out_"+str(playhead)
@@ -121,14 +126,12 @@ def lift_clip ():
     # find the timeline marker at the index where the key matches in marker name
     in_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_in_marker)]
     out_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_out_marker)]
-    
     # cut and lift strips at this position
     # - cut selected strips at in_marker
     # - cut selected strips at out marker
     # - move cursor position cursor between them
     # - delete the selected strips
     # - move playhead back to initial location
-    
     # delete the markers
     bpy.context.scene.timeline_markers.remove(in_marker)
     bpy.context.scene.timeline_markers.remove(out_marker)
