@@ -28,10 +28,12 @@ bpy.types.Scene.lift_out_marker = StringProperty(
     )
 
 class CutSmashPanel (bpy.types.Panel):
+    # Blender UI label, name, placement
     bl_label = 'Soft Cut & Smash'
     bl_idname = 'strip.cut_smash_panel'
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
+    # build the panel
     def draw (self, context):
         # select and execute left or right cut smash
         self.layout.row().prop(bpy.context.scene,'cut_smash_direction', expand=True)
@@ -41,7 +43,11 @@ class CutSmashPanel (bpy.types.Panel):
         self.layout.row().prop(bpy.context.scene,'lift_marker', expand=True)
         self.layout.prop(bpy.context.scene,'lift_in_marker') 
         self.layout.prop(bpy.context.scene,'lift_out_marker')
-        self.layout.operator('strip.mark_lift', text="Lift")
+        # display set or lift button depending on whether both markers are set
+        if bpy.context.scene.lift_in_marker != '' or bpy.context.scene.lift_out_marker != '':
+            self.layout.operator('strip.mark_lift', text="Lift")
+        else:
+            self.layout.operator('strip.mark_lift', text="Set")
 
 def cut_smash_left(memos):
     """Offset beginning of selected strips to current frame and close gap with previous strips"""
@@ -97,9 +103,11 @@ def cut_simple (memo):
     return None
 
 def mark_in ():
+    # remove current in-marker if one exists
     if bpy.context.scene.lift_in_marker != '':
             in_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_in_marker)]
-            bpy.context.scene.timeline_markers.remove(in_marker)   
+            bpy.context.scene.timeline_markers.remove(in_marker)
+    # add and name a new in-marker at the playhead location 
     playhead = bpy.context.scene.frame_current
     markers = bpy.context.scene.timeline_markers
     bpy.context.scene.lift_in_marker = "in_"+str(playhead)
@@ -123,7 +131,7 @@ def mark_out ():
     return None
 
 def lift_clip ():
-    # find the timeline marker at the index where the key matches in marker name
+    # find the timeline marker at the index where the key matches marker name
     in_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_in_marker)]
     out_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_out_marker)]
     # cut and lift strips at this position
@@ -134,7 +142,7 @@ def lift_clip ():
     # - move playhead back to initial location
     # delete the markers
     bpy.context.scene.timeline_markers.remove(in_marker)
-    bpy.context.scene.timeline_markers.remove(out_marker)
+    #bpy.context.scene.timeline_markers.remove(out_marker)
     
     # reset the in and out properties
     bpy.context.scene.lift_in_marker = ''
@@ -142,6 +150,7 @@ def lift_clip ():
     return None
 
 class CutSmashOperator (bpy.types.Operator):
+    # Blender UI label, id and description
     bl_label = 'Jumpcut Smash'
     bl_idname = 'strip.cut_smash'
     bl_description = 'Cut strip at current location and place against previous strip'
