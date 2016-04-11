@@ -120,9 +120,14 @@ def add_transform_strip (base_strip):
         s.select = False
     # make sure this is a transform-ready image or movie
     if base_strip.type in ('IMAGE', 'MOVIE'):
-        # select this strip and add a transform effect strip
+        # select this strip and create a transform effect strip on it
         base_strip.select = True
-        transform_strip = bpy.ops.sequencer.effect_strip_add(type='TRANSFORM')
+        bpy.ops.sequencer.effect_strip_add(type='TRANSFORM')
+        # find strip we just created and set it to alpha bg
+        for st in bpy.context.scene.sequence_editor.sequences_all:
+            # check that it uses this base strip as its input
+            if hasattr(s,'input_1') and s.input_1.name == base_strip.name:
+                s.blend_type = 'ALPHA_OVER'
         # make this parent strip invisible
         base_strip.blend_type = 'ALPHA_OVER'
         base_strip.blend_alpha = 0.0
