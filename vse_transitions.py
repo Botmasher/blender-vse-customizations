@@ -48,6 +48,14 @@ class Transition (object):
         # move to and keyframe the ending frame with the final property value
         bpy.context.scene.frame_current += duration
         
+        # problem: when another transition impacting same properties is on this strip, the in/out transition sets two keyframes to the "edge values" (starting for in, ending for out) rather than a transition between current value to edge value.
+        # SOLUTIONS!?!
+        # - deselect the keyframe? - but if this is a fix wouldn't this problem have been impacting a single transition too?
+        # - run through and dbl check the control flow
+        
+        # insert keyframe on the property at the final frame
+        strip.keyframe_insert (property_name, -1, starting_frame+duration)
+
         # give the relevant property_name a new ending value
         if property_name == 'translate_start_x':
             strip.translate_start_x = end_value
@@ -66,6 +74,7 @@ class Transition (object):
 
         # insert keyframe on the property at the final frame
         strip.keyframe_insert (property_name, -1, starting_frame+duration)
+        
         # set transparency type to stack with other images/movies
         strip.blend_type = 'ALPHA_OVER'
         # refresh the sequence editor window
@@ -169,7 +178,6 @@ class Transition (object):
         # scale x (scales both if using uniform scale)
         end_value = 0.05 / strip.transition_strength
         Transition.set (strip, 'scale_start_x', end_value, start_frame, duration)
-
 
     def rotate_clock (strip, start_frame, duration):
         end_value = strip.rotation_start + (360 * strip.transition_strength)
