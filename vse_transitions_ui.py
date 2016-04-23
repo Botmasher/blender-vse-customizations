@@ -17,6 +17,7 @@ bpy.types.TransformSequence.transition_type = EnumProperty(
              ('right', 'Right', 'to or from right edge'),
              ('left', 'Left', 'to or from left edge')],
     name = 'Type',
+    default = 'fade',
     description = 'Type of transition to add to this strip'
     )
 
@@ -30,7 +31,7 @@ bpy.types.TransformSequence.transition_placement = EnumProperty(
 
 bpy.types.TransformSequence.transition_frames = IntProperty (
     name = 'Duration (frames)', 
-    default = 10,
+    default = 10, 
     description = 'Number of frames the transition will last'
     )
 
@@ -38,7 +39,7 @@ bpy.types.TransformSequence.transition_strength = FloatProperty (
     name = 'Strength', 
     default = 1.0, 
     min = 0.0, 
-    max = 2.0, 
+    max = 5.0, 
     description = 'Change the impact of the effect (defaults to 1.0 = 100%)'
     )
 
