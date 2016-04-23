@@ -63,23 +63,38 @@ class CustomTransitionsPanel (bpy.types.Panel):
     bl_idname = 'strip.transitions_panel'
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
+    
     def draw (self, context):
         strip = context.scene.sequence_editor.active_strip
-        # drop down menu for selecting transition function
-        self.layout.row().prop(strip,'transition_type')
-        # integer input for setting transition length in frames
-        self.layout.row().prop(strip,'transition_frames')
-        self.layout.row().prop(strip,'transition_strength')
-        # check boxes for toggling transition in/out/mid
-        #row_1 = self.layout.split(0.4)
-        #row_1.prop(strip,'transition_in')
-        #row_1.prop(strip,'transition_out')
-        #self.layout.row().prop(strip,'transition_mid')
-        # button series for choosing placement (in/out/current)
-        self.layout.prop(strip,'transition_placement', expand=True)
-        # execute button
-        self.layout.separator()
-        self.layout.operator('strip.transition_add', text="Keyframe Transition")
+        is_transform = strip.type=='TRANSFORM'
+
+        # display if this is already a transition-ready transform strip
+        if is_transform:
+            # drop down menu for selecting transition function
+            self.layout.row().prop(strip,'transition_type')
+            # integer input for setting transition length in frames
+            self.layout.row().prop(strip,'transition_frames')
+            self.layout.row().prop(strip,'transition_strength')
+            # check boxes for toggling transition in/out/mid
+            #row_1 = self.layout.split(0.4)
+            #row_1.prop(strip,'transition_in')
+            #row_1.prop(strip,'transition_out')
+            #self.layout.row().prop(strip,'transition_mid')
+            # button series for choosing placement (in/out/current)
+            self.layout.prop(strip,'transition_placement', expand=True)
+            # execute button
+            self.layout.separator()
+            # text for transition button
+            button_text = "Create Transition"
+
+        # display if this is not a transition-ready transform strip
+        else:
+            button_text = "Add Transform Strip"
+
+        # display transition add button
+        self.layout.operator('strip.transition_add', text=button_text)
+
+        # display keyframe removal button
         self.layout.operator('strip.transition_delete', text="/!\\ Clear Keyframe Fields /!\\")
 
 class AddTransition (bpy.types.Operator):
