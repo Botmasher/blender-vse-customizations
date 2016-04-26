@@ -9,26 +9,44 @@ class Transition (object):
                 'fade':Transition.opacity_down, 'unfade':Transition.opacity_up, 
                 'scale_up':Transition.scale_up, 'scale_down':Transition.scale_down, 
                 'clockwise':Transition.rotate_clock,'counterclock':Transition.rotate_counterclock}
-        # references to active transform strip and its parent
+        # references to active transform strip
         strip = bpy.context.scene.sequence_editor.active_strip
-        parent = strip.input_1
+        #parent = strip.input_1     # parent of active transform strip
         # length of the transition (distance between keyframes)
         duration = strip.transition_frames
+        
         if strip.transition_placement == 'mid':
             # current frame
             start_frame = bpy.context.scene.frame_current
             # call the effect function
             effect[strip.transition_type] (strip, start_frame, duration)
+       
         elif strip.transition_placement == 'in':
             # count frames from left edge of the strip
             start_frame = strip.frame_start + duration
             # call the effect function, reversing duration for transition "in" effect
             effect[strip.transition_type] (strip, start_frame, -duration)
+            
+            # move playhead to avoid keyframing wrong values back-to-back
+            bpy.context.scene.frame_current = start_frame + 1
+        
         elif strip.transition_placement == 'out':
             # count frames from right edge of the strip
             start_frame = strip.frame_start + strip.frame_final_duration - duration
+            # move playhead to last frame to avoid keyframing to wrong values
+            #bpy.context.scene.frame_current = strip.frame_start + strip.frame_final_duration
             # call the effect function
-            effect[strip.transition_type] (strip, start_frame, duration)        
+            effect[strip.transition_type] (strip, start_frame, duration)
+            
+            # move playhead to avoid keyframing wrong values back-to-back 
+            bpy.context.scene.frame_current = start_frame - 1        
+            
+            ##  /!\ moving playhead avoids back-to-back errors with in/out transitions
+            ##      (keyframing opposite edge to double edge values)
+            ##      but STILL leaves this problem:
+            ##      - if another transition of the same type sits between
+            ##        the playhead and this created transition, this one will
+            ##        have two edge values (offscreen, transparent, rotated, etc.)
         return None
 
     def get_screen_dimensions (strip):
@@ -47,11 +65,6 @@ class Transition (object):
         strip.keyframe_insert (property_name, -1, starting_frame)
         # move to and keyframe the ending frame with the final property value
         bpy.context.scene.frame_current += duration
-        
-        # problem: when another transition impacting same properties is on this strip, the in/out transition sets two keyframes to the "edge values" (starting for in, ending for out) rather than a transition between current value to edge value.
-        # SOLUTIONS!?!
-        # - deselect the keyframe? - but if this is a fix wouldn't this problem have been impacting a single transition too?
-        # - run through and dbl check the control flow
         
         # insert keyframe on the property at the final frame
         strip.keyframe_insert (property_name, -1, starting_frame+duration)

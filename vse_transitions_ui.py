@@ -31,7 +31,7 @@ bpy.types.TransformSequence.transition_placement = EnumProperty(
 
 bpy.types.TransformSequence.transition_frames = IntProperty (
     name = 'Duration (frames)', 
-    default = 10, 
+    default = 10,
     description = 'Number of frames the transition will last'
     )
 
@@ -67,7 +67,12 @@ class CustomTransitionsPanel (bpy.types.Panel):
     
     def draw (self, context):
         strip = context.scene.sequence_editor.active_strip
-        is_transform = strip.type=='TRANSFORM'
+        
+        # check that active strip is a transform strip
+        is_transform = False
+        if strip != None:
+            is_transform = strip.type == 'TRANSFORM'
+            print ("got to strip panel")
 
         # display if this is already a transition-ready transform strip
         if is_transform:
