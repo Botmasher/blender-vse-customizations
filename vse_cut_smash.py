@@ -121,9 +121,13 @@ def mark_out ():
         if bpy.context.scene.lift_out_marker != '':
             lift_clip()
         else:
-            # create and name a new out marker at this location
+            # reference current frame and timeline markers
             playhead = bpy.context.scene.frame_current
             markers = bpy.context.scene.timeline_markers
+            # abort if out frame and in frame match (cannot lift 0 frames)
+            if int(bpy.context.scene.lift_in_marker.split("_")[1]) == playhead:
+                return {'CANCELED'}
+            # create and name a new out marker at this location
             bpy.context.scene.lift_out_marker = "out_"+str(playhead)
             markers.new(bpy.context.scene.lift_out_marker,frame=playhead)
     else:
@@ -134,7 +138,7 @@ def lift_clip ():
     # problem: when markers deleted manually, but names still stored
     markers_exist = True
 
-    # find the timeline markers at indices where the key matches marker name
+    # find the timeline marker at the index where the key matches marker name
     try:
         in_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_in_marker)]
         out_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_out_marker)]
@@ -146,32 +150,32 @@ def lift_clip ():
         # Just reset the in/out points and cancel
         bpy.context.scene.lift_in_marker = ''
         bpy.context.scene.lift_out_marker = ''
-        return{'CANCELED'}
+        return {'CANCELED'}
         
     # extract the frame number within each marker's name
     in_frame = int(in_marker.name.split('_')[1])
     out_frame = int(out_marker.name.split('_')[1])
     
+    # check that in frames and out frames do not match
+    #if in_frame == out_frame:
+    #    print ("cannot lift 0 frames")
+    #    return {'CANCELED'}
+    
+    # cut selected strips at marked in and out points
     for strip in bpy.context.scene.sequence_editor.sequences_all:
         if strip.select:
             bpy.ops.sequencer.cut (frame=in_frame, type='SOFT')
             bpy.ops.sequencer.cut (frame=out_frame, type='SOFT')
-    # - cut selected strips at in_marker
-    # - cut selected strips at out marker
-    # - move cursor position cursor between them
-    # - delete the selected strips
-    # - move playhead back to initial location
-    # delete the markers
+            # - delete the selected strips surrounding lifted segments
+            # - move playhead back to initial location
+        else:
+            pass
     
+    # delete the in and out markers
     bpy.context.scene.timeline_markers.remove(in_marker)
+    # current code was already removing out_marker, so next command threw not found
+    # - tests fine for now but keep an eye on it
     bpy.context.scene.timeline_markers.remove(out_marker)
-        
-    # if any markers selected try to remove
-    # if they're not you shouldn't try they will auto remove?
-    
-    # current code already removes out_marker, so this throws not found
-    # ?? because we just created out marker and it's not yet deselected ??
-    #bpy.context.scene.timeline_markers.remove(out_marker)
     
     # reset the in and out properties
     bpy.context.scene.lift_in_marker = ''
