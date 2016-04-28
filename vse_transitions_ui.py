@@ -72,7 +72,6 @@ class CustomTransitionsPanel (bpy.types.Panel):
         is_transform = False
         if strip != None:
             is_transform = strip.type == 'TRANSFORM'
-            print ("got to strip panel")
 
         # display if this is already a transition-ready transform strip
         if is_transform:

@@ -61,8 +61,9 @@ class Transition (object):
     def set (strip, property_name, end_value, starting_frame, duration):
         """Move to starting frame, set a keyframe for a property, move to final frame (starting frame plus duration), change property value, set keyframe for the property."""
         # move to and keyframe the starting frame (just leaving its current value)
-        bpy.context.scene.frame_current = starting_frame
+        bpy.context.scene.frame_set(starting_frame)
         strip.keyframe_insert (property_name, -1, starting_frame)
+
         # move to and keyframe the ending frame with the final property value
         bpy.context.scene.frame_current += duration
         
