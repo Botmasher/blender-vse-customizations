@@ -126,7 +126,7 @@ def mark_out ():
             markers = bpy.context.scene.timeline_markers
             # abort if out frame and in frame match (cannot lift 0 frames)
             if int(bpy.context.scene.lift_in_marker.split("_")[1]) == playhead:
-                return {'CANCELED'}
+                return {'CANCELLED'}
             # create and name a new out marker at this location
             bpy.context.scene.lift_out_marker = "out_"+str(playhead)
             markers.new(bpy.context.scene.lift_out_marker,frame=playhead)
@@ -146,20 +146,15 @@ def lift_clip ():
         markers_exist = False
     
     if not markers_exist:
-        # no in/out markers found - ghost values are leftovers from a previous operation
+        # no in/out markers found - ghost values leftover from a previous operation
         # Just reset the in/out points and cancel
         bpy.context.scene.lift_in_marker = ''
         bpy.context.scene.lift_out_marker = ''
-        return {'CANCELED'}
+        return {'CANCELLED'}
         
     # extract the frame number within each marker's name
     in_frame = int(in_marker.name.split('_')[1])
     out_frame = int(out_marker.name.split('_')[1])
-    
-    # check that in frames and out frames do not match
-    #if in_frame == out_frame:
-    #    print ("cannot lift 0 frames")
-    #    return {'CANCELED'}
     
     # cut selected strips at marked in and out points
     for strip in bpy.context.scene.sequence_editor.sequences_all:
@@ -170,6 +165,22 @@ def lift_clip ():
             # - move playhead back to initial location
         else:
             pass
+
+    # prepare trash list of edge strips beyond the marked in and out points
+    marked_for_deletion = []
+    for strip in bpy.context.scene.sequence_editor.sequences_all:
+        if strip.select:
+            # check if this strip start value doesn't match our new one
+            if strip.frame_start + strip.frame_offset_start != in_frame:
+                marked_for_deletion.append(strip)
+
+    # toggle to deselect all strips
+    bpy.ops.sequencer.select_all()
+    
+    # select and delete the strips that surround the lifted strip
+    for trash in marked_for_deletion:
+        trash.select = True
+        bpy.ops.sequencer.delete()
     
     # delete the in and out markers
     bpy.context.scene.timeline_markers.remove(in_marker)
