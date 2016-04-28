@@ -43,8 +43,8 @@ class CutSmashPanel (bpy.types.Panel):
         self.layout.row().prop(bpy.context.scene,'lift_marker', expand=True)
         self.layout.prop(bpy.context.scene,'lift_in_marker') 
         self.layout.prop(bpy.context.scene,'lift_out_marker')
-        # display set or lift button depending on whether both markers are set
-        if bpy.context.scene.lift_in_marker != '' or bpy.context.scene.lift_out_marker != '':
+        # display button with set or lift text depending on whether markers are set
+        if bpy.context.scene.lift_in_marker != '' and bpy.context.scene.lift_out_marker != '':
             self.layout.operator('strip.mark_lift', text="Lift")
         else:
             self.layout.operator('strip.mark_lift', text="Set")
@@ -131,17 +131,46 @@ def mark_out ():
     return None
 
 def lift_clip ():
-    # find the timeline marker at the index where the key matches marker name
-    in_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_in_marker)]
-    out_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_out_marker)]
-    # cut and lift strips at this position
+    # problem: when markers deleted manually, but names still stored
+    markers_exist = True
+
+    # find the timeline markers at indices where the key matches marker name
+    try:
+        in_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_in_marker)]
+        out_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_out_marker)]
+    except:
+        markers_exist = False
+    
+    if not markers_exist:
+        # no in/out markers found - ghost values are leftovers from a previous operation
+        # Just reset the in/out points and cancel
+        bpy.context.scene.lift_in_marker = ''
+        bpy.context.scene.lift_out_marker = ''
+        return{'CANCELED'}
+        
+    # extract the frame number within each marker's name
+    in_frame = int(in_marker.name.split('_')[1])
+    out_frame = int(out_marker.name.split('_')[1])
+    
+    for strip in bpy.context.scene.sequence_editor.sequences_all:
+        if strip.select:
+            bpy.ops.sequencer.cut (frame=in_frame, type='SOFT')
+            bpy.ops.sequencer.cut (frame=out_frame, type='SOFT')
     # - cut selected strips at in_marker
     # - cut selected strips at out marker
     # - move cursor position cursor between them
     # - delete the selected strips
     # - move playhead back to initial location
     # delete the markers
+    
     bpy.context.scene.timeline_markers.remove(in_marker)
+    bpy.context.scene.timeline_markers.remove(out_marker)
+        
+    # if any markers selected try to remove
+    # if they're not you shouldn't try they will auto remove?
+    
+    # current code already removes out_marker, so this throws not found
+    # ?? because we just created out marker and it's not yet deselected ??
     #bpy.context.scene.timeline_markers.remove(out_marker)
     
     # reset the in and out properties
