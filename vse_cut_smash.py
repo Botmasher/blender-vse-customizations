@@ -105,8 +105,12 @@ def cut_simple (memo):
 def mark_in ():
     # remove current in-marker if one exists
     if bpy.context.scene.lift_in_marker != '':
+        try:
             in_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_in_marker)]
             bpy.context.scene.timeline_markers.remove(in_marker)
+        except:
+            # in marker not found - probably deleted manually
+            pass
     # add and name a new in-marker at the playhead location 
     playhead = bpy.context.scene.frame_current
     markers = bpy.context.scene.timeline_markers
@@ -161,18 +165,22 @@ def lift_clip ():
         if strip.select:
             bpy.ops.sequencer.cut (frame=in_frame, type='SOFT')
             bpy.ops.sequencer.cut (frame=out_frame, type='SOFT')
-            # - delete the selected strips surrounding lifted segments
-            # - move playhead back to initial location
         else:
             pass
 
     # prepare trash list of edge strips beyond the marked in and out points
     marked_for_deletion = []
     for strip in bpy.context.scene.sequence_editor.sequences_all:
-        if strip.select:
-            # check if this strip start value doesn't match our new one
-            if strip.frame_start + strip.frame_offset_start != in_frame:
+        # prepare to delete cut strips to the left of lifted
+        if strip.select and bpy.context.scene.cut_smash_direction == 'left':
+            if strip.frame_start + strip.frame_offset_start < in_frame:
                 marked_for_deletion.append(strip)
+        # prepare to delete cut strips to the right of lifted
+        elif strip.select and bpy.context.scene.cut_smash_direction == 'right':
+            if strip.frame_start + strip.frame_offset_start >= out_frame:
+                marked_for_deletion.append(strip)
+        else:
+            pass
 
     # toggle to deselect all strips
     bpy.ops.sequencer.select_all()
@@ -181,7 +189,17 @@ def lift_clip ():
     for trash in marked_for_deletion:
         trash.select = True
         bpy.ops.sequencer.delete()
-    
+
+    # close gaps either to the left or the right of lifted strip
+    if bpy.context.scene.cut_smash_direction == 'left':
+        bpy.context.scene.frame_set(in_frame-1)
+        bpy.ops.sequencer.gap_remove()
+    elif bpy.context.scene.cut_smash_direction == 'right':
+        bpy.context.scene.frame_set(out_frame)
+        bpy.ops.sequencer.gap_remove()
+    else:
+        pass
+
     # delete the in and out markers
     bpy.context.scene.timeline_markers.remove(in_marker)
     # current code was already removing out_marker, so next command threw not found
