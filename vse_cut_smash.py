@@ -170,6 +170,8 @@ def lift_clip ():
 
     # prepare trash list of edge strips beyond the marked in and out points
     marked_for_deletion = []
+    # one cut strip to find out where it lands after deleting and closing gaps 
+    cut_strip = None
     for strip in bpy.context.scene.sequence_editor.sequences_all:
         # prepare to delete cut strips to the left of lifted
         if strip.select and bpy.context.scene.cut_smash_direction == 'left':
@@ -181,6 +183,10 @@ def lift_clip ():
                 marked_for_deletion.append(strip)
         else:
             pass
+
+        # track one cut strip to find out where it lands after delete and close gaps
+        if strip.select and strip.frame_start+strip.frame_offset_start == in_frame:
+            cut_strip = strip
 
     # toggle to deselect all strips
     bpy.ops.sequencer.select_all()
@@ -199,6 +205,11 @@ def lift_clip ():
         bpy.ops.sequencer.gap_remove()
     else:
         pass
+
+    # move playhead to the new location of your strips
+    if cut_strip != None:
+        bpy.context.scene.frame_set (cut_strip.frame_start + strip.frame_offset_start)
+        print (cut_strip)
 
     # delete the in and out markers
     bpy.context.scene.timeline_markers.remove(in_marker)
