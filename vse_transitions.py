@@ -176,18 +176,18 @@ class Transition (object):
     def scale_up (strip, start_frame, duration):
         # check if need to scale y separately
         if not strip.use_uniform_scale:
-            # scale up proportionally based on y to x ratio
-            end_value = strip.scale_start_y + (3.5 * (strip.scale_start_y/strip.scale_start_x) * strip.transition_strength)
+            # scale proportionally based on y to x ratio
+            end_value = (strip.scale_start_y/strip.scale_start_x) * strip.transition_strength
             Transition.set (strip, 'scale_start_y', end_value, start_frame, duration)
         # scale x (or both if uniform scale is checked)
-        end_value = strip.scale_start_x + 3.5 * strip.transition_strength
+        end_value = strip.transition_strength
         Transition.set (strip, 'scale_start_x', end_value, start_frame, duration)
 
     def scale_down (strip, start_frame, duration):
         # check if need to scale y separately
         if not strip.use_uniform_scale:
             # scale down proportionally based on y to x ratio
-            end_value = 0.05 * (strip.scale_start_y/strip.scale_start_x) / strip.transition_strength
+            end_value = 0.05 * (strip.scale_start_y / strip.scale_start_x) / strip.transition_strength
             Transition.set (strip, 'scale_start_y', end_value, start_frame, duration)
         # scale x (scales both if using uniform scale)
         end_value = 0.05 / strip.transition_strength
