@@ -7,7 +7,7 @@ class Transition (object):
         effect = {'left':Transition.left, 'right':Transition.right,
                 'top':Transition.top, 'bottom':Transition.bottom,
                 'fade':Transition.opacity_down, 'unfade':Transition.opacity_up, 
-                'scale_up':Transition.scale_up, 'scale_down':Transition.scale_down, 
+                'scale':Transition.scale, 'scale_down':Transition.scale_down, 
                 'clockwise':Transition.rotate_clock,'counterclock':Transition.rotate_counterclock}
         # references to active transform strip
         strip = bpy.context.scene.sequence_editor.active_strip
@@ -173,14 +173,14 @@ class Transition (object):
         # setup the keyframing function
         Transition.set (strip, 'blend_alpha', end_value, start_frame, duration)
 
-    def scale_up (strip, start_frame, duration):
+    def scale (strip, start_frame, duration):
         # check if need to scale y separately
         if not strip.use_uniform_scale:
             # scale proportionally based on y to x ratio
             end_value = (strip.scale_start_y/strip.scale_start_x) * strip.transition_strength
             Transition.set (strip, 'scale_start_y', end_value, start_frame, duration)
         # scale x (or both if uniform scale is checked)
-        end_value = strip.transition_strength
+        end_value = strip.scale_start_x * strip.transition_strength
         Transition.set (strip, 'scale_start_x', end_value, start_frame, duration)
 
     def scale_down (strip, start_frame, duration):

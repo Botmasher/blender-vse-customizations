@@ -8,8 +8,7 @@ import vse_transitions
 bpy.types.TransformSequence.transition_type = EnumProperty(
     items = [('counterclock', 'Counterclock', 'to or from counterclockwise rotation'),
              ('clockwise', 'Clockwise', 'to or from a clockwise rotation'),
-             ('scale_down', 'Scale down', 'to or from small scale (zoom out)'),
-             ('scale_up', 'Scale up', 'to or from large scale (zoom in)'),
+             ('scale', 'Scale', 'zoom in or out (scale set)'),
              ('unfade', 'Unfade', 'to or from opaque'),
              ('fade', 'Fade', 'to or from transparent'),
              ('bottom', 'Bottom', 'to or from bottom'),
