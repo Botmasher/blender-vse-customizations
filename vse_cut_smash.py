@@ -2,8 +2,8 @@ import bpy
 from bpy.props import *
 
 bpy.types.Scene.cut_smash_direction = EnumProperty(
-    items = [('left', 'Left', 'Cut and close gap after playhead'),
-             ('right', 'Right', 'Cut and close gap before playhead'),
+    items = [('left', 'Left', 'Cut and close gap before playhead'),
+             ('right', 'Right', 'Cut and close gap after playhead'),
              #('simple', 'Starting cut', 'Cut to start strip for later cut smash')
              ],
     name = 'Type of cut/smash',
@@ -119,10 +119,20 @@ def mark_in ():
     return None
 
 def mark_out ():
+    do_lift = False
     # check that in and out markers exist for lifting and extraction
     if bpy.context.scene.lift_in_marker != '':
-        # if both in and out are marked, lift strip between them
         if bpy.context.scene.lift_out_marker != '':
+            do_lift = True
+        # replace existing out marker
+        try:
+            out_marker = bpy.context.scene.timeline_markers[bpy.context.scene.timeline_markers.find(bpy.context.scene.lift_out_marker)]
+            bpy.context.scene.timeline_markers.remove(out_marker)
+        except:
+            # marker not found - probably deleted manually
+            pass
+        # if both in and out are marked, lift strip between them
+        if do_lift:
             lift_clip()
         else:
             # reference current frame and timeline markers
