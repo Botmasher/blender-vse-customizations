@@ -98,6 +98,16 @@ class Transition (object):
 
     def clear (strip):
         """Remove all keyframes from the transition properties fields and reset their values"""
+        # select frame in the center of the strip and remember values
+        bpy.context.scene.frame_current = ((strip.frame_start+strip.frame_final_duration) - strip.frame_start) * 0.5
+        remember_values =               \
+            [ strip.blend_alpha,        \
+            strip.translate_start_x,    \
+            strip.translate_start_y,    \
+            strip.use_uniform_scale,    \
+            strip.scale_start_x,        \
+            strip.scale_start_y,        \
+            strip.rotation_start ]
         # move to the first frame in this strip
         bpy.context.scene.frame_current = strip.frame_start
         # get list of all properties that Transition messes with
@@ -118,12 +128,13 @@ class Transition (object):
             # set the frame variable to match skip ahead
             frame = bpy.context.scene.frame_current
         # reset transform properties to default values
-        strip.translate_start_x = 0.0
-        strip.translate_start_y = 0.0
-        strip.blend_alpha = 1.0
-        strip.use_uniform_scale = True
-        strip.scale_start_x = 1.0
-        strip.rotation_start = 1.0
+        strip.translate_start_x = remember_values[1]
+        strip.translate_start_y = remember_values[2]
+        strip.blend_alpha = remember_values[0]
+        strip.use_uniform_scale = remember_values[3]
+        strip.scale_start_x = remember_values[4]
+        strip.scale_start_y = remember_values[5]
+        strip.rotation_start = remember_values[6]
         # refresh the sequence editor
         bpy.ops.sequencer.refresh_all()
         return None
@@ -346,8 +357,8 @@ def add_transform_strip (base_strip):
         # find strip we just created and set it to alpha bg
         for st in bpy.context.scene.sequence_editor.sequences_all:
             # check that it uses this base strip as its input
-            if hasattr(s,'input_1') and s.input_1.name == base_strip.name:
-                s.blend_type = 'ALPHA_OVER'
+            if hasattr(st,'input_1') and st.input_1.name == base_strip.name:
+                st.blend_type = 'ALPHA_OVER'
         # make this parent strip invisible
         base_strip.blend_type = 'ALPHA_OVER'
         base_strip.blend_alpha = 0.0
