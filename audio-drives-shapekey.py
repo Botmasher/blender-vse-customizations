@@ -37,9 +37,17 @@ env.reference_value = 0.0
 env.default_min = 0.0
 env.default_max = 0.8
 
-# set video to length of the audio
-
 # add same audio file to vse starting at frame n
+bpy.context.area.type = 'SEQUENCE_EDITOR'
+bpy.ops.sequencer.sound_strip_add(filepath=sound_file_path)
+sound_strip = bpy.context.scene.sequence_editor.active_strip
+# set video to length of the audio
+if bpy.context.scene.frame_start == 1:
+    bpy.context.scene.frame_start = 0
+if bpy.context.scene.frame_end < sound_strip.frame_final_duration:
+    bpy.context.scene.frame_end = sound_strip.frame_final_duration
+bpy.context.area.type = ctx
+
 
 # driving from this key --
 # bpy.context.object.data.shape_keys.key_blocks['Name'].driver_add("PATH TO THE PROPERTY TO DRIVE") # analogous to the fcurve's data path
