@@ -8,7 +8,7 @@ import bpy
 # 2. click "Run script" with this script open in the text editor
 # ?3. add your audio file
 
-sound_file_path = './directory/filename.ogg'
+sound_file_path = '/Users/username/Desktop/testaudio.wav'
 obj = bpy.context.object
 starting_frame = 0
 
@@ -26,13 +26,16 @@ kf = audio_key.keyframe_insert("value",frame=starting_frame)
 # bake sound to the shape key fcurve
 ctx = bpy.context.area.type
 bpy.context.area.type = 'GRAPH_EDITOR'
-bpy.ops.graph.sound_bake (sound_file_path)
+bpy.ops.graph.sound_bake (filepath=sound_file_path)
 
 # add modifier > envelope > add point
-bpy.ops.graph.fmodifier_add(type='ENVELOPE')
+env = bpy.ops.graph.fmodifier_add(type='ENVELOPE')
 bpy.context.area.type = ctx
 
 # mess with r, min, max vals (can auto somehow?)
+env.reference_value = 0.0
+env.default_min = 0.0
+env.default_max = 0.8
 
 # set video to length of the audio
 
