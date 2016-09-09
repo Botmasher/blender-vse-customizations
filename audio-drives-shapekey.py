@@ -8,37 +8,55 @@ import bpy
 # 2. click "Run script" with this script open in the text editor
 # ?3. add your audio file
 
+# audio to use and when to start playing
 sound_file_path = '/Users/username/Desktop/testaudio.wav'
-obj = bpy.context.object
 starting_frame = 0
 
-# no keys, add a basis key first
-if obj.data.shape_keys == None:
-    obj.shape_key_add()
-audio_key = obj.shape_key_add()
-audio_key.name = "audio-driven-key"
-audio_key.value = 1.0
+# which object to keyframe
+obj = bpy.context.object
+
+def set_ctx (context):
+	old_context = bpy.context.area.type
+	bpy.context.area.type = context
+	return (old_context, bpy.context.area.type)
+
+def add_shape_key (selected_object, key_name):
+	# no keys, add a basis key first
+	if selected_object.data.shape_keys == None:
+	    selected_object.shape_key_add()
+	shape_key = selected_object.shape_key_add()
+	shape_key.name = key_name
+	shape_key.value = 1.0
+	return shape_key
+
+def keyframe (key, frame):
+	bpy.context.scene.frame_current = frame
+	keyframe = key.keyframe_insert ("value", frame = starting_frame)
+	return keyframe
+
+# add shape key
+audio_key = add_shape_key (obj, "Audio driven key")
 
 # add keyframe to shape key value
-bpy.context.scene.frame_current = 0
-kf = audio_key.keyframe_insert("value",frame=starting_frame)
+keyframe (audio_key, 0)
 
 # bake sound to the shape key fcurve
-ctx = bpy.context.area.type
-bpy.context.area.type = 'GRAPH_EDITOR'
+set_ctx ('GRAPH_EDITOR')
 bpy.ops.graph.sound_bake (filepath=sound_file_path)
 
 # add modifier > envelope > add point
-env = bpy.ops.graph.fmodifier_add(type='ENVELOPE')
-bpy.context.area.type = ctx
+bpy.ops.graph.fmodifier_add(type='ENVELOPE')
+
+# get reference to keyframe envelope
+envelope = kf.envelope
 
 # mess with r, min, max vals (can auto somehow?)
-env.reference_value = 0.0
-env.default_min = 0.0
-env.default_max = 0.8
+envelope.reference_value = 0.0
+envelope.default_min = 0.0
+envelope.default_max = 0.8
 
 # add same audio file to vse starting at frame n
-bpy.context.area.type = 'SEQUENCE_EDITOR'
+set_ctx ('SEQUENCE_EDITOR')
 bpy.ops.sequencer.sound_strip_add(filepath=sound_file_path)
 sound_strip = bpy.context.scene.sequence_editor.active_strip
 # set video to length of the audio
@@ -46,8 +64,8 @@ if bpy.context.scene.frame_start == 1:
     bpy.context.scene.frame_start = 0
 if bpy.context.scene.frame_end < sound_strip.frame_final_duration:
     bpy.context.scene.frame_end = sound_strip.frame_final_duration
-bpy.context.area.type = ctx
 
+set_ctx ('TEXT_EDITOR')
 
 # driving from this key --
 # bpy.context.object.data.shape_keys.key_blocks['Name'].driver_add("PATH TO THE PROPERTY TO DRIVE") # analogous to the fcurve's data path
