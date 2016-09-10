@@ -31,14 +31,15 @@ def add_shape_key (selected_object, key_name):
 
 def keyframe (key, frame):
 	bpy.context.scene.frame_current = frame
-	keyframe = key.keyframe_insert ("value", frame = starting_frame)
-	return keyframe
+	did_keyframe = key.keyframe_insert ("value", frame = starting_frame)
+	return did_keyframe
 
 # add shape key
 audio_key = add_shape_key (obj, "Audio driven key")
 
 # add keyframe to shape key value
 keyframe (audio_key, 0)
+kf = audio_key.# get reference to specific keyframe
 
 # bake sound to the shape key fcurve
 set_ctx ('GRAPH_EDITOR')
@@ -48,7 +49,8 @@ bpy.ops.graph.sound_bake (filepath=sound_file_path)
 bpy.ops.graph.fmodifier_add(type='ENVELOPE')
 
 # get reference to keyframe envelope
-envelope = kf.envelope
+envelope = kf.modifiers[0]
+print (envelope)
 
 # mess with r, min, max vals (can auto somehow?)
 envelope.reference_value = 0.0
