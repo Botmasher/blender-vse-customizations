@@ -11,6 +11,7 @@ import bpy
 # audio to use and when to start playing
 sound_file_path = '/Users/username/Desktop/testaudio.wav'
 starting_frame = 0
+custom_key_name = 'audio-shape-key'
 
 # which object to keyframe
 obj = bpy.context.object
@@ -35,11 +36,12 @@ def keyframe (key, frame):
 	return did_keyframe
 
 # add shape key
-audio_key = add_shape_key (obj, "Audio driven key")
+audio_key = add_shape_key (obj, custom_key_name)
 
 # add keyframe to shape key value
 keyframe (audio_key, 0)
-kf = audio_key.# get reference to specific keyframe
+kf = audio_key.value # ? get reference to specific keyframe MODIFIER
+print (kf)
 
 # bake sound to the shape key fcurve
 set_ctx ('GRAPH_EDITOR')
@@ -48,19 +50,20 @@ bpy.ops.graph.sound_bake (filepath=sound_file_path)
 # add modifier > envelope > add point
 bpy.ops.graph.fmodifier_add(type='ENVELOPE')
 
-# get reference to keyframe envelope
-envelope = kf.modifiers[0]
-print (envelope)
+## get reference to keyframe envelope
+#envelope = kf.modifiers[0]
+#print (envelope)
 
-# mess with r, min, max vals (can auto somehow?)
-envelope.reference_value = 0.0
-envelope.default_min = 0.0
-envelope.default_max = 0.8
+## mess with r, min, max vals (can auto somehow?)
+#envelope.reference_value = 0.0
+#envelope.default_min = 0.0
+#envelope.default_max = 0.8
 
 # add same audio file to vse starting at frame n
 set_ctx ('SEQUENCE_EDITOR')
 bpy.ops.sequencer.sound_strip_add(filepath=sound_file_path)
 sound_strip = bpy.context.scene.sequence_editor.active_strip
+
 # set video to length of the audio
 if bpy.context.scene.frame_start == 1:
     bpy.context.scene.frame_start = 0
@@ -69,5 +72,7 @@ if bpy.context.scene.frame_end < sound_strip.frame_final_duration:
 
 set_ctx ('TEXT_EDITOR')
 
-# driving from this key --
-# bpy.context.object.data.shape_keys.key_blocks['Name'].driver_add("PATH TO THE PROPERTY TO DRIVE") # analogous to the fcurve's data path
+# Get a specific key
+bpy.context.object.data.shape_keys.key_blocks[custom_key_name]
+# Get at the fcurve for a key
+bpy.context.object.data.shape_keys.animation_data.drivers[0].modifiers[0]
