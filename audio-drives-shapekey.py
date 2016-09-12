@@ -17,30 +17,31 @@ custom_key_name = 'audio-shape-key'
 obj = bpy.context.object
 
 def set_ctx (context):
-	old_context = bpy.context.area.type
-	bpy.context.area.type = context
-	return (old_context, bpy.context.area.type)
+    old_context = bpy.context.area.type
+    bpy.context.area.type = context
+    return (old_context, bpy.context.area.type)
 
-def add_shape_key (selected_object, key_name):
-	# no keys, add a basis key first
-	if selected_object.data.shape_keys == None:
-	    selected_object.shape_key_add()
-	shape_key = selected_object.shape_key_add()
-	shape_key.name = key_name
-	shape_key.value = 1.0
-	return shape_key
-
-def keyframe (key, frame):
-	bpy.context.scene.frame_current = frame
-	did_keyframe = key.keyframe_insert ("value", frame = starting_frame)
-	return did_keyframe
+class Shape_Key:
+    def __init__ (self, selected_object, key_name):
+        if selected_object.data.shape_keys == None:
+            selected_object.shape_key_add()
+        shape_key = selected_object.shape_key_add()
+        shape_key.name = key_name
+        shape_key.value = 1.0
+		# this specific key
+        self.key = shape_key
+		## key block this key belongs to
+        #self.block = parent_key_block
+    def set_keyframe (self, frame):
+        bpy.context.scene.frame_current = frame
+        self.key.keyframe_insert("value", frame = frame)
 
 # add shape key
-audio_key = add_shape_key (obj, custom_key_name)
+audio_key = Shape_Key (obj, custom_key_name)
 
 # add keyframe to shape key value
-keyframe (audio_key, 0)
-kf = audio_key.value # ? get reference to specific keyframe MODIFIER
+audio_key.set_keyframe (0)
+kf = audio_key.key.value # ? get reference to specific keyframe MODIFIER
 print (kf)
 
 # bake sound to the shape key fcurve
@@ -72,7 +73,7 @@ if bpy.context.scene.frame_end < sound_strip.frame_final_duration:
 
 set_ctx ('TEXT_EDITOR')
 
-# Get a specific key
-bpy.context.object.data.shape_keys.key_blocks[custom_key_name]
-# Get at the fcurve for a key
-bpy.context.object.data.shape_keys.animation_data.drivers[0].modifiers[0]
+## Get a specific key
+#bpy.context.object.data.shape_keys.key_blocks[custom_key_name]
+## Get at the fcurve for a key
+#bpy.context.object.data.shape_keys.animation_data.drivers[0].modifiers[0]
