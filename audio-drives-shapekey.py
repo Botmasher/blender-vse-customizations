@@ -22,25 +22,34 @@ def set_ctx (context):
     return (old_context, bpy.context.area.type)
 
 class Shape_Key:
+    keyframes = {}
     def __init__ (self, selected_object, key_name):
         if selected_object.data.shape_keys == None:
             selected_object.shape_key_add()
         shape_key = selected_object.shape_key_add()
         shape_key.name = key_name
         shape_key.value = 1.0
-		# this specific key
+        # this specific key
         self.key = shape_key
-		## key block this key belongs to
+        ## key block this key belongs to
         #self.block = parent_key_block
-    def set_keyframe (self, frame):
+    def set_keyframe (self, frame, value):
         bpy.context.scene.frame_current = frame
-        self.key.keyframe_insert("value", frame = frame)
+        self.key.keyframe_insert ("value", frame = frame)
+        self.key.value = value
+        self.key.keyframe_insert ("value", frame = frame)
+        self.keyframes[frame] = value
+    def get_keyframe_value (self, frame):
+        return self.keyframes [frame]
+    def get_keyframe (self, frame):
+        # return the keyframe fcurve at this frame
+        return None
 
 # add shape key
 audio_key = Shape_Key (obj, custom_key_name)
 
 # add keyframe to shape key value
-audio_key.set_keyframe (0)
+audio_key.set_keyframe (0, 1.0)
 kf = audio_key.key.value # ? get reference to specific keyframe MODIFIER
 print (kf)
 
