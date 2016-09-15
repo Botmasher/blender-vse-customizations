@@ -15,13 +15,24 @@ sound_file_path = '/Users/username/test.wav'   # path to your file
 custom_key_name = 'audio-shape-key'            # rename your shape key
 starting_frame = 0                             # scene frame to start playback
 
-# which object to keyframe
-obj = bpy.context.object
+class Context_Mgr:
+    text = "TEXT_EDITOR"
+    graph = "GRAPH_EDITOR"
+    vse = "SEQUENCE_EDITOR"
+    def __init__ (self):
+        return self
+    def get (self):
+        return bpy.context.area.type
+    def set (self, context):
+        old_context = bpy.context.area.type
+        bpy.context.area.type = context
+        return (old_context, context)
+    def get_obj (self):
+        return bpy.context.object
 
-def set_ctx (context):
-    old_context = bpy.context.area.type
-    bpy.context.area.type = context
-    return (old_context, bpy.context.area.type)
+# get context and the object to shape key
+ctx = Context_Mgr ()
+obj = ctx.get_obj ()
 
 class Audio_Shape_Key:
     def __init__ (self, selected_object, key_name):
@@ -56,17 +67,27 @@ class Audio_Shape_Key:
             if (self.key.name+"\"") in fcurve.data_path:
                 return fcurve
         return None
-    def add_sound (self, path):
+    def add_sound_to_keyframe (self, path):
         if self.sound_added == False:
-            set_ctx ('GRAPH_EDITOR')
+            ctx.set ('GRAPH_EDITOR')
             bpy.ops.graph.sound_bake (filepath=path)
-            set_ctx ('TEXT_EDITOR')
+            ctx.set ('TEXT_EDITOR')
             self.sound_added = True
+    def add_sound_to_sequencer (self, path, frame):
+        ctx.set ('SEQUENCE_EDITOR')
+        bpy.ops.sequencer.sound_strip_add(filepath=sound_file_path)
+        sound_strip = bpy.context.scene.sequence_editor.active_strip
+        # set video to length of the audio
+        if bpy.context.scene.frame_start == 1:
+            bpy.context.scene.frame_start = 0
+        if bpy.context.scene.frame_end < sound_strip.frame_final_duration:
+            bpy.context.scene.frame_end = sound_strip.frame_final_duration
+        ctx.set ('TEXT_EDITOR')
     def add_envelope (self):
         if self.get_envelope() == None:
-            set_ctx ('GRAPH_EDITOR')
+            ctx.set ('GRAPH_EDITOR')
             bpy.ops.graph.fmodifier_add(type='ENVELOPE')
-            set_ctx ('TEXT_EDITOR')
+            ctx.set ('TEXT_EDITOR')
         return self.get_envelope()
     def get_envelope (self):
         for modifier in self.get_keyframe_curve().modifiers:
@@ -85,29 +106,14 @@ class Audio_Shape_Key:
 audio_key = Audio_Shape_Key (obj, custom_key_name)
 
 # add keyframe to shape key value
-audio_key.set_keyframe (0, 1.0)
+audio_key.set_keyframe (starting_frame, 1.0)
 
 # bake sound to the shape key fcurve
-audio_key.add_sound (sound_file_path)
+audio_key.add_sound_to_keyframe (sound_file_path)
 
 # add envelope to the sound / shape key fcurve
 audio_key.add_envelope ()
 audio_key.set_envelope (0.0, 0.0, 0.8)
 
-# add same audio file to vse starting at frame n
-set_ctx ('SEQUENCE_EDITOR')
-bpy.ops.sequencer.sound_strip_add(filepath=sound_file_path)
-sound_strip = bpy.context.scene.sequence_editor.active_strip
-
-# set video to length of the audio
-if bpy.context.scene.frame_start == 1:
-    bpy.context.scene.frame_start = 0
-if bpy.context.scene.frame_end < sound_strip.frame_final_duration:
-    bpy.context.scene.frame_end = sound_strip.frame_final_duration
-
-set_ctx ('TEXT_EDITOR')
-
-## Get a specific key
-#bpy.context.object.data.shape_keys.key_blocks[custom_key_name]
-## Get at the fcurve for a key
-#bpy.context.object.data.shape_keys.animation_data.drivers[0].modifiers[0]
+# add same sound at same frame in sequencer
+audio_key.add_sound_to_sequencer (sound_file_path, starting_frame)
