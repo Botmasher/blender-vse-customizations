@@ -1,14 +1,15 @@
 import bpy
 
 # audio input drives shape key value
-# a Blender Python script by Botmasher (Josh)
-
-# 0. select object in 3d view
-# 1. make sure this script is open in the text editor
-# 2. add path to your audio file below
-# 3. (optional) rename your shape key below
-# 4. (optional) choose a scene frame to start playing your audio file below
-# 5. click "Run script" with this script open in the text editor
+# a Blender Python script by Josh (github.com/Botmasher)
+#
+#   0. open this script in the text editor
+#   1. select object in 3d view
+#   2. add path to your audio file below
+#   3. name your shape key below
+#   4. choose a scene frame to start playing your audio file below
+#   5. click "Run script" with this script open in the text editor
+#
 
 # audio to use and when to start playing
 sound_file_path = '/Users/username/test.wav'   # path to your file
@@ -22,12 +23,18 @@ class Context_Manager:
     def __init__ (self):
         return self
     def get (self):
+    ''' Read the current context
+    '''
         return bpy.context.area.type
     def set (self, context):
+    ''' Change the current context
+    '''
         old_context = bpy.context.area.type
         bpy.context.area.type = context
         return (old_context, context)
     def object (self):
+    ''' Read the active object
+    '''
         return bpy.context.object
 
 # get context and the object to key
@@ -35,7 +42,7 @@ ctx = Context_Manager ()
 obj = ctx.object ()
 
 class Audio_Shape_Key:
-    def __init__ (self, selected_object, key_name):
+    def __init__ (self, selected_object, key_name, value=0.0):
     ''' Create and name a shape key in selected object's data.
     '''
         # add and store shape key
@@ -44,6 +51,7 @@ class Audio_Shape_Key:
         shape_key = selected_object.shape_key_add()
         shape_key.name = key_name
         self.key = shape_key
+        self.key.value = value
         # toggle when bake sound to key
         self.sound_added = False
         # create dictionary for keyframes
@@ -76,7 +84,7 @@ class Audio_Shape_Key:
     def add_sound_to_keyframe (self, path):
     ''' Bake sound to a keyframe in this shape key
     '''
-    if self.sound_added == False:
+        if self.sound_added == False:
             ctx.set ('GRAPH_EDITOR')
             bpy.ops.graph.sound_bake (filepath=path)
             ctx.set ('TEXT_EDITOR')
@@ -120,15 +128,15 @@ class Audio_Shape_Key:
     def get_value (self):
     ''' Read the value of this shape key
     '''
-        return self.value
+        return self.key.value
     def set_value (self, value):
     ''' Adjust the value of this shape key
     '''
-        self.value = value
-        return self.value
+        self.key.value = value
+        return self.key.value
 
 # add shape key
-audio_key = Audio_Shape_Key (obj, custom_key_name)
+audio_key = Audio_Shape_Key (obj, custom_key_name, 1.0)
 
 # add keyframe to shape key value
 audio_key.set_keyframe (starting_frame, 1.0)
