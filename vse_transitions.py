@@ -12,7 +12,6 @@ class Transition (object):
                 'clockwise':Transition.rotate_clock,'counterclock':Transition.rotate_counterclock}
         # references to active transform strip
         strip = bpy.context.scene.sequence_editor.active_strip
-        #parent = strip.input_1     # parent of active transform strip
         # length of the transition (distance between keyframes)
         duration = strip.transition_frames
         
@@ -40,14 +39,7 @@ class Transition (object):
             effect[strip.transition_type] (strip, start_frame, duration)
             
             # move playhead to avoid keyframing wrong values back-to-back 
-            bpy.context.scene.frame_current = start_frame - 1        
-            
-            ##  /!\ moving playhead avoids back-to-back errors with in/out transitions
-            ##      (keyframing opposite edge to double edge values)
-            ##      but STILL leaves this problem:
-            ##      - if another transition of the same type sits between
-            ##        the playhead and this created transition, this one will
-            ##        have two edge values (offscreen, transparent, rotated, etc.)
+            bpy.context.scene.frame_current = start_frame - 1
         return None
 
     def get_screen_dimensions (strip):
@@ -318,6 +310,17 @@ class AddTransition (bpy.types.Operator):
     bl_idname = 'strip.transition_add'
     bl_description = 'Use transition settings to create keyframes in active strip'
     def execute (self, context):
+
+        #
+        # Transition-transform-strips instead of all transits in one transform
+        #
+
+        if this is a transform strip or a movie/image
+            # add transform strip (operator class below)
+            # make sure that new strip is active and selected
+            # run Transition.handler() on that strip
+
+
         # add the selected transition if this is a transform strip
         if context.scene.sequence_editor.active_strip.type == 'TRANSFORM':
             try:
@@ -349,16 +352,32 @@ def add_transform_strip (base_strip):
     # deselect all strips to avoid adding multiple effect strips
     for s in bpy.context.scene.sequence_editor.sequences_all:
         s.select = False
+
+    #
+    # Transition-transform-strips instead of all transits in one transform
+    #
+
+    # Should first argument expect base_strip? Just any transitionable strip?
+    
+    if SELECTEDSTRIP is a 'TRANSFORM' strip or in ('IMAGE', 'MOVIE'):
+        # create a new transform strip
+        # select that new transform strip
+        # read the current selected transition property for building name
+        # rename transform strip to match selected property
+        # set transform blend type to ALPHA_OVER
+        # if it's a parent strip, set its type to alpha_over
+        # return back to execute function that ran this one
+
     # make sure this is a transform-ready image or movie
     if base_strip.type in ('IMAGE', 'MOVIE'):
         # select this strip and create a transform effect strip on it
         base_strip.select = True
         bpy.ops.sequencer.effect_strip_add(type='TRANSFORM')
         # find strip we just created and set it to alpha bg
-        for st in bpy.context.scene.sequence_editor.sequences_all:
+        for s in bpy.context.scene.sequence_editor.sequences_all:
             # check that it uses this base strip as its input
-            if hasattr(st,'input_1') and st.input_1.name == base_strip.name:
-                st.blend_type = 'ALPHA_OVER'
+            if hasattr(s,'input_1') and s.input_1.name == base_strip.name:
+                s.blend_type = 'ALPHA_OVER'
         # make this parent strip invisible
         base_strip.blend_type = 'ALPHA_OVER'
         base_strip.blend_alpha = 0.0
