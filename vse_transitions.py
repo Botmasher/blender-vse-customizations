@@ -209,7 +209,7 @@ class Transition (object):
 #
 # Custom properties for Transition object to read as transition options
 #
-bpy.types.TransformSequence.transition_type = EnumProperty(
+bpy.types.Sequence.transition_type = EnumProperty(
     items = [('counterclock', 'Counterclock', 'to or from counterclockwise rotation'),
              ('clockwise', 'Clockwise', 'to or from a clockwise rotation'),
              ('scale', 'Scale', 'zoom in or out (scale set)'),
@@ -224,7 +224,7 @@ bpy.types.TransformSequence.transition_type = EnumProperty(
     description = 'Type of transition to add to this strip'
     )
 
-bpy.types.TransformSequence.transition_placement = EnumProperty(
+bpy.types.Sequence.transition_placement = EnumProperty(
     items = [('in', 'In', 'Add transition to left edge of strip'),
              ('out', 'Out', 'Add transition to right edge of strip'),
              ('mid', 'Mid', 'Add transition at the current frame')],
@@ -232,13 +232,13 @@ bpy.types.TransformSequence.transition_placement = EnumProperty(
     description = 'Where to add transition within this strip'
     )
 
-bpy.types.TransformSequence.transition_frames = IntProperty (
+bpy.types.Sequence.transition_frames = IntProperty (
     name = 'Duration (frames)', 
     default = 10,
     description = 'Number of frames the transition will last'
     )
 
-bpy.types.TransformSequence.transition_strength = FloatProperty (
+bpy.types.Sequence.transition_strength = FloatProperty (
     name = 'Strength', 
     default = 1.0, 
     min = 0.0, 
@@ -246,17 +246,17 @@ bpy.types.TransformSequence.transition_strength = FloatProperty (
     description = 'Change the impact of the effect (defaults to 1.0 = 100%)'
     )
 
-# bpy.types.TransformSequence.transition_in = BoolProperty(
+# bpy.types.Sequence.transition_in = BoolProperty(
 #     name = 'In',
 #     description = 'Add edge transition (duration counted forwards from left edge of this strip)'
 #     )
 
-# bpy.types.TransformSequence.transition_out = BoolProperty(
+# bpy.types.Sequence.transition_out = BoolProperty(
 #     name = 'Out',
 #     description = 'Add edge transition (duration counted backwards from right edge of this strip)'
 #     )
     
-# bpy.types.TransformSequence.transition_mid = BoolProperty(
+# bpy.types.Sequence.transition_mid = BoolProperty(
 #     name = 'Current Frame',
 #     description = 'Add transition at this point (duration counted forwards from current frame)'
 #     )
@@ -272,12 +272,12 @@ class CustomTransitionsPanel (bpy.types.Panel):
         strip = context.scene.sequence_editor.active_strip
         
         # check that active strip is a transform strip
-        is_transform = False
+        is_transitionable = False
         if strip != None:
-            is_transform = strip.type == 'TRANSFORM'
+            is_transitionable = strip.type in ('TRANSFORM', 'MOVIE', 'IMAGE')
 
         # display if this is already a transition-ready transform strip
-        if is_transform:
+        if is_transitionable:
             # drop down menu for selecting transition function
             self.layout.row().prop(strip,'transition_type')
             # integer input for setting transition length in frames
@@ -310,26 +310,14 @@ class AddTransition (bpy.types.Operator):
     bl_idname = 'strip.transition_add'
     bl_description = 'Use transition settings to create keyframes in active strip'
     def execute (self, context):
-
-        #
-        # Transition-transform-strips instead of all transits in one transform
-        #
-
-        if this is a transform strip or a movie/image
-            # add transform strip (operator class below)
-            # make sure that new strip is active and selected
-            # run Transition.handler() on that strip
-
-
-        # add the selected transition if this is a transform strip
-        if context.scene.sequence_editor.active_strip.type == 'TRANSFORM':
+        # Add a transform strip and add your transition to that strip
+        strip = bpy.context.scene.sequence_editor.active_strip
+        if strip.type in ('TRANSFORM', 'IMAGE', 'MOVIE'):
+            add_transform_strip (strip)
             try:
                 Transition.handler()
             except:
                 raise NotImplementedError ('Method Transition.handler() not implemented in Transition object')
-        # otherwise add a transform strip
-        else:
-            add_transform_strip(context.scene.sequence_editor.active_strip)
         return{'FINISHED'}
 
 class DeleteTransition (bpy.types.Operator):
@@ -348,39 +336,31 @@ class DeleteTransition (bpy.types.Operator):
             add_transform_strip(context.scene.sequence_editor.active_strip)
         return {'FINISHED'}
 
-def add_transform_strip (base_strip):
+def set_stack_alpha (strip):
+    """Recursively set the strip and all its input strips to alpha"""
+    #if hasattr (strip, 'input_1'):
+    if strip.type in ('IMAGE', 'MOVIE'):
+        strip.blend_type = 'ALPHA_OVER'
+        strip.blend_alpha = 0.0
+        return None
+    strip.blend_type = 'ALPHA_OVER'
+    return set_stack_alpha (strip.input_1)
+
+def add_transform_strip (strip):
+    """Add a transform strip to this strip and prepare it for the transition"""
     # deselect all strips to avoid adding multiple effect strips
     for s in bpy.context.scene.sequence_editor.sequences_all:
         s.select = False
 
-    #
-    # Transition-transform-strips instead of all transits in one transform
-    #
+    # select this strip and create a transform effect strip on it
+    strip.select = True
+    bpy.ops.sequencer.effect_strip_add(type='TRANSFORM')
 
-    # Should first argument expect base_strip? Just any transitionable strip?
-    
-    if SELECTEDSTRIP is a 'TRANSFORM' strip or in ('IMAGE', 'MOVIE'):
-        # create a new transform strip
-        # select that new transform strip
-        # read the current selected transition property for building name
-        # rename transform strip to match selected property
-        # set transform blend type to ALPHA_OVER
-        # if it's a parent strip, set its type to alpha_over
-        # return back to execute function that ran this one
+    # select transform strip just created, name it and set it to alpha blend
+    new_transform_strip = bpy.context.scene.sequence_editor.active_strip
+    new_transform_strip.name = "%s-%s" % (strip.transition_placement, strip.transition_type)
+    set_stack_alpha (new_transform_strip)
 
-    # make sure this is a transform-ready image or movie
-    if base_strip.type in ('IMAGE', 'MOVIE'):
-        # select this strip and create a transform effect strip on it
-        base_strip.select = True
-        bpy.ops.sequencer.effect_strip_add(type='TRANSFORM')
-        # find strip we just created and set it to alpha bg
-        for s in bpy.context.scene.sequence_editor.sequences_all:
-            # check that it uses this base strip as its input
-            if hasattr(s,'input_1') and s.input_1.name == base_strip.name:
-                s.blend_type = 'ALPHA_OVER'
-        # make this parent strip invisible
-        base_strip.blend_type = 'ALPHA_OVER'
-        base_strip.blend_alpha = 0.0
     return None
 
 def register():
