@@ -5,11 +5,16 @@ from bpy.props import *
 class Transition (object):
     def handler ():
         # all transitions to call mapped to transition_type string
-        effect = {'left':Transition.left, 'right':Transition.right,
-                'top':Transition.top, 'bottom':Transition.bottom,
-                'fade':Transition.opacity_down, 'unfade':Transition.opacity_up, 
-                'scale':Transition.scale, 'scale_down':Transition.scale_down, 
-                'clockwise':Transition.rotate_clock,'counterclock':Transition.rotate_counterclock}
+        effect = { 'left':Transition.left,
+                'right':Transition.right,
+                'top':Transition.top,
+                'bottom':Transition.bottom,
+                'fade':Transition.opacity_down,
+                'unfade':Transition.opacity_up, 
+                'scale':Transition.scale,
+                'scale_down':Transition.scale_down, 
+                'clockwise':Transition.rotate_clock,
+                'counterclock':Transition.rotate_counterclock }
         # references to active transform strip
         strip = bpy.context.scene.sequence_editor.active_strip
         # length of the transition (distance between keyframes)
@@ -42,7 +47,7 @@ class Transition (object):
             bpy.context.scene.frame_current = start_frame - 1
         return None
 
-    def get_screen_dimensions (strip):
+    def get_screen_dimensions (self, strip):
         # edges of screen (as percentage) accounting for image scale and uniform scale toggled
         width = 50 + strip.scale_start_x * 50
         if strip.use_uniform_scale:
@@ -312,7 +317,13 @@ class AddTransition (bpy.types.Operator):
     def execute (self, context):
         # Add a transform strip and add your transition to that strip
         strip = bpy.context.scene.sequence_editor.active_strip
-        if strip.type in ('TRANSFORM', 'IMAGE', 'MOVIE'):
+
+        # Get the parent strip at the base of this strip stack
+        if strip.type in ('TRANSFORM', 'SPEED'):
+            strip = get_stack_inputstrip_alphablend (strip)
+
+        # Add a new transform and run the transition setter on it
+        if strip.type in ('IMAGE', 'MOVIE'):
             add_transform_strip (strip)
             try:
                 Transition.handler()
@@ -336,15 +347,23 @@ class DeleteTransition (bpy.types.Operator):
             add_transform_strip(context.scene.sequence_editor.active_strip)
         return {'FINISHED'}
 
-def set_stack_alpha (strip):
-    """Recursively set the strip and all its input strips to alpha"""
+def get_stack_inputstrip (strip):
+    """Get the base movie/image in this strip's dependency stack"""
+    #if hasattr (strip, 'input_1'):
+    if strip.type in ('IMAGE', 'MOVIE'):
+        return strip
+    return get_stack_inputstrip (strip.input_1)
+
+def get_stack_inputstrip_alphablend (strip):
+    """Get the base movie/image in this strip's dependency stack, and
+    while you're at it recursively set the whole stack to alpha over"""
     #if hasattr (strip, 'input_1'):
     if strip.type in ('IMAGE', 'MOVIE'):
         strip.blend_type = 'ALPHA_OVER'
         strip.blend_alpha = 0.0
-        return None
+        return strip
     strip.blend_type = 'ALPHA_OVER'
-    return set_stack_alpha (strip.input_1)
+    return get_stack_inputstrip_alphablend (strip.input_1)
 
 def add_transform_strip (strip):
     """Add a transform strip to this strip and prepare it for the transition"""
@@ -359,7 +378,7 @@ def add_transform_strip (strip):
     # select transform strip just created, name it and set it to alpha blend
     new_transform_strip = bpy.context.scene.sequence_editor.active_strip
     new_transform_strip.name = "%s-%s" % (strip.transition_placement, strip.transition_type)
-    set_stack_alpha (new_transform_strip)
+    new_transform_strip.blend_type = 'ALPHA_OVER'
 
     return None
 
