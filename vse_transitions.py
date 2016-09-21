@@ -275,14 +275,15 @@ class CustomTransitionsPanel (bpy.types.Panel):
     
     def draw (self, context):
         strip = context.scene.sequence_editor.active_strip
+        strip_parent = get_stack_inputstrip (strip)
         
-        # check that active strip is a transform strip
+        # check that active strip's ultimate parent is an image/movie strip
         is_transitionable = False
-        if strip != None:
-            is_transitionable = strip.type in ('TRANSFORM', 'MOVIE', 'IMAGE')
+        if strip_parent != None:
+            is_transitionable = strip_parent.type in ('MOVIE', 'IMAGE')
 
-        # display if this is already a transition-ready transform strip
-        if is_transitionable:
+        # display options if this is a transition-ready strip
+        if strip.type in ('MOVIE', 'IMAGE'):
             # drop down menu for selecting transition function
             self.layout.row().prop(strip,'transition_type')
             # integer input for setting transition length in frames
