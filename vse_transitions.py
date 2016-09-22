@@ -17,6 +17,7 @@ class Transition (object):
                 'counterclock':Transition.rotate_counterclock }
         # references to active transform strip
         strip = bpy.context.scene.sequence_editor.active_strip
+        print ("Active strip at start of .handler() is %s"%strip)
         # length of the transition (distance between keyframes)
         duration = strip.transition_frames
         
@@ -47,7 +48,7 @@ class Transition (object):
             bpy.context.scene.frame_current = start_frame - 1
         return None
 
-    def get_screen_dimensions (self, strip):
+    def get_screen_dimensions (strip):
         # edges of screen (as percentage) accounting for image scale and uniform scale toggled
         width = 50 + strip.scale_start_x * 50
         if strip.use_uniform_scale:
@@ -303,7 +304,7 @@ class CustomTransitionsPanel (bpy.types.Panel):
 
         # display if this is not a transition-ready transform strip
         else:
-            button_text = "Add Transform Strip"
+            button_text = "Set transition settings on parent"
 
         # display transition add button
         self.layout.operator('strip.transition_add', text=button_text)
@@ -380,7 +381,12 @@ def add_transform_strip (strip):
     new_transform_strip = bpy.context.scene.sequence_editor.active_strip
     new_transform_strip.name = "%s-%s" % (strip.transition_placement, strip.transition_type)
     new_transform_strip.blend_type = 'ALPHA_OVER'
-
+    # set the transition properties to match parent strip
+    # /!\ without this, all following strips will just take default values
+    new_transform_strip.transition_type = strip.transition_type
+    new_transform_strip.transition_frames = strip.transition_frames
+    new_transform_strip.transition_strength = strip.transition_strength
+    new_transform_strip.transition_placement = strip.transition_placement
     return None
 
 def register():
