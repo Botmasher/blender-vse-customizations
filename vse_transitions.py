@@ -326,8 +326,13 @@ class AddTransition (bpy.types.Operator):
 
         # Add a new transform and run the transition setter on it
         if strip.type in ('IMAGE', 'MOVIE'):
-            add_transform_strip (strip)
+            # add transform to the top strip on this movie/image's stack
+            top_strip = get_stack_topstrip (strip)
+            print (strip)
+            print (top_strip)
+            add_transform_strip (top_strip, strip) # also passes props to new strip
             try:
+                # turn transform strip into transition
                 Transition.handler()
             except:
                 raise NotImplementedError ('Method Transition.handler() not implemented in Transition object')
@@ -367,7 +372,14 @@ def get_stack_inputstrip_alphablend (strip):
     strip.blend_type = 'ALPHA_OVER'
     return get_stack_inputstrip_alphablend (strip.input_1)
 
-def add_transform_strip (strip):
+def get_stack_topstrip (strip):
+    """Get the topmost strip that all inputs lead to in this strip stack"""
+    for s in bpy.context.scene.sequence_editor.sequences_all:
+        if hasattr (s,"input_1") and s.input_1 == strip:
+            return get_stack_topstrip (s)
+    return strip
+
+def add_transform_strip (strip, strip_parent):
     """Add a transform strip to this strip and prepare it for the transition"""
     # deselect all strips to avoid adding multiple effect strips
     for s in bpy.context.scene.sequence_editor.sequences_all:
@@ -379,14 +391,15 @@ def add_transform_strip (strip):
 
     # select transform strip just created, name it and set it to alpha blend
     new_transform_strip = bpy.context.scene.sequence_editor.active_strip
-    new_transform_strip.name = "%s-%s" % (strip.transition_placement, strip.transition_type)
+    new_transform_strip.name = "%s-%s" % (strip_parent.transition_type, strip_parent.transition_placement)
     new_transform_strip.blend_type = 'ALPHA_OVER'
+
     # set the transition properties to match parent strip
     # /!\ without this, all following strips will just take default values
-    new_transform_strip.transition_type = strip.transition_type
-    new_transform_strip.transition_frames = strip.transition_frames
-    new_transform_strip.transition_strength = strip.transition_strength
-    new_transform_strip.transition_placement = strip.transition_placement
+    new_transform_strip.transition_type = strip_parent.transition_type
+    new_transform_strip.transition_frames = strip_parent.transition_frames
+    new_transform_strip.transition_strength = strip_parent.transition_strength
+    new_transform_strip.transition_placement = strip_parent.transition_placement
     return None
 
 def register():
