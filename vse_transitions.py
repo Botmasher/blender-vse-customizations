@@ -274,6 +274,11 @@ class CustomTransitionsPanel (bpy.types.Panel):
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
     
+    def draw_header(self, context):
+        layout = self.layout
+        obj = context.object
+        layout.prop (obj, "selected", text="")
+
     def draw (self, context):
         strip = context.scene.sequence_editor.active_strip
         strip_parent = get_stack_inputstrip (strip)
@@ -302,12 +307,13 @@ class CustomTransitionsPanel (bpy.types.Panel):
             # text for transition button
             button_text = "Create Transition"
 
+            # display transition add button
+            self.layout.operator('strip.transition_add', text=button_text)
+
         # display if this is not a transition-ready transform strip
         else:
-            button_text = "Set transition settings on parent"
-
-        # display transition add button
-        self.layout.operator('strip.transition_add', text=button_text)
+            self.layout.label("Set transitions on a MOVIE or IMAGE!")
+            #button_text = "Set transition settings on parent"
 
         # display keyframe removal button
         self.layout.operator('strip.transition_delete', text="/!\\ Clear Keyframe Fields /!\\")
@@ -322,12 +328,12 @@ class AddTransition (bpy.types.Operator):
 
         # Get the parent strip at the base of this strip stack
         if strip.type in ('TRANSFORM', 'SPEED'):
-            strip = get_stack_inputstrip_alphablend (strip)
+            strip = get_stack_inputstrip (strip)
 
         # Add a new transform and run the transition setter on it
         if strip.type in ('IMAGE', 'MOVIE'):
             # add transform to the top strip on this movie/image's stack
-            top_strip = get_stack_topstrip (strip)
+            top_strip = get_stack_topstrip_alphablend (strip)
             print (strip)
             print (top_strip)
             add_transform_strip (top_strip, strip) # also passes props to new strip
@@ -377,6 +383,15 @@ def get_stack_topstrip (strip):
     for s in bpy.context.scene.sequence_editor.sequences_all:
         if hasattr (s,"input_1") and s.input_1 == strip:
             return get_stack_topstrip (s)
+    return strip
+
+def get_stack_topstrip_alphablend (strip):
+    """Get the topmost strip that all inputs lead to in this strip stack"""
+    for s in bpy.context.scene.sequence_editor.sequences_all:
+        if hasattr (s,"input_1") and s.input_1 == strip:
+            return get_stack_topstrip (s)
+    s.blend_type = 'ALPHA_OVER'
+    s.blend_alpha = 0.0
     return strip
 
 def add_transform_strip (strip, strip_parent):
