@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import *
+from bpy_extras.io_utils import ImportHelper 	# helps with file browser
 
 # button click in ative material's property
 # open file browser
@@ -9,6 +10,23 @@ from bpy.props import *
  	# 	(2) Should I use transparency? 	Default: True if like png.
  	# 	(3) Should I set preview alpha? Default: True if like png.
  	# 	(4) Should I set to clipped? 	Default: True.
+output = []
+def store_output (path):
+	output = path
+	return None
+
+class TexFilesLoader (bpy.types.Operator, ImportHelper):
+    bl_idname = "material.loadtex_files"
+    bl_label = "Browse and load image files as textures"
+    #? path = bpy.props.StringProperty(subtype="FILE_PATH")
+    def execute (self, context):
+    	fpath = self.properties.filepath
+        store_output(self.path)
+        return {'FINISHED'}
+    def invoke (self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
 # store array of image names
 tex_names = []
 # create as many textures as there are image names in array
