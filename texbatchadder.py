@@ -10,29 +10,32 @@ from bpy_extras.io_utils import ImportHelper 	# helps with file browser
  	# 	(2) Should I use transparency? 	Default: True if like png.
  	# 	(3) Should I set preview alpha? Default: True if like png.
  	# 	(4) Should I set to clipped? 	Default: True.
-output = []
-def store_output (path):
-	output = path
-	return None
 
-class TexFilesLoader (bpy.types.Operator, ImportHelper):
-    bl_idname = "material.loadtex_files"
-    bl_label = "Browse and load image files as textures"
-    #? path = bpy.props.StringProperty(subtype="FILE_PATH")
-    def execute (self, context):
-    	fpath = self.properties.filepath
-        store_output(self.path)
-        return {'FINISHED'}
-    def invoke (self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
+## /!\ TODO: file browsing
+# def store_output (paths):
+# 	img_paths = paths
+# 	return None
+# class TexFilesLoader (bpy.types.Operator, ImportHelper):
+#     bl_idname = "material.loadtex_files"
+#     bl_label = "Browse and load image files as textures"
+#     #? path = bpy.props.StringProperty(subtype="FILE_PATH")
+#     def execute (self, context):
+#     	fpath = self.properties.filepath
+#         store_output(self.path)
+#         return {'FINISHED'}
+#     def invoke (self, context, event):
+#         context.window_manager.fileselect_add(self)
+#         return {'RUNNING_MODAL'}
 
-# store array of image names
-tex_names = []
-# create as many textures as there are image names in array
-	# 	each tex name is the name of img before file extension dot
-new_tex = bpy.ops.texture.new() # better way to create new tex?
-new_tex.name = 'texname'        # error - how to ref created tex?
+# store image path and array of image texture names
+imgs_dir = './assets/'
+tex_names = ['0.png', '1.png', '2.png']
+# create textures
+for i in tex_names:
+    # build each tex path but use filename without extension for texname
+    this_tex_path = imgs_dir+tex_names[i]
+    new_tex = byp.ops.texture.new()         # better way to create new tex?  
+    new_tex.name = tex_names[i][0:-3]       # error - how to ref created tex?
 
 # apply parameters 1-4 above to each texture created
 new_tex.type = 'IMAGE' # syntax?
@@ -67,8 +70,8 @@ bpy.context.scene.objects.active.active_material.texture_slots[n].name = tex_nam
 # 	# Blender UI label, name, placement
 #     bl_label = 'Batch add textures to this material'
 #     bl_idname = 'material.panel_name'
-#     bl_space_type = 'SEQUENCE_EDITOR'
-#     bl_region_type = 'UI' # change to 
+#     bl_space_type = 'PROPERTIES'
+#     bl_region_type = 'UI'
 #     # build the panel
 #     def draw (self, context):
 #     	# property selection
