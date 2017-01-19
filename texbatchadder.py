@@ -27,24 +27,45 @@ from bpy_extras.io_utils import ImportHelper 	# helps with file browser
 #         context.window_manager.fileselect_add(self)
 #         return {'RUNNING_MODAL'}
 
+# reference active object
+active_material = bpy.context.scene.objects.active.active_material
+
 # store image path and array of image texture names
 imgs_dir = './assets/'
 tex_names = ['0.png', '1.png', '2.png']
+
+empty_tex_slots = []
+# store an array representing this material's open texture slots
+for i in range (0, len (active_material.texture_slots-1) ):
+	if active_material.texture_slots[i] == None:
+		empty_tex_slots.append(i)
+	else:
+		pass
+
 # create textures
-for i in tex_names:
+for i in range(0,len(tex_names-1)):
+    
+    # slot the new texture into the next open slot
+    this_empty_slot = active_material.texture_slots[empty_tex_slots[i]]
+    active_material.active_texture_index = this_empty_slot
+    
+    # create the new texture in this slot
+    bpy.ops.texture.new()
+    
     # build each tex path but use filename without extension for texname
     this_tex_path = imgs_dir+tex_names[i]
-    new_tex = byp.ops.texture.new()         # better way to create new tex?  
-    new_tex.name = tex_names[i][0:-3]       # error - how to ref created tex?
+    active_material.active_texture.name = tex_names[i][0:-3]
+    # TODO build function that strips extensions properly
+
 
 # apply parameters 1-4 above to each texture created
-new_tex.type = 'IMAGE' # syntax?
-new_tex.use_map_alpha = True
-bpy.context.scene.objects.active.active_material.use_transparency = True
-bpy.context.scene.objects.active.active_material.transparency_method = 'Z_TRANSPARENCY'
-bpy.context.scene.objects.active.active_material.alpha = 0.0
-new_tex.use_preview_alpha = True
-new_tex.extension = 'CLIP'
+active_material.use_transparency = True
+active_material.transparency_method = 'Z_TRANSPARENCY'
+active_material.active_texture.type = 'IMAGE'
+active_material.active_texture.use_map_alpha = True
+active_material.alpha = 0.0
+active_material.active_texture.use_preview_alpha = True
+active_material.active_texture.extension = 'CLIP'
 
 # add created textures to this material
 
