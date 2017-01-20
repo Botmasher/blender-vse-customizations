@@ -44,7 +44,6 @@ for i in range (0, len (active_material.texture_slots-1) ):
 
 # create textures
 for i in range(0,len(tex_names-1)):
-    
     # slot the new texture into the next open slot
     this_empty_slot = active_material.texture_slots[empty_tex_slots[i]]
     active_material.active_texture_index = this_empty_slot
@@ -54,18 +53,30 @@ for i in range(0,len(tex_names-1)):
     
     # build each tex path but use filename without extension for texname
     this_tex_path = imgs_dir+tex_names[i]
-    active_material.active_texture.name = tex_names[i][0:-3]
-    # TODO build function that strips extensions properly
+    active_material.active_texture.name = strip_img_extension(tex_names[i])
 
+def strip_img_extension (path):
+    # take an image filepath string
+    # output the string without the file extension
+    img_extensions = ['.png','.jpg','.jpeg','.gif','.tif','.bmp']
+    if path[-4:] in img_extensions:
+        path = path[:-4]
+    elif path[-5:] in img_extensions:
+        path = path[:-5]
+    else:
+        pass
+    return path
 
 # apply parameters 1-4 above to each texture created
-active_material.use_transparency = True
-active_material.transparency_method = 'Z_TRANSPARENCY'
-active_material.active_texture.type = 'IMAGE'
-active_material.active_texture.use_map_alpha = True
-active_material.alpha = 0.0
-active_material.active_texture.use_preview_alpha = True
-active_material.active_texture.extension = 'CLIP'
+def apply_mattex_params ():
+    active_material.use_transparency = True
+    active_material.transparency_method = 'Z_TRANSPARENCY'
+    active_material.active_texture.type = 'IMAGE'
+    active_material.active_texture.use_map_alpha = True
+    active_material.alpha = 0.0
+    active_material.active_texture.use_preview_alpha = True
+    active_material.active_texture.extension = 'CLIP'
+    return {'FINISHED'}
 
 # add created textures to this material
 
