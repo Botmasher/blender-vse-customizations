@@ -2,6 +2,13 @@ import bpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper 	# helps with file browser
 
+# reference active object
+active_material = bpy.context.scene.objects.active.active_material
+
+# store image path and array of image texture names
+imgs_dir = '../'
+tex_names = ['0.png', '1.png', '2.png']
+
 # button click in ative material's property
 # open file browser
  	# let user select as many images (only images) as desired
@@ -27,20 +34,16 @@ from bpy_extras.io_utils import ImportHelper 	# helps with file browser
 #         context.window_manager.fileselect_add(self)
 #         return {'RUNNING_MODAL'}
 
-# reference active object
-active_material = bpy.context.scene.objects.active.active_material
-
-# store image path and array of image texture names
-imgs_dir = './assets/'
-tex_names = ['0.png', '1.png', '2.png']
 
 empty_tex_slots = []
-# store an array representing this material's open texture slots
+# store indexes for this material's open texture slots
 for i in range (0, len (active_material.texture_slots-1) ):
 	if active_material.texture_slots[i] == None:
+        # add all open textures slots to list
 		empty_tex_slots.append(i)
 	else:
-		pass
+        # deactivate all used texture slots for this material
+		active_material.use_textures[i] = False
 
 # create textures
 for i in range(0,len(tex_names-1)):
@@ -77,23 +80,16 @@ def apply_mattex_params ():
     active_material.active_texture.use_preview_alpha = True
     active_material.active_texture.extension = 'CLIP'
     return {'FINISHED'}
+    
+apply_mattex_params()
 
-# add created textures to this material
-
-# deactivate all textures for this material
-for tex in bpy.context.scene.objects.active.active_material.texture_slots:
-    if bpy.context.scene.objects.active.active_material.texture_slots[i] != None:
-        bpy.context.scene.objects.active.active_material.use_textures[i] = False
 # activate the first texture for this material
-bpy.context.scene.objects.active.active_material.use_textures[0] = True
-# rename the material to match the first texture name, minus any final hyphens, final numbers, or final hyphen+numbers
-bpy.context.scene.objects.active.active_material.texture_slots[n].name = tex_names[n]
+active_material.use_textures[0] = True
 
 
 # # test property for user to adjust in panel
 # bpy.types.Scene.img_texs_test = EnumProperty(
-#     items = [('zero', '0', 'some test text'),
-#              ('one', '1', 'some test text')],
+#     items = [('zero', '0', 'some test text'),],
 #     name = 'Image Textures Test',
 #     description = 'A test property for image textures batcher'
 #     )
