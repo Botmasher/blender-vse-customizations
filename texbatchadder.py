@@ -2,9 +2,6 @@ import bpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper 	# helps with file browser
 
-# reference active object
-active_material = bpy.context.scene.objects.active.active_material
-
 # store image path and array of image texture names
 imgs_dir = '../'
 tex_names = ['0.png', '1.png', '2.png']
@@ -35,57 +32,62 @@ tex_names = ['0.png', '1.png', '2.png']
 #         return {'RUNNING_MODAL'}
 
 
-empty_tex_slots = []
-# store indexes for this material's open texture slots
-for i in range (0, len (active_material.texture_slots-1) ):
-	if active_material.texture_slots[i] == None:
-        # add all open textures slots to list
-		empty_tex_slots.append(i)
-	else:
-        # deactivate all used texture slots for this material
-		active_material.use_textures[i] = False
+class ImgTexturizer ():
 
-# create textures
-for i in range(0,len(tex_names-1)):
-    # slot the new texture into the next open slot
-    this_empty_slot = active_material.texture_slots[empty_tex_slots[i]]
-    active_material.active_texture_index = this_empty_slot
-    
-    # create the new texture in this slot
-    bpy.ops.texture.new()
-    
-    # build each tex path but use filename without extension for texname
-    this_tex_path = imgs_dir+tex_names[i]
-    active_material.active_texture.name = strip_img_extension(tex_names[i])
+    def __init__ (self, texture_names):
+        this.material = bpy.context.scene.objects.active.active_material
+        this.texture_names = texture_names
 
-def strip_img_extension (path):
+    def store_empty_indices (self):
+        # store indexes for this material's open texture slots
+        empty_tex_slots = []
+        for i in range (0, len (this.material.texture_slots-1) ):
+            if active_material.texture_slots[i] == None:
+            # add all open textures slots to list
+            empty_tex_slots.append(i)
+        else:
+            # deactivate all used texture slots for this material
+            active_material.use_textures[i] = False
+        return empty_tex_slots
+
+    def create_textures (self):
+        for i in range(0,len(tex_names-1)):
+            # slot the new texture into the next open slot
+            this_empty_slot = this.material.texture_slots[empty_tex_slots[i]]
+            this.material.active_texture_index = this_empty_slot
+            # create the new texture in this slot
+            bpy.ops.texture.new()
+            # build each tex path but use filename without extension for texname
+            this_tex_path = imgs_dir+tex_names[i]
+            this.material.active_texture.name = strip_img_extension(tex_names[i])
+
     # take an image filepath string
     # output the string without the file extension
-    img_extensions = ['.png','.jpg','.jpeg','.gif','.tif','.bmp']
-    if path[-4:] in img_extensions:
-        path = path[:-4]
-    elif path[-5:] in img_extensions:
-        path = path[:-5]
-    else:
-        pass
-    return path
+    def strip_img_extension (self, path):
+        img_extensions = ['.png','.jpg','.jpeg','.gif','.tif','.bmp']
+        if path[-4:] in img_extensions:
+            path = path[:-4]
+        elif path[-5:] in img_extensions:
+            path = path[:-5]
+        else:
+            pass
+        return path
 
-# apply parameters 1-4 above to each texture created
-def apply_mattex_params ():
-    active_material.use_transparency = True
-    active_material.transparency_method = 'Z_TRANSPARENCY'
-    active_material.active_texture.type = 'IMAGE'
-    active_material.active_texture.use_map_alpha = True
-    active_material.alpha = 0.0
-    active_material.active_texture.use_preview_alpha = True
-    active_material.active_texture.extension = 'CLIP'
-    return {'FINISHED'}
-    
-apply_mattex_params()
+    # apply parameters 1-4 above to each texture created
+    def apply_mattex_params (self):
+        this.material.use_transparency = True
+        this.material.transparency_method = 'Z_TRANSPARENCY'
+        this.material.active_texture.type = 'IMAGE'
+        this.material.active_texture.use_map_alpha = True
+        this.material.alpha = 0.0
+        this.material.active_texture.use_preview_alpha = True
+        this.material.active_texture.extension = 'CLIP'
+        # activate the first texture for this material
+        this.material.use_textures[0] = True
+        return {'FINISHED'}
 
-# activate the first texture for this material
-active_material.use_textures[0] = True
-
+# reference active object and names when instantiating
+imgTexs = new ImgTexturizer(tex_names)
 
 # # test property for user to adjust in panel
 # bpy.types.Scene.img_texs_test = EnumProperty(
