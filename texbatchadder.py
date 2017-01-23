@@ -34,32 +34,43 @@ tex_names = ['0.png', '1.png', '2.png']
 
 class ImgTexturizer ():
 
-    def __init__ (self, texture_names):
+    def __init__ (self, texture_names, directory):
         this.material = bpy.context.scene.objects.active.active_material
         this.texture_names = texture_names
+        this.dir = directory
 
-    def store_empty_indices (self):
-        # store indexes for this material's open texture slots
-        empty_tex_slots = []
+    def setup (self):
+        # /!\ counters for tracking empty slot and current img index separately
+        counter0 = 0
+        counter1 = 0
+        # add images in material's open texture slots
         for i in range (0, len (this.material.texture_slots-1) ):
             if active_material.texture_slots[i] == None:
-            # add all open textures slots to list
-            empty_tex_slots.append(i)
-        else:
-            # deactivate all used texture slots for this material
-            active_material.use_textures[i] = False
-        return empty_tex_slots
+                # /!\ run the create tex method
+                this.create_texture(EMPTY_SLOT, TEX_NAME_INDEX)
+            else:
+                # deactivate all used texture slots for this material
+                active_material.use_textures[i] = False
+        # activate the first texture for this material
+        this.material.use_textures[0] = True
 
-    def create_textures (self):
-        for i in range(0,len(tex_names-1)):
-            # slot the new texture into the next open slot
-            this_empty_slot = this.material.texture_slots[empty_tex_slots[i]]
-            this.material.active_texture_index = this_empty_slot
-            # create the new texture in this slot
-            bpy.ops.texture.new()
-            # build each tex path but use filename without extension for texname
-            this_tex_path = imgs_dir+tex_names[i]
-            this.material.active_texture.name = strip_img_extension(tex_names[i])
+    def create_texture (self, empty_tex_slot, tex_name_i):
+        # slot the new texture into the next open slot
+        this.material.active_texture_index = empty_tex_slot
+        # create the new texture in this slot
+        bpy.ops.texture.new()
+        # build each tex path but use filename without extension for texname
+        this_tex_path = this.dir + tex_names[tex_name_i]
+        # /!\ currently just load and use file within this same dir
+        this.load_image (tex_names[tex_name_i])
+        # set the texture name to the filename without extension
+        this.material.active_texture.name = strip_img_extension(tex_names[i])
+
+    def load_image (self, filename):
+        # load image within same directory
+        bpy.data.images.load("//"+filename)
+        # find and use this image for this texture
+        this.active_texture.image = bpy.data.images.find(filename) 
 
     # take an image filepath string
     # output the string without the file extension
@@ -82,12 +93,9 @@ class ImgTexturizer ():
         this.material.alpha = 0.0
         this.material.active_texture.use_preview_alpha = True
         this.material.active_texture.extension = 'CLIP'
-        # activate the first texture for this material
-        this.material.use_textures[0] = True
-        return {'FINISHED'}
 
 # reference active object and names when instantiating
-imgTexs = new ImgTexturizer(tex_names)
+imgTexs = new ImgTexturizer (tex_names, imgs_dir)
 
 # # test property for user to adjust in panel
 # bpy.types.Scene.img_texs_test = EnumProperty(
