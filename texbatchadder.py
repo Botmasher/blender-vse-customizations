@@ -2,9 +2,9 @@ import bpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper 	# helps with file browser
 
-# store image path and array of image texture names
-imgs_dir = '../'
-tex_names = ['0.png', '1.png', '2.png']
+# store image path and array of image texture filenames
+img_dir = '//'
+img_filenames = ['0.png', '1.png', '2.png']
 
 # button click in ative material's property
 # open file browser
@@ -32,44 +32,54 @@ tex_names = ['0.png', '1.png', '2.png']
 #         return {'RUNNING_MODAL'}
 
 
-class ImgTexturizer ():
+class ImgTexturizer:
 
     def __init__ (self, texture_names, directory):
+        # reference active material and user paths
         this.material = bpy.context.scene.objects.active.active_material
         this.texture_names = texture_names
         this.dir = directory
 
     def setup (self):
-        # /!\ counters for tracking empty slot and current img index separately
-        counter0 = 0
-        counter1 = 0
+        # counter for tracking current img index (equal to number of tex slots filled)
+        img_counter = 0
         # add images in material's open texture slots
         for i in range (0, len (this.material.texture_slots-1) ):
             if active_material.texture_slots[i] == None:
-                # /!\ run the create tex method
-                this.create_texture(EMPTY_SLOT, TEX_NAME_INDEX)
+                # create tex in this slot using the next img
+                this.create_texture(i, this.texture_names[img_counter])
+                img_counter += 1
+                # settings for created tex - assumes it's the active tex
+                this.apply_mattex_params()
             else:
                 # deactivate all used texture slots for this material
                 active_material.use_textures[i] = False
         # activate the first texture for this material
         this.material.use_textures[0] = True
 
-    def create_texture (self, empty_tex_slot, tex_name_i):
+        # /!\ return uncreated imgs if not all images got turned into texs
+        #       - first issue here is length of image list
+        #       - also run into expandability of a material's tex slots?
+        if img_counter <= len(this.texture_names):
+            return {'FINISHED'}
+        else:
+            return this.texture_names[img_counter:]
+
+    def create_texture (self, empty_slot, img_i):
         # slot the new texture into the next open slot
-        this.material.active_texture_index = empty_tex_slot
+        this.material.active_texture_index = empty_slot
         # create the new texture in this slot
         bpy.ops.texture.new()
-        # build each tex path but use filename without extension for texname
-        this_tex_path = this.dir + tex_names[tex_name_i]
-        # /!\ currently just load and use file within this same dir
-        this.load_image (tex_names[tex_name_i])
+        # load and use imge file
+        tex_path = this.dir + tex_names[img_i]
+        this.load_image(tex_path)
         # set the texture name to the filename without extension
-        this.material.active_texture.name = strip_img_extension(tex_names[i])
+        this.material.active_texture.name = strip_img_extension(tex_names[img_i])
 
     def load_image (self, filename):
-        # load image within same directory
-        bpy.data.images.load("//"+filename)
-        # find and use this image for this texture
+        # load image to into blend db
+        bpy.data.images.load(this.dir+filename)
+        # use loaded image as this texture's image
         this.active_texture.image = bpy.data.images.find(filename) 
 
     # take an image filepath string
@@ -95,7 +105,8 @@ class ImgTexturizer ():
         this.material.active_texture.extension = 'CLIP'
 
 # reference active object and names when instantiating
-imgTexs = new ImgTexturizer (tex_names, imgs_dir)
+imgTexs = new ImgTexturizer (img_filenames, img_dir)
+imgTexs.setup()
 
 # # test property for user to adjust in panel
 # bpy.types.Scene.img_texs_test = EnumProperty(
