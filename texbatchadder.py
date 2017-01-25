@@ -31,56 +31,54 @@ img_filenames = ['0.png', '1.png', '2.png']
 #         context.window_manager.fileselect_add(self)
 #         return {'RUNNING_MODAL'}
 
-
 class ImgTexturizer:
 
     def __init__ (self, texture_names, directory):
         # reference active material and user paths
-        this.material = bpy.context.scene.objects.active.active_material
-        this.texture_names = texture_names
-        this.dir = directory
+        self.material = bpy.context.scene.objects.active.active_material
+        self.texture_names = texture_names
+        self.dir = directory
 
     def setup (self):
         # counter for tracking current img index (equal to number of tex slots filled)
         img_counter = 0
         # add images in material's open texture slots
-        for i in range (0, len (this.material.texture_slots-1) ):
-            if active_material.texture_slots[i] == None:
+        for i in range (0, len (self.material.texture_slots)-1 ):
+            if self.material.texture_slots[i] == None:
                 # create tex in this slot using the next img
-                this.create_texture(i, this.texture_names[img_counter])
+                self.create_texture(i, img_counter)
                 img_counter += 1
                 # settings for created tex - assumes it's the active tex
-                this.apply_mattex_params()
+                self.apply_mattex_params()
+                self.material.use_textures[i] = False
             else:
                 # deactivate all used texture slots for this material
-                active_material.use_textures[i] = False
+                self.material.use_textures[i] = False
         # activate the first texture for this material
-        this.material.use_textures[0] = True
+        self.material.use_textures[0] = True
 
         # /!\ return uncreated imgs if not all images got turned into texs
-        #       - first issue here is length of image list
-        #       - also run into expandability of a material's tex slots?
-        if img_counter <= len(this.texture_names):
+        if img_counter <= len(self.texture_names):
             return {'FINISHED'}
         else:
-            return this.texture_names[img_counter:]
+            return self.texture_names[img_counter:]
 
     def create_texture (self, empty_slot, img_i):
         # slot the new texture into the next open slot
-        this.material.active_texture_index = empty_slot
+        self.material.active_texture_index = empty_slot
         # create the new texture in this slot
         bpy.ops.texture.new()
         # load and use imge file
-        tex_path = this.dir + tex_names[img_i]
-        this.load_image(tex_path)
+        tex_path = self.dir + self.texture_names[img_i]
+        self.load_image(tex_path)
         # set the texture name to the filename without extension
-        this.material.active_texture.name = strip_img_extension(tex_names[img_i])
+        self.material.active_texture.name = strip_img_extension(self.texture_names[img_i])
 
     def load_image (self, filename):
         # load image to into blend db
-        bpy.data.images.load(this.dir+filename)
+        bpy.data.images.load(self.dir+filename)
         # use loaded image as this texture's image
-        this.active_texture.image = bpy.data.images.find(filename) 
+        self.material.active_texture.image = bpy.data.images.find(filename) 
 
     # take an image filepath string
     # output the string without the file extension
@@ -96,16 +94,16 @@ class ImgTexturizer:
 
     # apply parameters 1-4 above to each texture created
     def apply_mattex_params (self):
-        this.material.use_transparency = True
-        this.material.transparency_method = 'Z_TRANSPARENCY'
-        this.material.active_texture.type = 'IMAGE'
-        this.material.active_texture.use_map_alpha = True
-        this.material.alpha = 0.0
-        this.material.active_texture.use_preview_alpha = True
-        this.material.active_texture.extension = 'CLIP'
+        self.material.use_transparency = True
+        self.material.transparency_method = 'Z_TRANSPARENCY'
+        self.material.active_texture.type = 'IMAGE'
+        self.material.active_texture.use_map_alpha = True
+        self.material.alpha = 0.0
+        self.material.active_texture.use_preview_alpha = True
+        self.material.active_texture.extension = 'CLIP'
 
 # reference active object and names when instantiating
-imgTexs = new ImgTexturizer (img_filenames, img_dir)
+imgTexs = ImgTexturizer (img_filenames, img_dir)
 imgTexs.setup()
 
 # # test property for user to adjust in panel
