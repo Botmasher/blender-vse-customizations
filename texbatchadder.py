@@ -8,23 +8,23 @@ img_filenames = ['0.png', '1.png', '2.png']
 
 # button click in ative material's property
 # open file browser
- 	# let user select as many images (only images) as desired
- 	# on left side panel, user selects from import options:
- 	# 	(1) Should I use alpha? 		Default: True if like png.
- 	# 	(2) Should I use transparency? 	Default: True if like png.
- 	# 	(3) Should I set preview alpha? Default: True if like png.
- 	# 	(4) Should I set to clipped? 	Default: True.
+    # let user select as many images (only images) as desired
+    # on left side panel, user selects from import options:
+    #   (1) Should I use alpha?         Default: True if like png.
+    #   (2) Should I use transparency?  Default: True if like png.
+    #   (3) Should I set preview alpha? Default: True if like png.
+    #   (4) Should I set to clipped?    Default: True.
 
 ## /!\ TODO: file browsing
 # def store_output (paths):
-# 	img_paths = paths
-# 	return None
+#   img_paths = paths
+#   return None
 # class TexFilesLoader (bpy.types.Operator, ImportHelper):
 #     bl_idname = "material.loadtex_files"
 #     bl_label = "Browse and load image files as textures"
 #     #? path = bpy.props.StringProperty(subtype="FILE_PATH")
 #     def execute (self, context):
-#     	fpath = self.properties.filepath
+#       fpath = self.properties.filepath
 #         store_output(self.path)
 #         return {'FINISHED'}
 #     def invoke (self, context, event):
@@ -66,15 +66,24 @@ class ImgTexturizer:
     def create_texture (self, empty_slot, img_i):
         # slot the new texture into the next open slot
         self.material.active_texture_index = empty_slot
-        # create the new texture in this slot
-        bpy.ops.texture.new()
+        # set area to properties and create the new texture in this slot
+        old_area = self.change_area('PROPERTIES')
+        bpy.data.textures.new("name0","IMAGE")
+        self.change_area (old_area)
+        #/!\ update texture slot to hold this texture
+        
         # load and use imge file
         tex_path = self.dir + self.texture_names[img_i]
-        self.load_image(tex_path)
+        self.load_image(tex_path, empty_slot)
         # set the texture name to the filename without extension
         self.material.active_texture.name = strip_img_extension(self.texture_names[img_i])
 
-    def load_image (self, filename):
+    def change_area (self, new_area):
+        old_area = bpy.context.area.type
+        bpy.context.area.type = new_area
+        return old_area
+
+    def load_image (self, filename, slot):
         # load image to into blend db
         bpy.data.images.load(self.dir+filename)
         # use loaded image as this texture's image
@@ -114,14 +123,14 @@ imgTexs.setup()
 #     )
 
 # class ImgTexturesPanel (bpy.types.Panel):
-# 	# Blender UI label, name, placement
+#   # Blender UI label, name, placement
 #     bl_label = 'Batch add textures to this material'
 #     bl_idname = 'material.panel_name'
 #     bl_space_type = 'PROPERTIES'
 #     bl_region_type = 'UI'
 #     # build the panel
 #     def draw (self, context):
-#     	# property selection
+#       # property selection
 #         self.layout.row().prop(bpy.context.scene,'img_texs_test', expand=True)
 #         # button
 #         self.layout.operator('material.operator_name', text="User Button Text")
