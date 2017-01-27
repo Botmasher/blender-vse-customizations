@@ -66,22 +66,15 @@ class ImgTexturizer:
     def create_texture (self, empty_slot, img_i):
         # set new location to the next open slot
         self.material.active_texture_index = empty_slot
-        # set area to properties and create the new texture in this slot
-        old_area = self.change_area('PROPERTIES')
+        # create the new texture in this slot
         created_tex_name = strip_img_extension(self.texture_names[img_i])
         created_tex = bpy.data.textures.new (created_tex_name,'IMAGE')
-        self.change_area (old_area)
         # update texture slot to hold this texture
         self.material.texture_slots.add()
         self.material.texture_slots[empty_slot].texture = created_tex
         # load and use imge file
         tex_path = self.dir + self.texture_names[img_i]
         self.load_image(tex_path, empty_slot)
-
-    def change_area (self, new_area):
-        old_area = bpy.context.area.type
-        bpy.context.area.type = new_area
-        return old_area
 
     def load_image (self, filename, slot):
         # load image to into blend db
