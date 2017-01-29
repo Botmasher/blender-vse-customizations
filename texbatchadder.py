@@ -58,10 +58,15 @@ class ImgTexturizer:
         self.material.use_textures[0] = True
 
         # /!\ return uncreated imgs if not all images got turned into texs
-        if img_counter <= len(self.texture_names):
+        return self.check_if_created_all(img_counter)
+
+    def check_if_created_all (self, count_created):
+        # verify that all images were loaded into textures
+        count_total = len(self.texture.names)
+        if count_created >= count_total:
             return {'FINISHED'}
-        else:
-            return self.texture_names[img_counter:]
+        # return the sublist of uncreated images
+        return self.texture_names[count_created:]
 
     def create_texture (self, empty_slot, img_i):
         # set new location to the next open slot
