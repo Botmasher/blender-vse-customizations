@@ -57,7 +57,7 @@ class ImgTexturizer:
         # activate the first texture for this material
         self.material.use_textures[0] = True
 
-        # /!\ return uncreated imgs if not all images got turned into texs
+        # return uncreated imgs if not all images got turned into texs
         return self.check_if_created_all(img_counter)
 
     def check_if_created_all (self, count_created):
@@ -81,23 +81,26 @@ class ImgTexturizer:
         tex_path = self.dir + self.texture_names[img_i]
         self.load_image(tex_path, empty_slot)
 
+    def build_path (self, filename):
+        return (self.dir + filename)
+    
     def load_image (self, filename, slot):
+        path = self.build_path(filename)
         # load image to into blend db
-        bpy.data.images.load(self.dir+filename)
+        bpy.data.images.load(path)
         # use loaded image as this texture's image
         self.material.active_texture.image = bpy.data.images[bpy.data.images.find(filename)]
 
-    # take an image filepath string
+    # take an image filename string
     # output the string without the file extension
-    def strip_img_extension (self, path):
+    def strip_img_extension (self, filename):
         img_extensions = ['.png','.jpg','.jpeg','.gif','.tif','.bmp']
-        if path[-4:] in img_extensions:
-            path = path[:-4]
+        if filename[-4:] in img_extensions:
+            return filename[:-4]
         elif path[-5:] in img_extensions:
-            path = path[:-5]
+            return filename[:-5]
         else:
-            pass
-        return path
+            return filename
 
     # apply parameters 1-4 above to each texture created
     def apply_mattex_params (self):
