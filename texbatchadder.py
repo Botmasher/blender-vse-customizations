@@ -49,13 +49,16 @@ class ImgTexturizer:
                 self.create_texture(i, img_counter)
                 img_counter += 1
                 # settings for created tex - assumes it's the active tex
-                self.apply_mattex_params()
+                self.apply_texslot_params(self.material.texture_slots[i])
                 self.material.use_textures[i] = False
             else:
                 # deactivate all used texture slots for this material
                 self.material.use_textures[i] = False
         # activate the first texture for this material
         self.material.use_textures[0] = True
+        
+        # alpha and transparency for this material
+        self.apply_material_params()
 
         # return uncreated imgs if not all images got turned into texs
         return self.check_if_created_all(img_counter)
@@ -72,7 +75,7 @@ class ImgTexturizer:
         # set new location to the next open slot
         self.material.active_texture_index = empty_slot
         # create the new texture in this slot
-        created_tex_name = strip_img_extension(self.texture_names[img_i])
+        created_tex_name = self.strip_img_extension(self.texture_names[img_i])
         created_tex = bpy.data.textures.new (created_tex_name,'IMAGE')
         # update texture slot to hold this texture
         self.material.texture_slots.add()
@@ -103,12 +106,14 @@ class ImgTexturizer:
             return filename
 
     # apply parameters 1-4 above to each texture created
-    def apply_mattex_params (self):
+    def apply_material_params (self):
         self.material.use_transparency = True
         self.material.transparency_method = 'Z_TRANSPARENCY'
-        self.material.active_texture.type = 'IMAGE'
-        self.material.active_texture.use_map_alpha = True
         self.material.alpha = 0.0
+
+    def apply_texslot_params (self, tex_slot):
+        self.material.active_texture.type = 'IMAGE'
+        tex_slot.use_map_alpha = True
         self.material.active_texture.use_preview_alpha = True
         self.material.active_texture.extension = 'CLIP'
 
