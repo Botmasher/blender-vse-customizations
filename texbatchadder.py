@@ -43,8 +43,8 @@ class ImgTexturizer:
         # counter for tracking current img index (equal to number of tex slots filled)
         img_counter = 0
         # add images in material's open texture slots
-        for i in range (0, len (self.material.texture_slots)-1 ):
-            if self.material.texture_slots[i] == None:
+        for i in range (0, len(self.material.texture_slots)-1 ):
+            if self.material.texture_slots[i] == None and img_counter < len(self.texture_names):
                 # create tex in this slot using the next img
                 self.create_texture(i, img_counter)
                 img_counter += 1
@@ -65,12 +65,21 @@ class ImgTexturizer:
 
     def check_if_created_all (self, count_created):
         # verify that all images were loaded into textures
-        count_total = len(self.texture.names)
+        count_total = len(self.texture_names)
         if count_created >= count_total:
             return {'FINISHED'}
         # return the sublist of uncreated images
         return self.texture_names[count_created:]
 
+    def img_already_exists (self, img_i):
+        # /!\ USE WITH CAUTION - current implementation would be nested for loop
+        for img in bpy.data.images:
+            if (self.dir+self.tex_names[img_i]) == tex_img:
+                return True
+            else:
+                pass
+        return False
+        
     def create_texture (self, empty_slot, img_i):
         # set new location to the next open slot
         self.material.active_texture_index = empty_slot
