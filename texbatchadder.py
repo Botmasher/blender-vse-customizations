@@ -43,7 +43,7 @@ class ImgTexturizer:
         # counter for tracking current img index (equal to number of tex slots filled)
         img_counter = 0
         # add images in material's open texture slots
-        for i in range (0, len(self.material.texture_slots)-1 ):
+        for i in range (0, len(self.material.texture_slots)-1):
             if self.material.texture_slots[i] == None and img_counter < len(self.texture_names):
                 # create tex in this slot using the next img
                 self.create_texture(i, img_counter)
@@ -74,7 +74,7 @@ class ImgTexturizer:
     def img_already_exists (self, img_i):
         # /!\ USE WITH CAUTION - current implementation would be nested for loop
         for img in bpy.data.images:
-            if (self.dir+self.tex_names[img_i]) == tex_img:
+            if (self.dir+self.tex_names[img_i]) == img.filepath:
                 return True
             else:
                 pass
@@ -128,7 +128,6 @@ class ImgTexturizer:
 
 # reference active object and names when instantiating
 imgTexs = ImgTexturizer (img_filenames, img_dir)
-imgTexs.setup()
 
 # # test property for user to adjust in panel
 # bpy.types.Scene.img_texs_test = EnumProperty(
@@ -137,35 +136,35 @@ imgTexs.setup()
 #     description = 'A test property for image textures batcher'
 #     )
 
-# class ImgTexturesPanel (bpy.types.Panel):
-#   # Blender UI label, name, placement
-#     bl_label = 'Batch add textures to this material'
-#     bl_idname = 'material.panel_name'
-#     bl_space_type = 'PROPERTIES'
-#     bl_region_type = 'UI'
-#     # build the panel
-#     def draw (self, context):
-#       # property selection
-#         self.layout.row().prop(bpy.context.scene,'img_texs_test', expand=True)
-#         # button
-#         self.layout.operator('material.operator_name', text="User Button Text")
+class ImgTexturesPanel (bpy.types.Panel):
+    # Blender UI label, name, placement
+    bl_label = 'Add Image Textures'
+    bl_idname = 'material.texbatch_panel'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    # build the panel
+    def draw (self, context):
+        self.layout.operator('material.texbatch_op', text='')
+        # NOW: display the images that will be loaded
+        # TODO: file browser display selected images 
+        #self.layout.row().prop(bpy.context.scene,'img_texs_test', expand=True)
 
-# class ImgTexturesOperator (bpy.types.Operator):
-#     bl_label = 'Batch Text Adder Operation'
-#     bl_idname = 'material.operator_name'
-#     bl_description = 'Add multiple images as textures for this material'
-#     def execute (self, context):
-#         # function to run on button press
-#         return{'FINISHED'}
+class ImgTexturesOperator (bpy.types.Operator):
+    bl_label = 'Batch Add Image Textures'
+    bl_idname = 'material.texbatch_op'
+    bl_description = 'Add multiple images as textures for this material'
+    def execute (self, context):
+        imgTexs.setup()
+        return {'FINISHED'}
     
-# def register():
-#     bpy.utils.register_class(ImgTexturesPanel)
-#     bpy.utils.register_class(ImgTexturesOperator)
+def register():
+    bpy.utils.register_class(ImgTexturesPanel)
+    bpy.utils.register_class(ImgTexturesOperator)
 
-# def unregister():
-#     bpy.utils.unregister_class(ImgTexturesPanel)
-#     bpy.utils.unregister_class(ImgTexturesOperator)
+def unregister():
+    bpy.utils.unregister_class(ImgTexturesPanel)
+    bpy.utils.unregister_class(ImgTexturesOperator)
 
-# if __name__ == '__main__':
-#     register()
-#     #unregister()
+if __name__ == '__main__':
+    register()
+    #unregister()
