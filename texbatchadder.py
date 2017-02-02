@@ -91,10 +91,15 @@ class ImgTexturizer:
         self.material.texture_slots[empty_slot].texture = created_tex
         # load and use imge file
         tex_path = self.dir + self.texture_names[img_i]
-        self.load_image(tex_path, empty_slot)
+        filepath = self.build_path(self.texture_names[img_i])
+        bpy.data.images.load(filepath)
+        found_img = bpy.data.images[bpy.data.images.find(self.texture_names[img_i])]
+        self.material.active_texture.image = found_img
+        #self.load_image(tex_path, empty_slot)
 
     def build_path (self, filename):
-        return (self.dir + filename)
+        path = self.dir + filename
+        return path
     
     def load_image (self, filename, slot):
         path = self.build_path(filename)
@@ -126,9 +131,6 @@ class ImgTexturizer:
         self.material.active_texture.use_preview_alpha = True
         self.material.active_texture.extension = 'CLIP'
 
-# reference active object and names when instantiating
-imgTexs = ImgTexturizer (img_filenames, img_dir)
-
 # # test property for user to adjust in panel
 # bpy.types.Scene.img_texs_test = EnumProperty(
 #     items = [('zero', '0', 'some test text'),],
@@ -144,7 +146,7 @@ class ImgTexturesPanel (bpy.types.Panel):
     bl_region_type = 'WINDOW'
     # build the panel
     def draw (self, context):
-        self.layout.operator('material.texbatch_op', text='')
+        self.layout.operator('material.texbatch_op', text='Batch Add Image Textures')
         # NOW: display the images that will be loaded
         # TODO: file browser display selected images 
         #self.layout.row().prop(bpy.context.scene,'img_texs_test', expand=True)
@@ -154,6 +156,8 @@ class ImgTexturesOperator (bpy.types.Operator):
     bl_idname = 'material.texbatch_op'
     bl_description = 'Add multiple images as textures for this material'
     def execute (self, context):
+        # reference active object and names when instantiating
+        imgTexs = ImgTexturizer (img_filenames, img_dir)
         imgTexs.setup()
         return {'FINISHED'}
     
