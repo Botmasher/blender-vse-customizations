@@ -32,7 +32,7 @@ img_filenames = ['0.png', '1.png', '2.png']
 #         return {'RUNNING_MODAL'}
 
 class ImgTexturizer:
-
+    
     def __init__ (self, texture_names, directory):
         # reference active material and user paths
         self.material = bpy.context.scene.objects.active.active_material
@@ -40,13 +40,16 @@ class ImgTexturizer:
         self.dir = directory
 
     def setup (self):
-        # counter for tracking current img index (equal to number of tex slots filled)
+        # track created imgs (array) and number of tex slots filled (counter)
         img_counter = 0
+        used_imgs = []
+        
         # add images in material's open texture slots
         for i in range (0, len(self.material.texture_slots)-1):
             if self.material.texture_slots[i] == None and img_counter < len(self.texture_names):
                 # create tex in this slot using the next img
-                self.create_texture(i, img_counter)
+                self.create_texture(i, img_counter, used_imgs)
+                used_imgs.append (self.texture_names[img_counter])
                 img_counter += 1
                 # settings for created tex - assumes it's the active tex
                 self.apply_texslot_params(self.material.texture_slots[i])
@@ -80,7 +83,7 @@ class ImgTexturizer:
                 pass
         return False
         
-    def create_texture (self, empty_slot, img_i):
+    def create_texture (self, empty_slot, img_i, created_imgs_list):
         # set new location to the next open slot
         self.material.active_texture_index = empty_slot
         # create the new texture in this slot
@@ -90,9 +93,9 @@ class ImgTexturizer:
         self.material.texture_slots.add()
         self.material.texture_slots[empty_slot].texture = created_tex
         # load and use imge file
-        tex_path = self.dir + self.texture_names[img_i]
         filepath = self.build_path(self.texture_names[img_i])
-        bpy.data.images.load(filepath)
+        if self.texture_names[img_i] not in created_imgs_list:
+            bpy.data.images.load(filepath)
         found_img = bpy.data.images[bpy.data.images.find(self.texture_names[img_i])]
         self.material.active_texture.image = found_img
         #self.load_image(tex_path, empty_slot)
