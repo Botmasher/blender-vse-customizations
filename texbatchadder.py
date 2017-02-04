@@ -31,6 +31,23 @@ img_filenames = ['0.png', '1.png', '2.png']
 #         context.window_manager.fileselect_add(self)
 #         return {'RUNNING_MODAL'}
 
+class ImportFileData (bpy.types.Operator, ImportHelper):
+    bl_idname = "browse_import.file_paths" 
+    bl_label = "Import Files"
+    files = CollectionProperty(name='Filepaths', type=bpy.types.OperatorFileListElement)
+
+    def execute (self, ctx):
+        for f in files:
+            reader_func(ctx, f)
+        return {'FINISHED'}
+
+    def invoke (self, ctx, event):
+        ctx.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+def reader_func (context, path):
+    print (filepath)
+
 class ImgTexturizer:
     
     def __init__ (self, texture_names, directory):
