@@ -1,12 +1,12 @@
 import bpy
 from bpy.props import *
-from bpy_extras.io_utils import ImportHelper 	# helps with file browser
+from bpy_extras.io_utils import ImportHelper    # helps with file browser
 
 # store image path and array of image texture filenames
 img_dir = '//'
-img_filenames = ['0.png', '1.png', '2.png']
+img_filenames = ['test-thumb-0.png', 'test-thumb-1.png', 'test-thumb-2.png']
 
-# button click in ative material's property
+# button click in active material's property
 # open file browser
     # let user select as many images (only images) as desired
     # on left side panel, user selects from import options:
@@ -77,9 +77,10 @@ class ImgTexturizer:
         self.material.texture_slots.add()
         self.material.texture_slots[empty_slot].texture = created_tex
         # load and use imge file
-        filepath = self.build_path(self.texture_names[img_i])
+        fullpath = self.build_path(self.texture_names[img_i])
+        #filepath = self.texture_names[img_i]
         if self.texture_names[img_i] not in created_imgs_list:
-            bpy.data.images.load(filepath)
+            bpy.data.images.load(fullpath)
         found_img = bpy.data.images[bpy.data.images.find(self.texture_names[img_i])]
         self.material.active_texture.image = found_img
         #self.load_image(tex_path, empty_slot)
@@ -135,21 +136,29 @@ class ImgTexturesPanel (bpy.types.Panel):
     def draw (self, context):
         self.layout.operator('material.texbatch_op', text='Batch Add Image Textures')
         self.layout.operator('material.texbatch_paths', text='Browse & Add Images')
-        # NOW: display the images that will be loaded
-        # TODO: file browser display selected images 
-        #self.layout.row().prop(bpy.context.scene,'img_texs_test', expand=True)
-
+        # TODO: display the images that are loaded
+        
 class ImgTexturesImporter (bpy.types.Operator, ImportHelper):
     bl_idname = 'material.texbatch_paths' 
     bl_label = 'Import Texture Files'
-    files = CollectionProperty(name='Filepaths', type=bpy.types.OperatorFileListElement)
+    filepath = StringProperty (name='File Path')
+    files = CollectionProperty(name='File Names', type=bpy.types.OperatorFileListElement)
+    directory = StringProperty(maxlen=1024, subtype='DIR_PATH',options={'HIDDEN'})
+    filter_image = BoolProperty(default=True, options={'HIDDEN'})
+    filter_folder = BoolProperty(default=True, options={'HIDDEN'})
+    filter_glob = StringProperty(default="", options={'HIDDEN'})
+    
     def execute (self, ctx):
-        for f in files:
-            print(f)
+        img_filenames = []
+        img_dir = bpy.path.relpath(self.directory)+'/'
+        for f in self.files:
+            img_filenames.append(f.name)
+        imgTexs = ImgTexturizer (img_filenames, img_dir)
+        imgTexs.setup()
         return {'FINISHED'}
 
-    def invoke (self, ctx, event):
-        ctx.window_manager.fileselect_add(self)
+    def invoke (self, context, event):
+        context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 ## /!\ COMPARE: file browsing and adding
 # class TexFilesLoader (bpy.types.Operator, ImportHelper):
@@ -176,12 +185,12 @@ class ImgTexturesOperator (bpy.types.Operator):
  
 def register():
     bpy.utils.register_class(ImgTexturesPanel)
-    bpy.utils.register_class(ImgTexturesOperator)
+    #bpy.utils.register_class(ImgTexturesOperator)
     bpy.utils.register_class(ImgTexturesImporter)
 
 def unregister():
     bpy.utils.unregister_class(ImgTexturesPanel)
-    bpy.utils.unregister_class(ImgTexturesOperator)
+    #bpy.utils.unregister_class(ImgTexturesOperator)
     bpy.utils.register_class(ImgTexturesImporter)
 
 if __name__ == '__main__':
