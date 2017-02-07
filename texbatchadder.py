@@ -36,7 +36,7 @@ class ImgTexturizer:
                 used_imgs.append (self.texture_names[img_counter])
                 img_counter += 1
                 # settings for created tex - assumes it's the active tex
-                self.apply_texslot_params(self.material.texture_slots[i])
+                self.set_texslot_params(self.material.texture_slots[i])
                 self.material.use_textures[i] = False
             else:
                 # deactivate all used texture slots for this material
@@ -45,7 +45,7 @@ class ImgTexturizer:
         self.material.use_textures[0] = True
         
         # alpha and transparency for this material
-        self.apply_material_params()
+        self.customize_material_params()
 
         # return uncreated imgs if not all images got turned into texs
         return self.check_if_created_all(img_counter)
@@ -57,15 +57,6 @@ class ImgTexturizer:
             return {'FINISHED'}
         # return the sublist of uncreated images
         return self.texture_names[count_created:]
-
-    def img_already_exists (self, img_i):
-        # /!\ USE WITH CAUTION - current implementation would be nested for loop
-        for img in bpy.data.images:
-            if (self.dir+self.tex_names[img_i]) == img.filepath:
-                return True
-            else:
-                pass
-        return False
         
     def create_texture (self, empty_slot, img_i, created_imgs_list):
         # set new location to the next open slot
@@ -108,12 +99,18 @@ class ImgTexturizer:
             return filename
 
     # apply parameters 1-4 above to each texture created
-    def apply_material_params (self):
-        self.material.use_transparency = True
-        self.material.transparency_method = 'Z_TRANSPARENCY'
-        self.material.alpha = 0.0
+    def customize_material_params (self, custom_settings=True, use_transparency=True):
+        if custom_settings:
+            self.material.diffuse_intensity = 1.0
+            self.material.specular_intensity = 0.0
+            self.material.use_transparent_shadows = True
+        if use_transparency:
+            self.material.use_transparency = True
+            self.material.transparency_method = 'Z_TRANSPARENCY'
+            self.material.alpha = 0.0
+        return None
 
-    def apply_texslot_params (self, tex_slot):
+    def set_texslot_params (self, tex_slot):
         self.material.active_texture.type = 'IMAGE'
         tex_slot.use_map_alpha = True
         self.material.active_texture.use_preview_alpha = True
@@ -155,6 +152,13 @@ class ImgTexturesImporter (bpy.types.Operator, ImportHelper):
             img_filenames.append(f.name)
         imgTexs = ImgTexturizer (img_filenames, img_dir)
         imgTexs.setup()
+
+        # TODO
+        #  - create a "new material" task (use texs to create brand new obj)
+        #       - grab 0th image and run "img as plane"
+        #       - apply material settings to that img
+        #       - use this as import
+        #  - separate the current process out as an "update material" task
         return {'FINISHED'}
 
     def invoke (self, context, event):
