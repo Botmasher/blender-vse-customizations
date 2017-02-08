@@ -116,12 +116,38 @@ class ImgTexturizer:
         self.material.active_texture.use_preview_alpha = True
         self.material.active_texture.extension = 'CLIP'
 
-# # test property for user to adjust in panel
-# bpy.types.Scene.img_texs_test = EnumProperty(
-#     items = [('zero', '0', 'some test text'),],
-#     name = 'Image Textures Test',
-#     description = 'A test property for image textures batcher'
-#     )
+def load_image_as_plane (img_filename):
+    # assure context is 3D
+    area_3d = bpy.context.area
+    bpy.context.area.type = 'VIEW_3D'
+    bpy.ops.import_image.to_plane()
+
+    # TODO set context to filebrowser
+    
+    # TODO set filepath to input filepath
+
+    # import img
+    bpy.ops.file.execute()
+
+    # set context back to 3D
+    bpy.context.area = area_3d
+
+    # grab imported plane and its material
+    obj = bpy.context.scene.objects.active
+    mat = obj.active_material
+
+    # configure material and texture (imports with only 1 of each)
+    mat.diffuse_intensity = 1.0
+    mat.specular_intensity = 0.0
+    mat.use_transparency = True
+    mat.transparency_method = 'Z_TRANSPARENCY'
+    mat.alpha = 0.0
+    mat.use_transparent_shadows = True
+    mat.texture_slots[0].use_alpha = True
+    mat.texture_slots[0].use_map_alpha = True
+    mat.texture_slots[0].use_preview_alpha = True
+    mat.texture_slots[0].extension = 'CLIP'
+    return (obj, mat)
 
 class ImgTexturesPanel (bpy.types.Panel):
     # Blender UI label, name, placement
