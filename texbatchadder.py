@@ -70,8 +70,7 @@ class ImgTexturizer:
         self.load_image(img_i, empty_slot, created_imgs_list)
 
     def build_path (self, filename):
-        path = self.dir + filename
-        return path
+        return self.dir + filename
     
     def load_image (self, img_index, slot, created_images_list):
         path = self.build_path(self.texture_names[img_index])
@@ -82,20 +81,19 @@ class ImgTexturizer:
         found_img = bpy.data.images[bpy.data.images.find(self.texture_names[img_index])]
         # use loaded image as this texture's image
         self.material.active_texture.image = found_img
-        return found_img
 
     # take an image filename string
     # output the string without the file extension
     def strip_img_extension (self, filename):
-        img_extensions = ['.png','.jpg','.jpeg','.gif','.tif','.bmp']
-        if filename[-4:] in img_extensions:
-            return filename[:-4]
-        elif path[-5:] in img_extensions:
-            return filename[:-5]
-        else:
-            return filename
+        short_ext = ['.png','.jpg','.gif','.tif','.bmp']
+        long_ext = ['.jpeg']
+        if any(filename.endswith(e) for e in short_ext):
+            filename = filename[:-4]
+        elif any(filename.endswith(e) for e in long_ext):
+            filename = filename[:-5]        
+        return filename
 
-    # apply parameters 1-4 above to each texture created
+    # apply settings to the material
     def customize_material_params (self, custom_settings=True, use_transparency=True):
         if custom_settings:
             self.material.diffuse_intensity = 1.0
@@ -107,6 +105,7 @@ class ImgTexturizer:
             self.material.alpha = 0.0
         return None
 
+    # apply settings to each texture created
     def set_texslot_params (self, tex_slot):
         self.material.active_texture.type = 'IMAGE'
         tex_slot.use_map_alpha = True
@@ -119,9 +118,9 @@ def load_image_as_plane (img_filename):
     bpy.context.area.type = 'VIEW_3D'
     bpy.ops.import_image.to_plane()
 
-    # TODO set context to filebrowser
-    
-    # TODO set filepath to input filepath
+    # input filebrowser path to img file
+    # OR instead of running op just see how that code imports a resized plane
+    #.filepath = img_filename
 
     # import img
     bpy.ops.file.execute()
@@ -130,8 +129,7 @@ def load_image_as_plane (img_filename):
     bpy.context.area = area_3d
 
     # grab imported plane and its material
-    obj = bpy.context.scene.objects.active
-    mat = obj.active_material
+    mat = bpy.context.scene.objects.active.active_material
 
     # configure material and texture (imports with only 1 of each)
     mat.diffuse_intensity = 1.0
@@ -144,7 +142,7 @@ def load_image_as_plane (img_filename):
     mat.texture_slots[0].use_map_alpha = True
     mat.texture_slots[0].use_preview_alpha = True
     mat.texture_slots[0].extension = 'CLIP'
-    return (obj, mat)
+    return mat
 
 class ImgTexturesPanel (bpy.types.Panel):
     # Blender UI label, name, placement
