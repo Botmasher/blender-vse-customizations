@@ -37,10 +37,9 @@ class ImgTexturizer:
                 img_counter += 1
                 # settings for created tex - assumes it's the active tex
                 self.set_texslot_params(self.material.texture_slots[i])
-                self.material.use_textures[i] = False
-            else:
-                # deactivate all used texture slots for this material
-                self.material.use_textures[i] = False
+            # deactivate all texture slots for this material
+            self.material.use_textures[i] = False
+
         # activate the first texture for this material
         self.material.use_textures[0] = True
         
@@ -68,24 +67,22 @@ class ImgTexturizer:
         self.material.texture_slots.add()
         self.material.texture_slots[empty_slot].texture = created_tex
         # load and use imge file
-        fullpath = self.build_path(self.texture_names[img_i])
-        #filepath = self.texture_names[img_i]
-        if self.texture_names[img_i] not in created_imgs_list:
-            bpy.data.images.load(fullpath)
-        found_img = bpy.data.images[bpy.data.images.find(self.texture_names[img_i])]
-        self.material.active_texture.image = found_img
-        #self.load_image(tex_path, empty_slot)
+        self.load_image(img_i, empty_slot, created_imgs_list)
 
     def build_path (self, filename):
         path = self.dir + filename
         return path
     
-    def load_image (self, filename, slot):
-        path = self.build_path(filename)
+    def load_image (self, img_index, slot, created_images_list):
+        path = self.build_path(self.texture_names[img_index])
         # load image to into blend db
-        bpy.data.images.load(path)
+        if self.texture_names[img_index] not in created_images_list:
+            bpy.data.images.load(path)
+        # point to loaded img
+        found_img = bpy.data.images[bpy.data.images.find(self.texture_names[img_index])]
         # use loaded image as this texture's image
-        self.material.active_texture.image = bpy.data.images[bpy.data.images.find(filename)]
+        self.material.active_texture.image = found_img
+        return found_img
 
     # take an image filename string
     # output the string without the file extension
