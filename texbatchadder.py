@@ -17,9 +17,12 @@ img_filenames = ['test-thumb-0.png', 'test-thumb-1.png', 'test-thumb-2.png']
 
 class ImgTexturizer:
     
-    def __init__ (self, texture_names, directory):
+    def __init__ (self, texture_names, directory, material=None):
         # reference active material and user paths
-        self.material = bpy.context.scene.objects.active.active_material
+        if material==None:
+            self.material = bpy.context.scene.objects.active.active_material
+        else:
+            self.material = material
         self.texture_names = texture_names
         self.dir = directory
 
@@ -171,7 +174,9 @@ class ImgTexturesImporter (bpy.types.Operator, ImportHelper):
         img_dir = bpy.path.relpath(self.directory)+'/'
         for f in self.files:
             img_filenames.append(f.name)
-        imgTexs = ImgTexturizer (img_filenames, img_dir)
+        first_file = img_dir + img_filenames[0]
+        mat = load_image_as_plane (first_file)
+        imgTexs = ImgTexturizer (img_filenames, img_dir, mat)
         imgTexs.setup()
 
         # TODO
@@ -185,37 +190,13 @@ class ImgTexturesImporter (bpy.types.Operator, ImportHelper):
     def invoke (self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
-## /!\ COMPARE: file browsing and adding
-# class TexFilesLoader (bpy.types.Operator, ImportHelper):
-#     bl_idname = "material.loadtex_files"
-#     bl_label = "Browse and load image files as textures"
-#     #? path = bpy.props.StringProperty(subtype="FILE_PATH")
-#     def execute (self, context):
-#       fpath = self.properties.filepath
-#         store_output(self.path)
-#         return {'FINISHED'}
-#     def invoke (self, context, event):
-#         context.window_manager.fileselect_add(self)
-#         return {'RUNNING_MODAL'}
-   
-class ImgTexturesOperator (bpy.types.Operator):
-    bl_label = 'Batch Add Image Textures'
-    bl_idname = 'material.texbatch_op'
-    bl_description = 'Add multiple images as textures for this material'
-    def execute (self, context):
-        # reference active object and names when instantiating
-        imgTexs = ImgTexturizer (img_filenames, img_dir)
-        imgTexs.setup()
-        return {'FINISHED'}
  
 def register():
     bpy.utils.register_class(ImgTexturesPanel)
-    #bpy.utils.register_class(ImgTexturesOperator)
     bpy.utils.register_class(ImgTexturesImporter)
 
 def unregister():
     bpy.utils.unregister_class(ImgTexturesPanel)
-    #bpy.utils.unregister_class(ImgTexturesOperator)
     bpy.utils.register_class(ImgTexturesImporter)
 
 if __name__ == '__main__':
