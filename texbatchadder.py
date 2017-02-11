@@ -1,30 +1,26 @@
 import bpy
 from bpy.props import *
-from bpy_extras.io_utils import ImportHelper    # helps with file browser
+from bpy_extras.io_utils import ImportHelper    # help with file browser
 
-# store image path and array of image texture filenames
-img_dir = '//'
-img_filenames = ['test-thumb-0.png', 'test-thumb-1.png', 'test-thumb-2.png']
 
-# button click in active material's property
-# open file browser
-    # let user select as many images (only images) as desired
-    # on left side panel, user selects from import options:
-    #   (1) Should I use alpha?         Default: True if like png.
-    #   (2) Should I use transparency?  Default: True if like png.
-    #   (3) Should I set preview alpha? Default: True if like png.
-    #   (4) Should I set to clipped?    Default: True.
-
+# Take image paths and create textures to fill active object's material slots
 class ImgTexturizer:
-    
-    def __init__ (self, texture_names, directory, material=None):
-        # reference active material and user paths
-        if material==None:
-            self.material = bpy.context.scene.objects.active.active_material
-        else:
-            self.material = material
+    def __init__ (self, texture_names, directory):
+        # reference user paths
         self.texture_names = texture_names
         self.dir = directory
+        # point to or create object's active material
+        if bpy.context.scene.objects.active.active_material == None:
+            mat = bpy.data.materials.new(self.strip_img_extension(texture_names[0]))
+            self.material = mat
+            bpy.context.scene.objects.active.active_material = mat
+        else:
+            self.material = bpy.context.scene.objects.active.active_material
+
+    def update_filepaths (self, names, path):
+        # TODO build out option to completely rewrite an object's textures
+        self.texture_names = names
+        self.dir = path
 
     def setup (self):
         # track created imgs (array) and number of tex slots filled (counter)
@@ -73,6 +69,7 @@ class ImgTexturizer:
         self.load_image(img_i, empty_slot, created_imgs_list)
 
     def build_path (self, filename):
+        # concatenate '//directory/path/' and 'filename.ext'
         return self.dir + filename
     
     def load_image (self, img_index, slot, created_images_list):
@@ -115,38 +112,8 @@ class ImgTexturizer:
         self.material.active_texture.use_preview_alpha = True
         self.material.active_texture.extension = 'CLIP'
 
-def load_image_as_plane (img_filename):
-    # assure context is 3D
-    area_3d = bpy.context.area
-    bpy.context.area.type = 'VIEW_3D'
-    bpy.ops.import_image.to_plane()
 
-    # input filebrowser path to img file
-    # OR instead of running op just see how that code imports a resized plane
-    #.filepath = img_filename
-
-    # import img
-    bpy.ops.file.execute()
-
-    # set context back to 3D
-    bpy.context.area = area_3d
-
-    # grab imported plane and its material
-    mat = bpy.context.scene.objects.active.active_material
-
-    # configure material and texture (imports with only 1 of each)
-    mat.diffuse_intensity = 1.0
-    mat.specular_intensity = 0.0
-    mat.use_transparency = True
-    mat.transparency_method = 'Z_TRANSPARENCY'
-    mat.alpha = 0.0
-    mat.use_transparent_shadows = True
-    mat.texture_slots[0].use_alpha = True
-    mat.texture_slots[0].use_map_alpha = True
-    mat.texture_slots[0].use_preview_alpha = True
-    mat.texture_slots[0].extension = 'CLIP'
-    return mat
-
+# Panel and button
 class ImgTexturesPanel (bpy.types.Panel):
     # Blender UI label, name, placement
     bl_label = 'Add Image Textures'
@@ -155,11 +122,11 @@ class ImgTexturesPanel (bpy.types.Panel):
     bl_region_type = 'WINDOW'
     # build the panel
     def draw (self, context):
-        self.layout.operator('material.texbatch_op', text='Batch Add Image Textures')
         self.layout.operator('material.texbatch_paths', text='Browse & Add Images')
         # TODO: display the images that are loaded
         
 class ImgTexturesImporter (bpy.types.Operator, ImportHelper):
+    # file browser info
     bl_idname = 'material.texbatch_paths' 
     bl_label = 'Import Texture Files'
     filepath = StringProperty (name='File Path')
@@ -168,29 +135,23 @@ class ImgTexturesImporter (bpy.types.Operator, ImportHelper):
     filter_image = BoolProperty(default=True, options={'HIDDEN'})
     filter_folder = BoolProperty(default=True, options={'HIDDEN'})
     filter_glob = StringProperty(default="", options={'HIDDEN'})
-    
+
     def execute (self, ctx):
+        # store files in array and add them to material as textures 
         img_filenames = []
         img_dir = bpy.path.relpath(self.directory)+'/'
         for f in self.files:
             img_filenames.append(f.name)
-        first_file = img_dir + img_filenames[0]
-        mat = load_image_as_plane (first_file)
-        imgTexs = ImgTexturizer (img_filenames, img_dir, mat)
-        imgTexs.setup()
-
-        # TODO
-        #  - create a "new material" task (use texs to create brand new obj)
-        #       - grab 0th image and run "img as plane"
-        #       - apply material settings to that img
-        #       - use this as import
-        #  - separate the current process out as an "update material" task
+        texBatchAdder = ImgTexturizer(img_filenames, img_dir)
+        texBatchAdder.setup()
         return {'FINISHED'}
 
     def invoke (self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
- 
+
+
+# Panel and button registration
 def register():
     bpy.utils.register_class(ImgTexturesPanel)
     bpy.utils.register_class(ImgTexturesImporter)
