@@ -5,7 +5,7 @@ from bpy_extras.io_utils import ImportHelper    # help with file browser
 
 # Take image paths and create textures to fill active object's material slots
 class ImgTexturizer:
-    def __init__ (self, texture_names, directory):
+    def __init__ (self, texture_names, directory, transparency):
         # reference user paths
         self.texture_names = texture_names
         self.dir = directory
@@ -16,6 +16,7 @@ class ImgTexturizer:
             bpy.context.scene.objects.active.active_material = mat
         else:
             self.material = bpy.context.scene.objects.active.active_material
+        self.transparency = transparency
 
     def update_filepaths (self, names, path):
         # TODO build out option to completely rewrite an object's textures
@@ -94,12 +95,13 @@ class ImgTexturizer:
         return filename
 
     # apply settings to the material
-    def customize_material_params (self, custom_settings=True, use_transparency=True):
+    def customize_material_params (self, custom_settings=True):
         if custom_settings:
+            self.material.preview_render_type = 'FLAT'
             self.material.diffuse_intensity = 1.0
             self.material.specular_intensity = 0.0
             self.material.use_transparent_shadows = True
-        if use_transparency:
+        if self.transparency:
             self.material.use_transparency = True
             self.material.transparency_method = 'Z_TRANSPARENCY'
             self.material.alpha = 0.0
@@ -108,27 +110,29 @@ class ImgTexturizer:
     # apply settings to each texture created
     def set_texslot_params (self, tex_slot):
         self.material.active_texture.type = 'IMAGE'
-        tex_slot.use_map_alpha = True
-        self.material.active_texture.use_preview_alpha = True
+        if self.transparency:
+            tex_slot.use_map_alpha = True
+            self.material.active_texture.use_preview_alpha = True
         self.material.active_texture.extension = 'CLIP'
 
+# PROPS FOR TRANSPARENCY? Bool. Used in fileimport below, and passed to class above
 
 # Panel and button
 class ImgTexturesPanel (bpy.types.Panel):
     # Blender UI label, name, placement
-    bl_label = 'Create New Object with Textures'
-    bl_idname = 'material.texbatchcreateobj_panel'
+    bl_label = 'Create Plane with Textures'
+    bl_idname = 'material.texbatch_panel'
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     # build the panel
     def draw (self, context):
-        self.layout.operator('material.texbatch_paths', text='Browse & Add Images')
+        self.layout.operator('material.texbatch_paths', text='Create Plane of Many Textures')
         # TODO: display the images that are loaded
         
 class ImgTexturesImportCreate (bpy.types.Operator, ImportHelper):
     # file browser info
     bl_idname = 'material.texbatch_paths' 
-    bl_label = 'Import Images and Create Object with Texs'
+    bl_label = 'Import Images and Create Plane with Texs'
     filepath = StringProperty (name='File Path')
     files = CollectionProperty(name='File Names', type=bpy.types.OperatorFileListElement)
     directory = StringProperty(maxlen=1024, subtype='DIR_PATH',options={'HIDDEN'})
@@ -142,13 +146,24 @@ class ImgTexturesImportCreate (bpy.types.Operator, ImportHelper):
         img_dir = bpy.path.relpath(self.directory)+'/'
         for f in self.files:
             img_filenames.append(f.name)
+        
         # add 0th image as plane
-        bpy.ops.import_image.to_plane(files=[self.files[0]],directory=self.directory)
-        # ERROR expected files to be a dict for an RNA collection not OperatorFileListElement
-        # select plane as active
+        area=bpy.context.area.type
+        bpy.context.area.type="VIEW_3D"
+        bpy.ops.import_image.to_plane(files=[{'name':self.files[0].name}],directory=self.directory)
+        bpy.context.area.type=area
+        
+        # set 0th image's texture properties
+        # USE TRANSPARENCY PROP T/F
+        obj = bpy.context.scene.objects.active
+        obj.active_material.active_texture.use_preview_alpha = True
+        obj.active_material.active_texture.extension = 'CLIP'
+        obj.active_material.texture_slots[0].use_map_alpha = True
+        
         # add rest of textures to plane
+        # PASS ALONG TRANSPARENCY PROP T/F
         img_filenames = img_filenames[1:]
-        texBatchAdder = ImgTexturizer(img_filenames, img_dir)
+        texBatchAdder = ImgTexturizer(img_filenames, img_dir, TRANSPARENCY???)
         texBatchAdder.setup()
         return {'FINISHED'}
 
@@ -160,11 +175,11 @@ class ImgTexturesImportCreate (bpy.types.Operator, ImportHelper):
 # Panel and button registration
 def register():
     bpy.utils.register_class(ImgTexturesPanel)
-    bpy.utils.register_class(ImgTexturesImporter)
+    bpy.utils.register_class(ImgTexturesImportCreate)
 
 def unregister():
     bpy.utils.unregister_class(ImgTexturesPanel)
-    bpy.utils.register_class(ImgTexturesImporter)
+    bpy.utils.register_class(ImgTexturesImportCreate)
 
 if __name__ == '__main__':
     register()
