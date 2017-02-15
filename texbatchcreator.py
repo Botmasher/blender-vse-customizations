@@ -124,10 +124,12 @@ class ImgTexturesPanel (bpy.types.Panel):
     bl_context = 'texture'
     # build the panel
     def draw (self, context):
-        self.layout.operator('material.texbatch_paths', text='Create Plane of Many Textures')
-        
-class ImgTexturesImportCreate (bpy.types.Operator, ImportHelper):
-    bl_idname = 'material.texbatch_paths' 
+        if bpy.context.scene.objects.active.active_material.active_texture != None:
+            self.layout.operator('material.texbatch_add', text='Add Texs to This Plane')
+        self.layout.operator('material.texbatch_create', text='New Plane of Many Texs') 
+
+class ImgTexturesImportAdd (bpy.types.Operator, ImportHelper):
+    bl_idname = 'material.texbatch_add' 
     bl_label = 'Import Texs and Create Plane'
     # file browser info and settings
     filepath = StringProperty (name='File Path')
@@ -138,14 +140,39 @@ class ImgTexturesImportCreate (bpy.types.Operator, ImportHelper):
     filter_glob = StringProperty(default="", options={'HIDDEN'})
     # img alpha setting to pass to batch texturizer
     use_transparency = BoolProperty (name="Use transparency")
+    
+    def store_files (self, files):
+        img_filenames = []
+        for f in files:
+            img_filenames.append (f.name)
+        return img_filenames
+
+    def store_directory (self, path):
+        img_dir = bpy.path.relpath (path)+'/'
+        return img_dir
+    
+    def execute (self, ctx):
+        # store files in array and add them to material as textures 
+        img_filenames = self.store_files(self.files)
+        img_dir = self.store_directory(self.directory)
+
+        texBatchAdder = ImgTexturizer(img_filenames, img_dir, self.use_transparency)
+        texBatchAdder.setup()
+        return {'FINISHED'}
+
+    def invoke (self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+class ImgTexturesImportCreate (bpy.types.Operator, ImgTexturesImportAdd, ImportHelper):
+    bl_idname = 'material.texbatch_create' 
+    bl_label = 'Import Texs and Create Plane'
 
     def execute (self, ctx):
         # store files in array and add them to material as textures 
-        img_filenames = []
-        img_dir = bpy.path.relpath(self.directory)+'/'
-        for f in self.files:
-            img_filenames.append(f.name)
-        
+        img_filenames = self.store_files(self.files)
+        img_dir = self.store_directory(self.directory)
+
         # add 0th image as plane
         area=bpy.context.area.type
         bpy.context.area.type="VIEW_3D"
