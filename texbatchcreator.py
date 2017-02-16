@@ -122,15 +122,19 @@ class ImgTexturesPanel (bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = 'texture'
+    update_existing = BoolProperty (name="Add to this object", default="True")
     # build the panel
     def draw (self, context):
         if bpy.context.scene.objects.active.active_material.active_texture != None:
-            self.layout.operator('material.texbatch_add', text='Add Texs to This Plane')
-        self.layout.operator('material.texbatch_create', text='New Plane of Many Texs') 
+            self.layout.props(self.update_existing)
+        else:
+            self.update_existing = False
+        # selection to allow for create vs update
+        self.layout.operator('material.texbatch_import', text='Make Plane of Many Texs').update_existing = self.update_existing
 
-class ImgTexturesImportAdd (bpy.types.Operator, ImportHelper):
-    bl_idname = 'material.texbatch_add' 
-    bl_label = 'Import Texs and Create Plane'
+class ImgTexturesImport (bpy.types.Operator, ImportHelper):
+    bl_idname = 'material.texbatch_import' 
+    bl_label = 'Import Texs to Single Plane'
     # file browser info and settings
     filepath = StringProperty (name='File Path')
     files = CollectionProperty(name='File Names', type=bpy.types.OperatorFileListElement)
@@ -140,7 +144,8 @@ class ImgTexturesImportAdd (bpy.types.Operator, ImportHelper):
     filter_glob = StringProperty(default="", options={'HIDDEN'})
     # img alpha setting to pass to batch texturizer
     use_transparency = BoolProperty (name="Use transparency")
-    
+    update_existing = BoolProperty (name="Update current object", options={'HIDDEN'})
+
     def store_files (self, files):
         img_filenames = []
         for f in files:
@@ -150,44 +155,31 @@ class ImgTexturesImportAdd (bpy.types.Operator, ImportHelper):
     def store_directory (self, path):
         img_dir = bpy.path.relpath (path)+'/'
         return img_dir
-    
-    def execute (self, ctx):
-        # store files in array and add them to material as textures 
-        img_filenames = self.store_files(self.files)
-        img_dir = self.store_directory(self.directory)
-
-        texBatchAdder = ImgTexturizer(img_filenames, img_dir, self.use_transparency)
-        texBatchAdder.setup()
-        return {'FINISHED'}
-
-    def invoke (self, context, event):
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
-
-class ImgTexturesImportCreate (bpy.types.Operator, ImgTexturesImportAdd, ImportHelper):
-    bl_idname = 'material.texbatch_create' 
-    bl_label = 'Import Texs and Create Plane'
 
     def execute (self, ctx):
         # store files in array and add them to material as textures 
         img_filenames = self.store_files(self.files)
         img_dir = self.store_directory(self.directory)
 
-        # add 0th image as plane
-        area=bpy.context.area.type
-        bpy.context.area.type="VIEW_3D"
-        bpy.ops.import_image.to_plane(files=[{'name':self.files[0].name}],directory=self.directory)
-        bpy.context.area.type=area
-        
-        # set 0th image's texture properties
-        obj = bpy.context.scene.objects.active
-        obj.active_material.active_texture.extension = 'CLIP'
-        if self.use_transparency:
-            obj.active_material.active_texture.use_preview_alpha = True
-            obj.active_material.texture_slots[0].use_map_alpha = True
-        
-        # add rest of textures to plane
-        img_filenames = img_filenames[1:]
+        # create a new plane with these textures
+        if not self.update_existing:
+            # add 0th image as plane
+            area=bpy.context.area.type
+            bpy.context.area.type="VIEW_3D"
+            bpy.ops.import_image.to_plane(files=[{'name':self.files[0].name}],directory=self.directory)
+            bpy.context.area.type=area
+            
+            # set 0th image's texture properties
+            obj = bpy.context.scene.objects.active
+            obj.active_material.active_texture.extension = 'CLIP'
+            if self.use_transparency:
+                obj.active_material.active_texture.use_preview_alpha = True
+                obj.active_material.texture_slots[0].use_map_alpha = True
+            
+            # 0th texture already added, so cut from texturizer list
+            img_filenames = img_filenames[1:]
+
+        # add textures to plane
         texBatchAdder = ImgTexturizer(img_filenames, img_dir, self.use_transparency)
         texBatchAdder.setup()
         return {'FINISHED'}
@@ -200,11 +192,12 @@ class ImgTexturesImportCreate (bpy.types.Operator, ImgTexturesImportAdd, ImportH
 # Panel and button registration
 def register():
     bpy.utils.register_class(ImgTexturesPanel)
-    bpy.utils.register_class(ImgTexturesImportCreate)
+    bpy.utils.register_class(ImgTexturesImport)
+    #bpy.types.Texture.texbatch_update_existing_object = bpy.props.BoolProperty(name="Add to this object", default="False")
 
 def unregister():
     bpy.utils.unregister_class(ImgTexturesPanel)
-    bpy.utils.register_class(ImgTexturesImportCreate)
+    bpy.utils.register_class(ImgTexturesImport)
 
 if __name__ == '__main__':
     register()
