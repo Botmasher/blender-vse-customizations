@@ -122,16 +122,16 @@ class ImgTexturesPanel (bpy.types.Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = 'texture'
-    update_existing = BoolProperty (name="Add to this object", default="True")
+    update_existing = BoolProperty(name="Add to this object", default=True)
     # build the panel
     def draw (self, context):
-        if bpy.context.scene.objects.active.active_material.active_texture != None:
-            self.layout.props(self.update_existing)
+        self.update_existing = True
+        if bpy.context.scene.objects.active != None and bpy.context.scene.objects.active.active_material.active_texture != None:
+            self.layout.operator('material.texbatch_import', text='Add Texs to this Object').update_existing = True
         else:
-            self.update_existing = False
+            self.layout.operator('material.texbatch_import', text='Make Plane of Many Texs').update_existing = False
         # selection to allow for create vs update
-        self.layout.operator('material.texbatch_import', text='Make Plane of Many Texs').update_existing = self.update_existing
-
+        
 class ImgTexturesImport (bpy.types.Operator, ImportHelper):
     bl_idname = 'material.texbatch_import' 
     bl_label = 'Import Texs to Single Plane'
@@ -144,7 +144,7 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
     filter_glob = StringProperty(default="", options={'HIDDEN'})
     # img alpha setting to pass to batch texturizer
     use_transparency = BoolProperty (name="Use transparency")
-    update_existing = BoolProperty (name="Update current object", options={'HIDDEN'})
+    update_existing = BoolProperty (options={'HIDDEN'})
 
     def store_files (self, files):
         img_filenames = []
