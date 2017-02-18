@@ -4,25 +4,49 @@ from bpy_extras.io_utils import ImportHelper    # help with file browser
 
 # Take image paths and create textures to fill active object's material slots
 class ImgTexturizer:
-    def __init__ (self, texture_names, directory, transparency):
+    def __init__ (self, texture_names, directory, transparency, update_existing):
         # reference user paths
         self.texture_names = texture_names
         self.dir = directory
         # point to or create object's active material
+        # /!\ ERROR PRONE - UPDATE THIS CHECK && COMPARE TO PANEL/OP LOGIC
         if bpy.context.scene.objects.active.active_material == None:
             mat = bpy.data.materials.new(self.strip_img_extension(texture_names[0]))
             self.material = mat
             bpy.context.scene.objects.active.active_material = mat
         else:
             self.material = bpy.context.scene.objects.active.active_material
+        # setting checks for setup control flow
         self.transparency = transparency
+        self.update_existing = update_existing
 
+    def create_img_plane (self):
+        # add 0th image as plane
+        area=bpy.context.area.type
+        bpy.context.area.type="VIEW_3D"
+        bpy.ops.import_image.to_plane(files=[{'name':self.texture_names[0]}],directory=self.dir)
+        bpy.context.area.type=area
+        # set 0th image's texture properties
+        obj = bpy.context.scene.objects.active
+        obj.active_material.active_texture.extension = 'CLIP'
+        if self.transparency:
+            obj.active_material.active_texture.use_preview_alpha = True
+            obj.active_material.texture_slots[0].use_map_alpha = True    
+        # plane now contains 0th image, so remove from list
+        self.texture_names = self.texture_names[1:]
+        # update the reference material
+        self.material = obj.active_material
+        
     def update_filepaths (self, names, path):
         # TODO build out option to completely rewrite an object's textures
         self.texture_names = names
         self.dir = path
 
     def setup (self):
+        # create new image plane if not just updating
+        if not self.update_existing:
+            self.create_img_plane()
+        
         # track created imgs (array) and number of tex slots filled (counter)
         img_counter = 0
         used_imgs = []
@@ -161,26 +185,8 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
         img_filenames = self.store_files(self.files)
         img_dir = self.store_directory(self.directory)
 
-        # create a new plane with these textures
-        if not self.update_existing:
-            # add 0th image as plane
-            area=bpy.context.area.type
-            bpy.context.area.type="VIEW_3D"
-            bpy.ops.import_image.to_plane(files=[{'name':self.files[0].name}],directory=self.directory)
-            bpy.context.area.type=area
-            
-            # set 0th image's texture properties
-            obj = bpy.context.scene.objects.active
-            obj.active_material.active_texture.extension = 'CLIP'
-            if self.use_transparency:
-                obj.active_material.active_texture.use_preview_alpha = True
-                obj.active_material.texture_slots[0].use_map_alpha = True
-            
-            # 0th texture already added, so cut from texturizer list
-            img_filenames = img_filenames[1:]
-
         # add textures to plane
-        texBatchAdder = ImgTexturizer(img_filenames, img_dir, self.use_transparency)
+        texBatchAdder = ImgTexturizer(img_filenames, img_dir, self.use_transparency, self.update_existing)
         texBatchAdder.setup()
         return {'FINISHED'}
 
