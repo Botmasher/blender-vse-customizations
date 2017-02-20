@@ -2,7 +2,8 @@ import bpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper    # help with file browser
 
-# Take image paths and create textures to fill active object's material slots
+
+# Take image paths and create textures to fill object's material slots
 class ImgTexturizer:
     def __init__ (self, texture_names, directory, transparency, update_existing):
         # reference user paths
@@ -10,13 +11,12 @@ class ImgTexturizer:
         self.dir = directory
         # setting checks for setup control flow
         self.transparency = transparency
-        self.update_existing = update_existing
-        # point to or create object's active material
-        if self.update_existing:
+        # point to object's active material
+        if update_existing:
             self.material = bpy.context.scene.objects.active.active_material
         else:
-            ## we will create a new img plane in setup and assign self.material
-            pass
+            # we will create a new img plane in setup and assign self.material
+            self.create_img_plane()
 
     def create_img_plane (self):
         # add 0th image as plane
@@ -26,12 +26,14 @@ class ImgTexturizer:
         bpy.context.area.type=area
         # set 0th image's texture properties
         obj = bpy.context.scene.objects.active
-        obj.active_material.active_texture.extension = 'CLIP'
         if self.transparency:
+            #obj.active_material.active_texture.use_alpha = True
+            # set alpha on image
+            obj.active_material.active_texture.image.use_alpha = True
             obj.active_material.active_texture.use_preview_alpha = True
             obj.active_material.texture_slots[0].use_map_alpha = True
-            obj.active_material.texture_slots[0].use_alpha = True  
-        # plane now contains 0th image, so remove from list
+        obj.active_material.active_texture.extension = 'CLIP'
+        # plane now contains the 0th image, so remove it from list
         self.texture_names = self.texture_names[1:]
         # update the reference material
         self.material = obj.active_material
@@ -41,11 +43,7 @@ class ImgTexturizer:
         self.texture_names = names
         self.dir = path
 
-    def setup (self):
-        # create new image plane if not just updating
-        if not self.update_existing:
-            self.create_img_plane()
-        
+    def setup (self):        
         # track created imgs (array) and number of tex slots filled (counter)
         img_counter = 0
         used_imgs = []
@@ -105,11 +103,10 @@ class ImgTexturizer:
         # use loaded image as this texture's image
         self.material.active_texture.image = found_img
 
-    # take an image filename string
-    # output the string without the file extension
+    # output filename string without the file extension (for prettier obj names)
     def strip_img_extension (self, filename):
-        short_ext = ['.png','.jpg','.gif','.tif','.bmp']
-        long_ext = ['.jpeg']
+        short_ext = ['.png','.jpg','.gif','.tif','.bmp','.PNG','.JPG','.GIF','.TIF','.BMP']
+        long_ext = ['.jpeg','.JPEG']
         if any(filename.endswith(e) for e in short_ext):
             filename = filename[:-4]
         elif any(filename.endswith(e) for e in long_ext):
@@ -124,7 +121,7 @@ class ImgTexturizer:
             self.material.specular_intensity = 0.0
             self.material.use_transparent_shadows = True
         if self.transparency:
-            self.material.use_transparency = True
+            self.material.use_transparency = self.transparency
             self.material.transparency_method = 'Z_TRANSPARENCY'
             self.material.alpha = 0.0
         return None
@@ -134,8 +131,10 @@ class ImgTexturizer:
         self.material.active_texture.type = 'IMAGE'
         if self.transparency:
             tex_slot.use_map_alpha = True
+            self.material.active_texture.use_alpha = True
             self.material.active_texture.use_preview_alpha = True
         self.material.active_texture.extension = 'CLIP'
+
 
 # Panel and button
 class ImgTexturesPanel (bpy.types.Panel):
@@ -150,9 +149,9 @@ class ImgTexturesPanel (bpy.types.Panel):
     def draw (self, context):
         self.update_existing = True
         # selection to allow for create vs update
-        self.layout.operator('material.texbatch_import', text='Make Plane of Many Texs').update_existing = False
         if bpy.context.scene.objects.active != None and bpy.context.scene.objects.active.active_material.active_texture != None:
             self.layout.operator('material.texbatch_import', text='Add Texs to this Object').update_existing = True
+        self.layout.operator('material.texbatch_import', text='Create Plane with Texs').update_existing = False
 
 class ImgTexturesImport (bpy.types.Operator, ImportHelper):
     bl_idname = 'material.texbatch_import' 
@@ -197,7 +196,6 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
 def register():
     bpy.utils.register_class(ImgTexturesPanel)
     bpy.utils.register_class(ImgTexturesImport)
-    #bpy.types.Texture.texbatch_update_existing_object = bpy.props.BoolProperty(name="Add to this object", default="False")
 
 def unregister():
     bpy.utils.unregister_class(ImgTexturesPanel)
