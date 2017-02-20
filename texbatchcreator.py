@@ -8,17 +8,15 @@ class ImgTexturizer:
         # reference user paths
         self.texture_names = texture_names
         self.dir = directory
-        # point to or create object's active material
-        # /!\ ERROR PRONE - UPDATE THIS CHECK && COMPARE TO PANEL/OP LOGIC
-        if bpy.context.scene.objects.active.active_material == None:
-            mat = bpy.data.materials.new(self.strip_img_extension(texture_names[0]))
-            self.material = mat
-            bpy.context.scene.objects.active.active_material = mat
-        else:
-            self.material = bpy.context.scene.objects.active.active_material
         # setting checks for setup control flow
         self.transparency = transparency
         self.update_existing = update_existing
+        # point to or create object's active material
+        if self.update_existing:
+            self.material = bpy.context.scene.objects.active.active_material
+        else:
+            ## we will create a new img plane in setup and assign self.material
+            pass
 
     def create_img_plane (self):
         # add 0th image as plane
@@ -31,7 +29,8 @@ class ImgTexturizer:
         obj.active_material.active_texture.extension = 'CLIP'
         if self.transparency:
             obj.active_material.active_texture.use_preview_alpha = True
-            obj.active_material.texture_slots[0].use_map_alpha = True    
+            obj.active_material.texture_slots[0].use_map_alpha = True
+            obj.active_material.texture_slots[0].use_alpha = True  
         # plane now contains 0th image, so remove from list
         self.texture_names = self.texture_names[1:]
         # update the reference material
@@ -150,12 +149,11 @@ class ImgTexturesPanel (bpy.types.Panel):
     # build the panel
     def draw (self, context):
         self.update_existing = True
+        # selection to allow for create vs update
+        self.layout.operator('material.texbatch_import', text='Make Plane of Many Texs').update_existing = False
         if bpy.context.scene.objects.active != None and bpy.context.scene.objects.active.active_material.active_texture != None:
             self.layout.operator('material.texbatch_import', text='Add Texs to this Object').update_existing = True
-        else:
-            self.layout.operator('material.texbatch_import', text='Make Plane of Many Texs').update_existing = False
-        # selection to allow for create vs update
-        
+
 class ImgTexturesImport (bpy.types.Operator, ImportHelper):
     bl_idname = 'material.texbatch_import' 
     bl_label = 'Import Texs to Single Plane'
