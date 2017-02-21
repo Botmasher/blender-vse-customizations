@@ -131,10 +131,48 @@ class ImgTexturizer:
         self.material.active_texture.type = 'IMAGE'
         if self.transparency:
             tex_slot.use_map_alpha = True
-            self.material.active_texture.use_alpha = True
+            self.material.active_texture.image.use_alpha = True
             self.material.active_texture.use_preview_alpha = True
         self.material.active_texture.extension = 'CLIP'
 
+def toggle_imgmat_transparency (material):
+    # verify that mat, img and tex transparency are aligned
+    slot0 = material.texture_slots[0]
+    slot1 = material.texture_slots[1]
+    tex0 = material.texture_slots[0].texture
+    check_align_transp = True
+    if material.use_transparency != slot0.use_map_alpha != tex0.use_preview_alpha != tex0.image.use_alpha:
+        check_align_transp = False
+    if slot1 != None and slot0.texture.image.use_alpha != slot1.texture.image.use_alpha:
+        check_align_transp = False
+    # if first pass or transparency settings got unaligned, reset to transparent
+    if not check_align_transp:
+        for slot in material.texture_slots:
+            if slot != None:
+                slot.texture.extension = 'CLIP'
+                slot.texture.image.use_alpha = True
+                slot.texture.use_preview_alpha = True
+                slot.use_map_alpha = True
+        material.use_transparency = True
+        material.transparency_method = 'Z_TRANSPARENCY'
+        material.alpha = 0.0
+        material.diffuse_intensity = 1.0
+        material.specular_intensity = 0.0
+        material.use_transparent_shadows = True
+        return material
+    # toggle transparency for all textures
+    for slot in material.texture_slots:
+        if slot != None:
+            slot.texture.image.use_alpha = not slot.texture.image.use_alpha
+            slot.texture.use_preview_alpha = not slot.texture.use_preview_alpha
+            slot.use_map_alpha = not slot.use_map_alpha
+    # toggle transparency for the material
+    material.transparency_method = 'Z_TRANSPARENCY'
+    material.alpha = not material.use_transparency
+    material.use_transparency = not material.use_transparency
+    material.use_transparent_shadows = True
+    material.preview_render_type = 'FLAT'
+    return material
 
 # Panel and button
 class ImgTexturesPanel (bpy.types.Panel):
@@ -151,7 +189,16 @@ class ImgTexturesPanel (bpy.types.Panel):
         # selection to allow for create vs update
         if bpy.context.scene.objects.active != None and bpy.context.scene.objects.active.active_material.active_texture != None:
             self.layout.operator('material.texbatch_import', text='Add Texs to this Object').update_existing = True
+            self.layout.operator('material.toggle_transparency', text='Toggle Transparency')
         self.layout.operator('material.texbatch_import', text='Create Plane with Texs').update_existing = False
+
+class ImgTexturesToggleTransparency (bpy.types.Operator):
+    bl_idname = 'material.toggle_transparency'
+    bl_label = 'Toggle All Textures Transparent'
+    def execute (self, ctx):
+        mat = bpy.context.scene.objects.active.active_material
+        toggle_imgmat_transparency(mat)
+        return {'FINISHED'}
 
 class ImgTexturesImport (bpy.types.Operator, ImportHelper):
     bl_idname = 'material.texbatch_import' 
@@ -191,15 +238,16 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-
 # Panel and button registration
 def register():
     bpy.utils.register_class(ImgTexturesPanel)
     bpy.utils.register_class(ImgTexturesImport)
+    bpy.utils.register_class(ImgTexturesToggleTransparency)
 
 def unregister():
     bpy.utils.unregister_class(ImgTexturesPanel)
-    bpy.utils.register_class(ImgTexturesImport)
+    bpy.utils.unregister_class(ImgTexturesImport)
+    bpy.utils.unregister_class(ImgTexturesToggleTransparency)
 
 if __name__ == '__main__':
     register()
