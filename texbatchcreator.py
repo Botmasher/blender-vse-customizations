@@ -16,6 +16,7 @@ class ImgTexturizer:
         else:
             # we will create a new img plane in setup and assign self.material
             self.create_img_plane()
+        self.update_existing = update_existing
 
     def create_img_plane (self):
         # add 0th image as plane
@@ -29,8 +30,6 @@ class ImgTexturizer:
             obj.active_material.active_texture.use_preview_alpha = True
             obj.active_material.texture_slots[0].use_map_alpha = True
         obj.active_material.active_texture.extension = 'CLIP'
-        # plane now contains the 0th image, so remove it from list
-        self.texture_names = self.texture_names[1:]
         # update the reference material
         self.material = obj.active_material
         
@@ -38,18 +37,23 @@ class ImgTexturizer:
         self.texture_names = names
         self.dir = path
 
-    def setup (self, replace_all):        
+    def setup (self, overwrite_slots):        
         # track created imgs (array) and number of tex slots filled (counter)
         img_counter = 0
+        # created plane contains the 0th image, so skipt it
+        if not self.update_existing:
+            img_counter += 1
         used_imgs = []
         
         # add images in material's open texture slots
         for i in range (0, len(self.material.texture_slots)-1):
-            if img_counter < len(self.texture_names):
-                if replace_all or self.material.texture_slots[i] == None: 
-                    # replacing allows switching out all texs on a mat
-                    # None just checks for allowing empty
-                    self.update_tex_slot(i, img_counter, used_imgs)
+            slot_open = self.material.texture_slots[i] == None
+            # overwrite switches out all texs on a mat - open just checks for empty
+            if img_counter < len(self.texture_names) and (overwrite_slots or slot_open): 
+                self.fill_tex_slot(i, img_counter, used_imgs)
+                # bookkeeping stuff after filling the slot
+                used_imgs.append(self.texture_names[i])
+                img_counter += 1
             # deactivate all texture slots for this material
             self.material.use_textures[i] = False
 
@@ -62,14 +66,13 @@ class ImgTexturizer:
         # return uncreated imgs if not all images got turned into texs
         return self.check_if_created_all(img_counter)
 
-    def update_tex_slot (self, i, img_counter, used_imgs_list):
+    def fill_tex_slot (self, slot_i, img_i, used_imgs_list):
         # create tex in this slot using the next img
-        self.create_texture(i, img_counter, used_imgs_list)
-        used_imgs_list.append (self.texture_names[img_counter])
-        img_counter += 1
-        # settings for created tex - assumes it's the active tex
-        self.set_texslot_params(self.material.texture_slots[i])
-        return self.material.texture_slots[i]
+        self.create_texture(slot_i, img_i)
+        # load and use imge file for this tex
+        self.load_image(img_i, slot_i, used_imgs_list)
+        # adjust settings for created tex - assumes it's the active tex
+        self.set_texslot_params(self.material.texture_slots[slot_i])
 
     def check_if_created_all (self, count_created):
         # verify that all images were loaded into textures
@@ -79,7 +82,7 @@ class ImgTexturizer:
         # return the sublist of uncreated images
         return self.texture_names[count_created:]
         
-    def create_texture (self, empty_slot, img_i, created_imgs_list):
+    def create_texture (self, empty_slot, img_i):
         # set new location to the next open slot
         self.material.active_texture_index = empty_slot
         # create the new texture in this slot
@@ -88,8 +91,8 @@ class ImgTexturizer:
         # update texture slot to hold this texture
         self.material.texture_slots.add()
         self.material.texture_slots[empty_slot].texture = created_tex
-        # load and use imge file
-        self.load_image(img_i, empty_slot, created_imgs_list)
+        # next step - load image into created tex (separate load method)
+        return None
 
     def build_path (self, filename):
         # concatenate '//directory/path/' and 'filename.ext'
@@ -214,6 +217,7 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
     filter_glob = StringProperty(default="", options={'HIDDEN'})
     # img alpha setting to pass to batch texturizer
     use_transparency = BoolProperty (name="Use transparency")
+    replace_current = BoolProperty (name="Replace current textures")
     update_existing = BoolProperty (options={'HIDDEN'})
 
     def store_files (self, files):
@@ -233,7 +237,7 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
 
         # add textures to plane
         texBatchAdder = ImgTexturizer(img_filenames, img_dir, self.use_transparency, self.update_existing)
-        texBatchAdder.setup(False) # toggle T/F to replace all texs
+        texBatchAdder.setup(self.replace_current) # toggle T/F to replace all texs
         return {'FINISHED'}
 
     def invoke (self, context, event):
