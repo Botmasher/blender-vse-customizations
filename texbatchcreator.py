@@ -4,26 +4,18 @@ from bpy_extras.io_utils import ImportHelper    # help with file browser
 
 # Take image paths and create textures to fill object's material slots
 class ImgTexturizer:
-    def __init__ (self, texture_names, directory, transparency, update_existing):
+    def __init__ (self, texture_names, directory):
         # reference user paths
         self.texture_names = texture_names
         self.dir = directory
-        # setting checks for setup control flow
-        self.transparency = transparency
-        # point to object's active material
-        if update_existing:
-            self.material = bpy.context.scene.objects.active.active_material
-        else:
-            # we will create a new img plane in setup and assign self.material
-            self.create_img_plane()
-        self.update_existing = update_existing
+        self.material = None    # assign in setup
 
-    def create_img_plane (self):
+    def create_img_plane (self, transparent):
         # add 0th image as plane
         bpy.ops.import_image.to_plane(files=[{'name':self.texture_names[0]}],directory=self.dir)
         # set 0th image's texture properties
         obj = bpy.context.scene.objects.active
-        if self.transparency:
+        if transparent:
             #obj.active_material.active_texture.use_alpha = True
             # set alpha on image
             obj.active_material.active_texture.image.use_alpha = True
@@ -31,28 +23,28 @@ class ImgTexturizer:
             obj.active_material.texture_slots[0].use_map_alpha = True
         obj.active_material.active_texture.extension = 'CLIP'
         # update the reference material
-        self.material = obj.active_material
-        
-    def update_filepaths (self, names, path):
-        self.texture_names = names
-        self.dir = path
+        return obj.active_material
 
-    def setup (self, overwrite_slots):        
+    def setup (self, overwrite_slots, update_existing, use_transparency):        
         # track created imgs (array) and number of tex slots filled (counter)
         img_counter = 0
-        # created plane contains the 0th image, so skipt it
-        if not self.update_existing:
-            img_counter += 1
         used_imgs = []
-        
+
+        # point to object's active material
+        if update_existing:
+            self.material = bpy.context.scene.objects.active.active_material
+        else:
+            # create a new img plane and count first img as used
+            self.material = self.create_img_plane(use_transparency)
+            img_counter += 1
+
         # add images in material's open texture slots
-        for i in range (0, len(self.material.texture_slots)-1):
-            slot_open = self.material.texture_slots[i] == None
+        for i in range (img_counter, len(self.material.texture_slots)-1):
             # overwrite switches out all texs on a mat - open just checks for empty
-            if img_counter < len(self.texture_names) and (overwrite_slots or slot_open): 
-                self.fill_tex_slot(i, img_counter, used_imgs)
+            if img_counter < len(self.texture_names) and (overwrite_slots or self.material.texture_slots[i]==None):
+                self.fill_tex_slot(i, img_counter, used_imgs, use_transparency)
                 # bookkeeping stuff after filling the slot
-                used_imgs.append(self.texture_names[i])
+                used_imgs.append(self.texture_names[img_counter])
                 img_counter += 1
             # deactivate all texture slots for this material
             self.material.use_textures[i] = False
@@ -61,18 +53,18 @@ class ImgTexturizer:
         self.material.use_textures[0] = True
         
         # alpha and transparency for this material
-        self.customize_material_params()
+        self.customize_material_params(use_transparency)
 
         # return uncreated imgs if not all images got turned into texs
         return self.check_if_created_all(img_counter)
 
-    def fill_tex_slot (self, slot_i, img_i, used_imgs_list):
+    def fill_tex_slot (self, slot_i, img_i, used_imgs_list, transparent):
         # create tex in this slot using the next img
         self.create_texture(slot_i, img_i)
         # load and use imge file for this tex
         self.load_image(img_i, slot_i, used_imgs_list)
         # adjust settings for created tex - assumes it's the active tex
-        self.set_texslot_params(self.material.texture_slots[slot_i])
+        self.set_texslot_params(self.material.texture_slots[slot_i], transparent)
 
     def check_if_created_all (self, count_created):
         # verify that all images were loaded into textures
@@ -119,22 +111,22 @@ class ImgTexturizer:
         return filename
 
     # apply settings to the material
-    def customize_material_params (self, custom_settings=True):
+    def customize_material_params (self, transparent, custom_settings=True):
         if custom_settings:
             self.material.preview_render_type = 'FLAT'
             self.material.diffuse_intensity = 1.0
             self.material.specular_intensity = 0.0
             self.material.use_transparent_shadows = True
-        if self.transparency:
-            self.material.use_transparency = self.transparency
+        if transparent:
+            self.material.use_transparency = transparent
             self.material.transparency_method = 'Z_TRANSPARENCY'
             self.material.alpha = 0.0
         return None
 
     # apply settings to each texture created
-    def set_texslot_params (self, tex_slot):
+    def set_texslot_params (self, tex_slot, transparent):
         self.material.active_texture.type = 'IMAGE'
-        if self.transparency:
+        if transparent:
             tex_slot.use_map_alpha = True
             self.material.active_texture.image.use_alpha = True
             self.material.active_texture.use_preview_alpha = True
@@ -195,7 +187,8 @@ class ImgTexturesPanel (bpy.types.Panel):
         if bpy.context.scene.objects.active != None and bpy.context.scene.objects.active.active_material.active_texture != None:
             self.layout.operator('material.texbatch_import', text='Add Texs to this Object').update_existing = True
             self.layout.operator('material.toggle_transparency', text='Toggle Transparency')
-        self.layout.operator('material.texbatch_import', text='Create Plane with Texs').update_existing = False
+        else:
+            self.layout.operator('material.texbatch_import', text='Create Plane with Texs').update_existing = False
 
 class ImgTexturesToggleTransparency (bpy.types.Operator):
     bl_idname = 'material.toggle_transparency'
@@ -236,8 +229,8 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
         img_dir = self.store_directory(self.directory)
 
         # add textures to plane
-        texBatchAdder = ImgTexturizer(img_filenames, img_dir, self.use_transparency, self.update_existing)
-        texBatchAdder.setup(self.replace_current) # toggle T/F to replace all texs
+        texBatchAdder = ImgTexturizer(img_filenames, img_dir)
+        texBatchAdder.setup(self.replace_current, self.update_existing, self.use_transparency)
         return {'FINISHED'}
 
     def invoke (self, context, event):
