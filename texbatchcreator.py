@@ -181,14 +181,14 @@ class ImgTexturesPanel (bpy.types.Panel):
     bl_context = 'texture'
     update_existing = BoolProperty(name="Add to this object", default=True)
     # build the panel
-    def draw (self, context):
+    def draw (self, ctx):
         self.update_existing = True
         # selection to allow for create vs update
-        if bpy.context.scene.objects.active != None and bpy.context.scene.objects.active.active_material.active_texture != None:
-            self.layout.operator('material.texbatch_import', text='Add Texs to this Object').update_existing = True
+        if bpy.context.scene.objects.active.active_material != None:
+            self.layout.operator('material.texbatch_import', text='Add Texs to Object').update_existing = True
             self.layout.operator('material.toggle_transparency', text='Toggle Transparency')
         else:
-            self.layout.operator('material.texbatch_import', text='Create Plane with Texs').update_existing = False
+            self.layout.operator('material.texbatch_import', text='Create New Plane').update_existing = False
 
 class ImgTexturesToggleTransparency (bpy.types.Operator):
     bl_idname = 'material.toggle_transparency'
