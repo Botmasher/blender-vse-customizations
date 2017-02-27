@@ -145,7 +145,7 @@ def toggle_imgmat_transparency (material):
     # if first pass or transparency settings got unaligned, reset to transparent
     if not check_align_transp:
         for slot in material.texture_slots:
-            if slot != None:
+            if slot != None and slot.texture.type == 'IMAGE':
                 slot.texture.extension = 'CLIP'
                 slot.texture.image.use_alpha = True
                 slot.texture.use_preview_alpha = True
@@ -184,9 +184,14 @@ class ImgTexturesPanel (bpy.types.Panel):
     def draw (self, ctx):
         self.update_existing = True
         # selection to allow for create vs update
-        if bpy.context.scene.objects.active.active_material != None:
+        try:
+            curr_mat = bpy.context.scene.objects.active.active_material
+        except:
+            curr_mat = None
+        if curr_mat is not None:
             self.layout.operator('material.texbatch_import', text='Add Texs to Object').update_existing = True
-            self.layout.operator('material.toggle_transparency', text='Toggle Transparency')
+            if curr_mat.texture_slots.items()[0][1].texture.type == 'IMAGE':
+                self.layout.operator('material.toggle_transparency', text='Toggle Transparency')
         else:
             self.layout.operator('material.texbatch_import', text='Create New Plane').update_existing = False
 
