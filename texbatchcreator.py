@@ -13,11 +13,8 @@ class ImgTexturizer:
     def create_img_plane (self, transparent):
         old_area = bpy.context.area.type
         bpy.context.area.type = 'VIEW_3D'
-        print(self.texture_names)
-        print(self.texture_names[0])
-        print(self.dir)
         # add 0th image as plane
-        bpy.ops.import_image.to_plane(files=[{'name':self.texture_names[0]}],directory=self.dir)
+        bpy.ops.import_image.to_plane(files=[{'name': self.texture_names[0]}],directory=self.dir)
         # set 0th image's texture properties
         obj = bpy.context.scene.objects.active
         bpy.context.area.type = old_area
@@ -31,6 +28,11 @@ class ImgTexturizer:
         # update the reference material
         return obj.active_material
 
+    def test_imgtoplane (self):
+        bpy.ops.import_image.to_plane(files=[{'name':self.texture_names[0]},directory=self.dir])
+        object_mat = bpy.context.scene.objects.active.active_material
+        return object_mat
+
     def setup (self, overwrite_slots, update_existing, use_transparency):        
         # track created imgs (array) and number of tex slots filled (counter)
         img_counter = 0
@@ -41,9 +43,9 @@ class ImgTexturizer:
         ## point to object's active material
         #if update_existing:
         #    self.material = bpy.context.scene.objects.active.active_material
-        #else:
+        if not update_existing:
         #    # create a new img plane and count first img as used
-        #    self.material = self.create_img_plane(use_transparency)
+            self.material = self.test_imgtoplane()
         #    img_counter += 1
         
         # /!\ above new plane creation returns error - avoid until fixed
