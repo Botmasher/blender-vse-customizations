@@ -28,28 +28,18 @@ class ImgTexturizer:
         # update the reference material
         return obj.active_material
 
-    def test_imgtoplane (self):
-        bpy.ops.import_image.to_plane(files=[{'name':self.texture_names[0]},directory=self.dir])
-        object_mat = bpy.context.scene.objects.active.active_material
-        return object_mat
-
     def setup (self, overwrite_slots, update_existing, use_transparency):        
         # track created imgs (array) and number of tex slots filled (counter)
         img_counter = 0
         used_imgs = []
 
-        # /!\ Img to plane returning script-internal error
-        # /!\ NoneType object has no attribute 'use_alpha' (line 450)
         ## point to object's active material
-        #if update_existing:
-        #    self.material = bpy.context.scene.objects.active.active_material
-        if not update_existing:
-        #    # create a new img plane and count first img as used
-            self.material = self.test_imgtoplane()
-        #    img_counter += 1
-        
-        # /!\ above new plane creation returns error - avoid until fixed
-        self.material = bpy.context.scene.objects.active.active_material
+        if update_existing:
+            self.material = bpy.context.scene.objects.active.active_material
+        else:
+            # create a new img plane and count first img as used
+            self.material = self.create_img_plane(use_transparency)
+            img_counter += 1
 
         # add images in material's open texture slots
         for i in range (img_counter, len(self.material.texture_slots)-1):
@@ -206,10 +196,10 @@ class ImgTexturesPanel (bpy.types.Panel):
             if curr_mat.texture_slots.items()[0][1].texture.type == 'IMAGE':
                 self.layout.operator('material.toggle_transparency', text='Toggle Transparency')
         # /!\ Returns error - see create img as plane method in main class /!\
-        #else:
-        #    self.layout.operator('material.texbatch_import', text='Create New Plane').update_existing = False
         else:
-            self.layout.row().label("No active material.")
+            self.layout.operator('material.texbatch_import', text='Create New Plane').update_existing = False
+        #else:
+        #    self.layout.row().label("No active material.")
 
 class ImgTexturesToggleTransparency (bpy.types.Operator):
     bl_idname = 'material.toggle_transparency'
@@ -241,8 +231,9 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
         return img_filenames
 
     def store_directory (self, path):
-        img_dir = bpy.path.relpath (path)+'/'
-        return img_dir
+        #img_dir = bpy.path.relpath (path)+'/'
+        #return img_dir
+        return path
 
     def execute (self, ctx):
         # store files in array and add them to material as textures 
