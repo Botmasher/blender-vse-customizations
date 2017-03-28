@@ -10,10 +10,10 @@ original_s = bpy.context.scene.sequence_editor.active_strip
 adjust_by_x = 0.5
 
 def set_vol (s):
-	if s.type=='SOUND':
-    	# set the volume proportionally
+    if s.type=='SOUND':
+        # set the volume proportionally
         s.volume = s.volume * s.volume_master
-       	return True
+        return True
     else:
         return False
 
@@ -29,24 +29,38 @@ def get_vol (s):
 
 
 # add panel and operator classes
-class SetMassVolume (Operator):
-	bl_idname = 'SoundSequence.volume_master'
-	bl_label = 'Master Volume'
-	#bl_region = 'SEQUENCE_EDITOR'
-
-	my_float = bpy.props.FloatProperty(name="Master Volume")
-
-	def execute (self, ctx):
-		for s in bpy.context.scene.sequence_editor.sequences:
-			set_vol (s)
-		return {'FINISHED'}
-
-	def invoke (self, ctx):
-		return ctx.window_manager.invoke_props_dialog(self)
-
+class SetMassVolPanel (bpy.types.Panel):
+    bl_idname = 'SOUNDSEQUENCE_volume_master'
+    bl_label = 'Set master volume'
+    bl_space_type = 'SEQUENCE_EDITOR'
+    bl_region_type = 'UI'
+    
+    def draw (self, ctx):
+        self.layout.row(text="asdf")
+        self.layout.row.operator('soundsequence.volume_master')
+    
+    
+class SetMassVolOp (bpy.types.Operator):
+    bl_idname = 'soundsequence.volume_master'
+    bl_label = 'Master Volume'
+    
+    my_float = bpy.props.FloatProperty(name="Master Volume")
+    my_k = None
+    
+    def execute (self, ctx):
+        for s in bpy.context.scene.sequence_editor.sequences:
+            set_vol (s)
+        self.report({'INFO'}, "Input event %s" % (self.my_k))
+        return {'FINISHED'}
+    
+    def invoke (self, ctx, e):
+        # pay attention to event keypress/input
+        self.k = e.type
+        return ctx.window_manager.invoke_props_dialog(self)
 
 def register ():
-	bpy.utils.register_class(SetMassVolume)
+    bpy.utils.register_class(SetMassVolOp)
+    bpy.utils.register_class(SetMassVolPanel)
 
 register()
 
