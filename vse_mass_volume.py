@@ -9,16 +9,21 @@ original_vols = {}
 original_s = bpy.context.scene.sequence_editor.active_strip
 adjust_by_x = 0.5
 
-bpy.types.SoundSequence.mass_volume = FloatProperty(name="Mass Volume Factor", description="Multiply all strip volumes by this amount")
+bpy.types.SoundSequence.mass_volume = FloatProperty(name="Multiply Volumes", description="Multiply all volumes")
 
-def set_vol (s, vol_factor):
-    if s.type=='SOUND':
-        s.mass_volume = vol_factor
+def set_vol (s, x, calc_type):
+    if s.type == 'SOUND' and calc_type == '*':
+        s.mass_volume = x
         # set the volume proportionally
         s.volume = s.volume * s.mass_volume
         return True
+    elif s.type == 'SOUND' and calc_type == '=':
+        s.volume = x
+        return True
     else:
         return False
+
+# TODO only adjust subset with a certain name or id
 
 def get_vol (s):
 	if s.type == 'SOUND':
@@ -37,23 +42,30 @@ class SetMassVolPanel (bpy.types.Panel):
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
     
+    vol_base = bpy.props.FloatProperty(name='Set Volumes')
+    vol_factor = bpy.props.FloatProperty(name='Multiply Volumes')
+
     def draw (self, ctx):
         active_s = bpy.context.scene.sequence_editor.active_strip
         if active_s.type == 'SOUND':
-            self.layout.row().prop(active_s, 'mass_volume')
-            self.layout.operator('soundsequence.mass_vol').vol_float = active_s.mass_volume
+            self.layout.row().prop(self, 'vol_base')
+            self.layout.row().prop(self, 'vol_factor')
+            self.layout.operator('soundsequence.mass_vol').vol_factor = active_s.mass_volume
     
 class SetMassVolOp (bpy.types.Operator):
     bl_label = 'Adjust All Audio Strip Volumes'
     bl_idname = 'soundsequence.mass_vol'
     
-    vol_float = bpy.props.FloatProperty(name="Mass Volume")
-    my_k = None
+    vol_base = bpy.props.FloatProperty(name='Set Volumes')
+    vol_factor = bpy.props.FloatProperty(name='Multiply Volumes')
     
     def execute (self, ctx):
+        if self.vol_factor != bpy.context.scene.sequence_editor.active_strip.mass_volume:
+            calc = '*'
+        else:
+            calc = '='
         for s in bpy.context.scene.sequence_editor.sequences:
-            set_vol (s, self.vol_float)
-        self.report({'INFO'}, "Input event %s" % (self.my_k))
+            set_vol (s, self.vol_float, calc)
         return {'FINISHED'}
     
     #def invoke (self, ctx, e):
