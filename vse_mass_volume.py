@@ -9,13 +9,13 @@ original_vols = {}
 original_s = bpy.context.scene.sequence_editor.active_strip
 adjust_by_x = 0.5
 
-bpy.types.SoundSequence.mass_volume = FloatProperty(name="Multiply Volumes", description="Multiply all volumes")
+bpy.types.SoundSequence.vol_mass_mult = FloatProperty(name="Multiply volumes", description="Multiply all volumes")
+bpy.types.SoundSequence.vol_mass_base = FloatProperty(name="Set volumes", description="Set all volumes")
 
 def set_vol (s, x, calc_type):
     if s.type == 'SOUND' and calc_type == '*':
-        s.mass_volume = x
         # set the volume proportionally
-        s.volume = s.volume * s.mass_volume
+        s.volume = s.volume * x
         return True
     elif s.type == 'SOUND' and calc_type == '=':
         s.volume = x
@@ -26,10 +26,10 @@ def set_vol (s, x, calc_type):
 # TODO only adjust subset with a certain name or id
 
 def get_vol (s):
-	if s.type == 'SOUND':
-		return s.volume
-	else:
-		return None
+    if s.type == 'SOUND':
+        return s.volume
+    else:
+        return None
 
 # TODO handle keyframes on strips
 
@@ -42,30 +42,38 @@ class SetMassVolPanel (bpy.types.Panel):
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
     
-    vol_base = bpy.props.FloatProperty(name='Set Volumes')
-    vol_factor = bpy.props.FloatProperty(name='Multiply Volumes')
+    #vol_base = bpy.props.FloatProperty(name='Set Volumes')
+    #vol_factor = bpy.props.FloatProperty(name='Multiply Volumes')
 
     def draw (self, ctx):
         active_s = bpy.context.scene.sequence_editor.active_strip
         if active_s.type == 'SOUND':
-            self.layout.row().prop(self, 'vol_base')
-            self.layout.row().prop(self, 'vol_factor')
-            self.layout.operator('soundsequence.mass_vol').vol_factor = active_s.mass_volume
+            
+            # checkbox for selected_only
+            # OR test to see if multiple strips selected
+            
+            # input box for name_contains
+            
+            self.layout.row().prop(active_s, 'vol_mass_base')
+            self.layout.row().prop(active_s, 'vol_mass_mult')
+            self.layout.operator('soundsequence.mass_vol')
     
 class SetMassVolOp (bpy.types.Operator):
     bl_label = 'Adjust All Audio Strip Volumes'
     bl_idname = 'soundsequence.mass_vol'
     
-    vol_base = bpy.props.FloatProperty(name='Set Volumes')
-    vol_factor = bpy.props.FloatProperty(name='Multiply Volumes')
-    
     def execute (self, ctx):
-        if self.vol_factor != bpy.context.scene.sequence_editor.active_strip.mass_volume:
-            calc = '*'
-        else:
+        active_s = bpy.context.scene.sequence_editor.active_strip
+        # user set new volume
+        if active_s.vol_mass_base != active_s.volume:
             calc = '='
+            x = active_s.vol_mass_base
+        # user multiplied volume
+        else:
+            calc = '*'
+            x = active_s.vol_mass_mult
         for s in bpy.context.scene.sequence_editor.sequences:
-            set_vol (s, self.vol_float, calc)
+            set_vol (s, x, calc)
         return {'FINISHED'}
     
     #def invoke (self, ctx, e):
@@ -78,5 +86,3 @@ def register ():
     bpy.utils.register_class(SetMassVolPanel)
 
 register()
-
-# TODO add register/unregister/run
