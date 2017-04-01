@@ -1,29 +1,25 @@
 import bpy
 from bpy.props import *
 
-# add property volume slider
-#bpy.types.SoundSequence.volume_master = bpy.props.FloatProperty(name="Master Volume")
 # TODO store prop of "default" vols before tool changes them
 original_vols = {}
-
 original_s = bpy.context.scene.sequence_editor.active_strip
-adjust_by_x = 0.5
 
+# add property volume slider
 bpy.types.SoundSequence.vol_mass_mult = FloatProperty(name="Multiply volumes", description="Multiply all volumes")
 bpy.types.SoundSequence.vol_mass_base = FloatProperty(name="Set volumes", description="Set all volumes")
+bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Name contains", description = "Only set if strip name contains")
 
-def set_vol (s, x, calc_type):
-    if s.type == 'SOUND' and calc_type == '*':
+def set_vol (s, x, calc_type, substr):
+    if s.type == 'SOUND' and calc_type == '*' and substr in s.name:
         # set the volume proportionally
         s.volume = s.volume * x
         return True
-    elif s.type == 'SOUND' and calc_type == '=':
+    elif s.type == 'SOUND' and calc_type == '=' and substr in s.name:
         s.volume = x
         return True
     else:
         return False
-
-# TODO only adjust subset with a certain name or id
 
 def get_vol (s):
     if s.type == 'SOUND':
@@ -48,16 +44,14 @@ class SetMassVolPanel (bpy.types.Panel):
     def draw (self, ctx):
         active_s = bpy.context.scene.sequence_editor.active_strip
         if active_s.type == 'SOUND':
-            
-            # checkbox for selected_only
-            # OR test to see if multiple strips selected
-            
-            # input box for name_contains
-            
+            # test to see if multiple strips selected
+
             self.layout.row().prop(active_s, 'vol_mass_base')
             self.layout.row().prop(active_s, 'vol_mass_mult')
+            # input box for name_contains
+            self.layout.row().prop(active_s, 'vol_mass_name')
             self.layout.operator('soundsequence.mass_vol')
-    
+
 class SetMassVolOp (bpy.types.Operator):
     bl_label = 'Adjust All Audio Strip Volumes'
     bl_idname = 'soundsequence.mass_vol'
@@ -73,7 +67,7 @@ class SetMassVolOp (bpy.types.Operator):
             calc = '*'
             x = active_s.vol_mass_mult
         for s in bpy.context.scene.sequence_editor.sequences:
-            set_vol (s, x, calc)
+            set_vol (s, x, calc, active_s.vol_last_name)
         return {'FINISHED'}
     
     #def invoke (self, ctx, e):
