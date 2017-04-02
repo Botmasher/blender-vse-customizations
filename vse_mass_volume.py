@@ -45,16 +45,22 @@ class SetMassVolPanel (bpy.types.Panel):
         active_s = bpy.context.scene.sequence_editor.active_strip
         if active_s.type == 'SOUND':
             # test to see if multiple strips selected
-
+            soundstrips = []
+            for s in in bpy.context.scene.sequence_editor.sequences:
+                if s.selected and s.type=='SOUND':
+                    soundstrips.append(s)
+            soundstrips = [active_s] if len(soundstrips) < 2
             self.layout.row().prop(active_s, 'vol_mass_base')
             self.layout.row().prop(active_s, 'vol_mass_mult')
             # input box for name_contains
             self.layout.row().prop(active_s, 'vol_mass_name')
-            self.layout.operator('soundsequence.mass_vol')
+            self.layout.operator('soundsequence.mass_vol').soundstrips_list=soundstrips
 
 class SetMassVolOp (bpy.types.Operator):
     bl_label = 'Adjust All Audio Strip Volumes'
     bl_idname = 'soundsequence.mass_vol'
+
+    soundstrips_list = []
     
     def execute (self, ctx):
         active_s = bpy.context.scene.sequence_editor.active_strip
@@ -66,14 +72,13 @@ class SetMassVolOp (bpy.types.Operator):
         else:
             calc = '*'
             x = active_s.vol_mass_mult
-        for s in bpy.context.scene.sequence_editor.sequences:
-            set_vol (s, x, calc, active_s.vol_last_name)
+        if len(soundstrips_list) == 1:
+            for s in soundstrips_list:
+                set_vol (s, x, calc, active_s.vol_last_name)
+        else:
+            for s in bpy.context.scene.sequence_editor.sequences:
+                set_vol (s, x, calc, active_s.vol_last_name)
         return {'FINISHED'}
-    
-    #def invoke (self, ctx, e):
-    #    # pay attention to event keypress/input
-    #    self.k = e.type
-    #    return ctx.window_manager.invoke_props_dialog(self)
 
 def register ():
     bpy.utils.register_class(SetMassVolOp)
