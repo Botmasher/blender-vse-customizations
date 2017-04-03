@@ -46,21 +46,22 @@ class SetMassVolPanel (bpy.types.Panel):
         if active_s.type == 'SOUND':
             # test to see if multiple strips selected
             soundstrips = []
-            for s in in bpy.context.scene.sequence_editor.sequences:
-                if s.selected and s.type=='SOUND':
+            for s in bpy.context.scene.sequence_editor.sequences:
+                if s.select and s.type=='SOUND':
                     soundstrips.append(s)
-            soundstrips = [active_s] if len(soundstrips) < 2
+            soundstrips = True if len(soundstrips) > 1 else False
+            print ("soundstrips is %s!" % str(soundstrips))
             self.layout.row().prop(active_s, 'vol_mass_base')
             self.layout.row().prop(active_s, 'vol_mass_mult')
             # input box for name_contains
             self.layout.row().prop(active_s, 'vol_mass_name')
-            self.layout.operator('soundsequence.mass_vol').soundstrips_list=soundstrips
+            self.layout.operator('soundsequence.mass_vol').selected_only=soundstrips
 
 class SetMassVolOp (bpy.types.Operator):
     bl_label = 'Adjust All Audio Strip Volumes'
     bl_idname = 'soundsequence.mass_vol'
 
-    soundstrips_list = []
+    selected_only = BoolProperty(name="Set selected strips only")
     
     def execute (self, ctx):
         active_s = bpy.context.scene.sequence_editor.active_strip
@@ -72,12 +73,15 @@ class SetMassVolOp (bpy.types.Operator):
         else:
             calc = '*'
             x = active_s.vol_mass_mult
-        if len(soundstrips_list) == 1:
-            for s in soundstrips_list:
-                set_vol (s, x, calc, active_s.vol_last_name)
-        else:
+        if self.selected_only:
+            seqs = []
             for s in bpy.context.scene.sequence_editor.sequences:
-                set_vol (s, x, calc, active_s.vol_last_name)
+                if s.select and s.type == 'SOUND':
+                    seqs.append(s)
+        else:
+            seqs = bpy.context.scene.sequence_editor.sequences
+        for s in seqs:
+            (s, x, calc, active_s.vol_mass_name)
         return {'FINISHED'}
 
 def register ():
