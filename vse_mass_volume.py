@@ -10,13 +10,14 @@ bpy.types.SoundSequence.vol_mass_mult = FloatProperty(name="Multiply volumes", d
 bpy.types.SoundSequence.vol_mass_base = FloatProperty(name="Set volumes", description="Set all volumes")
 bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Name contains", description = "Only set if strip name contains")
 
-def set_vol (s, x, calc_type, substr):
-    if s.type == 'SOUND' and calc_type == '*' and substr in s.name:
+# volume fade in/out (probably a separate transitions thing)
+
+def set_vol (s, substr):
+    if s.type == 'SOUND' and substr in s.name:
         # set the volume proportionally
-        s.volume = s.volume * x
-        return True
-    elif s.type == 'SOUND' and calc_type == '=' and substr in s.name:
-        s.volume = x
+        s.volume = s.volume * s.vol_mass_mult
+        # set the volume
+        s.volume = s.vol_mass_base
         return True
     else:
         return False
@@ -42,7 +43,11 @@ class SetMassVolPanel (bpy.types.Panel):
     #vol_factor = bpy.props.FloatProperty(name='Multiply Volumes')
 
     def draw (self, ctx):
+        # grab strip and adjust target base volume based on strip volume
         active_s = bpy.context.scene.sequence_editor.active_strip
+        active_s.vol_mass_base = active_s.volume
+
+        # draw panel with options and operator
         if active_s.type == 'SOUND':
             # test to see if multiple strips selected
             soundstrips = []
@@ -50,7 +55,6 @@ class SetMassVolPanel (bpy.types.Panel):
                 if s.select and s.type=='SOUND':
                     soundstrips.append(s)
             soundstrips = True if len(soundstrips) > 1 else False
-            print ("soundstrips is %s!" % str(soundstrips))
             self.layout.row().prop(active_s, 'vol_mass_base')
             self.layout.row().prop(active_s, 'vol_mass_mult')
             # input box for name_contains
@@ -64,24 +68,32 @@ class SetMassVolOp (bpy.types.Operator):
     selected_only = BoolProperty(name="Set selected strips only")
     
     def execute (self, ctx):
+        # grab strip
         active_s = bpy.context.scene.sequence_editor.active_strip
-        # user set new volume
-        if active_s.vol_mass_base != active_s.volume:
-            calc = '='
-            x = active_s.vol_mass_base
-        # user multiplied volume
-        else:
-            calc = '*'
-            x = active_s.vol_mass_mult
+        
+        # zero out negative values
+        if active_s.vol_mass_base < 0:
+            active_s.vol_mass_base = 0
+        if active_s.vol_mass_mult < 0:
+            active_s.vol_mass_mult =0
+
+        # only include selected strips
         if self.selected_only:
             seqs = []
             for s in bpy.context.scene.sequence_editor.sequences:
                 if s.select and s.type == 'SOUND':
                     seqs.append(s)
+        # include all sound strips
         else:
             seqs = bpy.context.scene.sequence_editor.sequences
+
+        # set sound strip volumes
         for s in seqs:
-            (s, x, calc, active_s.vol_mass_name)
+            set_vol (s, active_s.vol_mass_name)
+
+        # reset multiplier to 1.0
+        active_s.vol_mass_mult = 1.0
+
         return {'FINISHED'}
 
 def register ():
