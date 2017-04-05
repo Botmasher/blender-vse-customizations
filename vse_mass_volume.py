@@ -12,25 +12,20 @@ bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Name contains", des
 
 # volume fade in/out (probably a separate transitions thing)
 
-def set_vol (s, substr):
+def set_strip_vol (s, substr, x):
     if s.type == 'SOUND' and substr in s.name:
         # set the volume proportionally
         s.volume = s.volume * s.vol_mass_mult
         # set the volume
-        s.volume = s.vol_mass_base
+        if x == None:
+            s.volume = s.vol_mass_base
+        else:
+            s.volume = x
         return True
     else:
         return False
 
-def get_vol (s):
-    if s.type == 'SOUND':
-        return s.volume
-    else:
-        return None
-
 # TODO handle keyframes on strips
-
-# TODO - account for x <= 0.0
 
 # add panel and operator classes
 class SetMassVolPanel (bpy.types.Panel):
@@ -75,7 +70,7 @@ class SetMassVolOp (bpy.types.Operator):
         if active_s.vol_mass_base < 0:
             active_s.vol_mass_base = 0
         if active_s.vol_mass_mult < 0:
-            active_s.vol_mass_mult =0
+            active_s.vol_mass_mult = 0
 
         # only include selected strips
         if self.selected_only:
@@ -87,9 +82,14 @@ class SetMassVolOp (bpy.types.Operator):
         else:
             seqs = bpy.context.scene.sequence_editor.sequences
 
+        # store new vol multiplicand
+        x = None
+        if active_s.vol_mass_base != active_s.volume:
+            x = active_s.vol_mass_base
+        
         # set sound strip volumes
         for s in seqs:
-            set_vol (s, active_s.vol_mass_name)
+            set_strip_vol (s, active_s.vol_mass_name, x)
 
         # reset multiplier to 1.0
         active_s.vol_mass_mult = 1.0
