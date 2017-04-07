@@ -26,22 +26,27 @@ def set_strip_vol (s, substr, x):
         return False
 
 # TODO handle keyframes on strips
-def set_keyframes (strip_vol_paths):
+def set_keyframes (strip_vol_path, new_vol):
     adjusted_keyframes = {}
-    for f in bpy.context.scene.animation_data.actions.fcurves:
-        # new_volume = volume to calculate
-        if f.data_path in strip_vol_paths:
-            # adjust the volume at this point
-            curve = bpy.context.scene.animation_data.actions.fcurves.new(s.path_from_id("volume"))
-            key = f.keyframe_points.insert(f.keyframe_points.co[0], new_volume)
-            key.interpolation = 'LINEAR'
-            # store curve point and location
-            adjusted_keyframes[f.data_path] = f.keyframe_points.co[0] 
-        else:
-            pass
-
-strips_collection = set((s.path_from_id("volume") for s in selected_strips))
-set_keyframes (strips_collection)
+    # for f in bpy.context.scene.animation_data.actions.fcurves:
+    #     # new_volume = volume to calculate
+    #     if f.data_path in strip_vol_paths:
+    #         # adjust the volume at this point
+    #         curve = bpy.context.scene.animation_data.actions.fcurves.new(s.path_from_id("volume"))
+    #         key = f.keyframe_points.insert(f.keyframe_points.co[0], new_volume)
+    #         key.interpolation = 'LINEAR'
+    #         # store curve point and location
+    #         adjusted_keyframes[f.data_path] = f.keyframe_points.co[0] 
+    #     else:
+    #         pass
+    try:
+        f = bpy.context.scene.animation_data.action.fcurves.find(strip_vol_path)
+        #new_f = bpy.context.scene.animation_data.action.fcurves.new(s.path_from_id("volume"))
+        key = f.keyframe_points.insert(f.keyframe_points.co[0], new_vol)
+        key.interpolation = 'LINEAR'
+        return True
+    except:
+        return False
 
 # add panel and operator classes
 class SetMassVolPanel (bpy.types.Panel):
@@ -102,7 +107,11 @@ class SetMassVolOp (bpy.types.Operator):
         
         # set sound strip volumes
         for s in seqs:
-            set_strip_vol (s, active_s.vol_mass_name, x)
+            ## IF s.volume has no animation data:
+                set_strip_vol (s, active_s.vol_mass_name, x)
+            ## else:
+                strip_paths = set(( s.path_from_id("volume") ))
+                set_keyframes (strip_paths)
 
         # reset multiplier to 1.0
         active_s.vol_mass_mult = 1.0
