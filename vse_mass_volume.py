@@ -12,41 +12,20 @@ bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Name contains", des
 
 # volume fade in/out (probably a separate transitions thing)
 
-def set_strip_vol (s, substr, x):
+def set_strip_vol (s, substr, mult_x, new_x):
     if s.type == 'SOUND' and substr in s.name:
         # set the volume proportionally
-        s.volume = s.volume * s.vol_mass_mult
+        s.volume = s.volume * mult_x
         # set the volume
-        if x == None:
+        if new_x == None:
             s.volume = s.vol_mass_base
         else:
-            s.volume = x
+            s.volume = new_x
         return True
     else:
         return False
 
 # TODO handle keyframes on strips
-def set_keyframes (strip_vol_path, new_vol):
-    adjusted_keyframes = {}
-    # for f in bpy.context.scene.animation_data.actions.fcurves:
-    #     # new_volume = volume to calculate
-    #     if f.data_path in strip_vol_paths:
-    #         # adjust the volume at this point
-    #         curve = bpy.context.scene.animation_data.actions.fcurves.new(s.path_from_id("volume"))
-    #         key = f.keyframe_points.insert(f.keyframe_points.co[0], new_volume)
-    #         key.interpolation = 'LINEAR'
-    #         # store curve point and location
-    #         adjusted_keyframes[f.data_path] = f.keyframe_points.co[0] 
-    #     else:
-    #         pass
-    try:
-        f = bpy.context.scene.animation_data.action.fcurves.find(strip_vol_path)
-        #new_f = bpy.context.scene.animation_data.action.fcurves.new(s.path_from_id("volume"))
-        key = f.keyframe_points.insert(f.keyframe_points.co[0], new_vol)
-        key.interpolation = 'LINEAR'
-        return True
-    except:
-        return False
 
 # add panel and operator classes
 class SetMassVolPanel (bpy.types.Panel):
@@ -66,7 +45,7 @@ class SetMassVolPanel (bpy.types.Panel):
         # draw panel with options and operator
         if active_s.type == 'SOUND':
             # test to see if multiple strips selected
-            soundstrips = []
+            soundstrips = [ s for s in ]
             for s in bpy.context.scene.sequence_editor.sequences:
                 if s.select and s.type=='SOUND':
                     soundstrips.append(s)
@@ -75,13 +54,11 @@ class SetMassVolPanel (bpy.types.Panel):
             self.layout.row().prop(active_s, 'vol_mass_mult')
             # input box for name_contains
             self.layout.row().prop(active_s, 'vol_mass_name')
-            self.layout.operator('soundsequence.mass_vol').selected_only=soundstrips
+            self.layout.operator('soundsequence.mass_vol')
 
 class SetMassVolOp (bpy.types.Operator):
     bl_label = 'Adjust All Audio Strip Volumes'
     bl_idname = 'soundsequence.mass_vol'
-
-    selected_only = BoolProperty(name="Set selected strips only")
     
     def execute (self, ctx):
         # grab strip
@@ -93,25 +70,27 @@ class SetMassVolOp (bpy.types.Operator):
         if active_s.vol_mass_mult < 0:
             active_s.vol_mass_mult = 0
 
+        # build dict of sounds to adjust by selection
+        soundstrips_by_sel = {}
+        for s in bpy.context.scene.sequence_editor.sequences:
+            if s.type == 'SOUND':
+                soundstrips_by_sel[str(s.select)] = s
+        
         # only include selected strips
-        if self.selected_only:
-            seqs = [ s for s in bpy.context.scene.sequence_editor.sequences if s.select and s.type == 'SOUND' ]
+        if len(soundstrips_by_sel['True']) > 0:
+            seqs = soundstrips_by_sel['True']
         # include all sound strips
         else:
-            seqs = bpy.context.scene.sequence_editor.sequences
+            seqs = [].extend(soundstrips_by_sel['True'], soundstrips_by_sel ['False'])
 
         # store new vol multiplicand
-        x = None
+        new_vol = None
         if active_s.vol_mass_base != active_s.volume:
-            x = active_s.vol_mass_base
+            new_vol = active_s.vol_mass_base
         
         # set sound strip volumes
         for s in seqs:
-            ## IF s.volume has no animation data:
-                set_strip_vol (s, active_s.vol_mass_name, x)
-            ## else:
-                strip_paths = set(( s.path_from_id("volume") ))
-                set_keyframes (strip_paths)
+            set_strip_vol (s, active_s.vol_mass_name, s.vol_mass_mult, new_vol)
 
         # reset multiplier to 1.0
         active_s.vol_mass_mult = 1.0
