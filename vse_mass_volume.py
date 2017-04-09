@@ -40,25 +40,30 @@ class SetMassVolPanel (bpy.types.Panel):
     def draw (self, ctx):
         # grab strip and adjust target base volume based on strip volume
         active_s = bpy.context.scene.sequence_editor.active_strip
-        active_s.vol_mass_base = active_s.volume
+        #active_s.vol_mass_base = active_s.volume
 
         # draw panel with options and operator
         if active_s.type == 'SOUND':
-            # test to see if multiple strips selected
-            soundstrips = [ s for s in ]
+            # store strips by selected/unselected to allow execute to adjust a subset
+            sounds_sel, sounds_unsel = [],[]
             for s in bpy.context.scene.sequence_editor.sequences:
-                if s.select and s.type=='SOUND':
-                    soundstrips.append(s)
-            soundstrips = True if len(soundstrips) > 1 else False
+                if s.type == 'SOUND' and s.select:
+                    sounds_sel.append(s)
+                elif s.type == 'SOUND' and not s.select:
+                    sounds_unsel.append(s)
+                else:
+                    pass
             self.layout.row().prop(active_s, 'vol_mass_base')
             self.layout.row().prop(active_s, 'vol_mass_mult')
             # input box for name_contains
             self.layout.row().prop(active_s, 'vol_mass_name')
-            self.layout.operator('soundsequence.mass_vol')
+            self.layout.operator('soundsequence.mass_vol').sounds_by_sel = [sounds_sel, sounds_unsel]
 
 class SetMassVolOp (bpy.types.Operator):
     bl_label = 'Adjust All Audio Strip Volumes'
     bl_idname = 'soundsequence.mass_vol'
+
+    sounds_by_sel = bpy.types.CollectionProperty(name="Soundstrip arrays by selection")
     
     def execute (self, ctx):
         # grab strip
@@ -70,18 +75,12 @@ class SetMassVolOp (bpy.types.Operator):
         if active_s.vol_mass_mult < 0:
             active_s.vol_mass_mult = 0
 
-        # build dict of sounds to adjust by selection
-        soundstrips_by_sel = {}
-        for s in bpy.context.scene.sequence_editor.sequences:
-            if s.type == 'SOUND':
-                soundstrips_by_sel[str(s.select)] = s
-        
         # only include selected strips
-        if len(soundstrips_by_sel['True']) > 0:
-            seqs = soundstrips_by_sel['True']
+        if len(self.sounds_by_sel[0]) > 0:
+            seqs = self.sounds_by_sel[0]
         # include all sound strips
         else:
-            seqs = [].extend(soundstrips_by_sel['True'], soundstrips_by_sel ['False'])
+            seqs = [].extend(self.sounds_by_sel[0], self.sounds_by_sel [1])
 
         # store new vol multiplicand
         new_vol = None
