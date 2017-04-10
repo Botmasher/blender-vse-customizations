@@ -8,7 +8,7 @@ original_s = bpy.context.scene.sequence_editor.active_strip
 # add property volume slider
 bpy.types.SoundSequence.vol_mass_mult = FloatProperty(name="Multiply volumes", description="Multiply all volumes")
 bpy.types.SoundSequence.vol_mass_base = FloatProperty(name="Set volumes", description="Set all volumes")
-bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Name contains", description = "Only set if strip name contains")
+bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Name contains", description = "Only set strips whose name contains this string.")
 
 # volume fade in/out (probably a separate transitions thing)
 
@@ -28,6 +28,45 @@ def set_strip_vol (s, substr, mult_x, new_x):
 # TODO handle keyframes on strips
 
 # add panel and operator classes
+class SetMassVolOp (bpy.types.Operator):
+    bl_label = 'Adjust All Audio Strip Volumes'
+    bl_idname = 'soundsequence.mass_vol'
+
+    sounds_by_sel = CollectionProperty()
+    
+    def execute (self, ctx):
+        # grab strip
+        active_s = bpy.context.scene.sequence_editor.active_strip
+        
+        # zero out negative values
+        if active_s.vol_mass_base < 0:
+            active_s.vol_mass_base = 0
+        if active_s.vol_mass_mult < 0:
+            active_s.vol_mass_mult = 0
+
+        # only include selected strips
+        print (self.sounds_by_sel)
+        if len(self.sounds_by_sel[1]['value']) > 0:
+            seqs = self.sounds_by_sel[0]
+        # include all sound strips
+        else:
+            seqs = [].extend(self.sounds_by_sel[0] + self.sounds_by_sel [1])
+        print (seqs)
+
+        # store new vol multiplicand
+        new_vol = None
+        if active_s.vol_mass_base != active_s.volume:
+            new_vol = active_s.vol_mass_base
+        
+        # set sound strip volumes
+        for s in seqs:
+            set_strip_vol (s, active_s.vol_mass_name, s.vol_mass_mult, new_vol)
+
+        # reset multiplier to 1.0
+        active_s.vol_mass_mult = 1.0
+
+        return {'FINISHED'}
+    
 class SetMassVolPanel (bpy.types.Panel):
     bl_label = 'Set master volume'
     bl_idname = 'soundsequence.massvol_panel'
@@ -57,44 +96,7 @@ class SetMassVolPanel (bpy.types.Panel):
             self.layout.row().prop(active_s, 'vol_mass_mult')
             # input box for name_contains
             self.layout.row().prop(active_s, 'vol_mass_name')
-            self.layout.operator('soundsequence.mass_vol').sounds_by_sel = [sounds_sel, sounds_unsel]
-
-class SetMassVolOp (bpy.types.Operator):
-    bl_label = 'Adjust All Audio Strip Volumes'
-    bl_idname = 'soundsequence.mass_vol'
-
-    sounds_by_sel = bpy.types.CollectionProperty(name="Soundstrip arrays by selection")
-    
-    def execute (self, ctx):
-        # grab strip
-        active_s = bpy.context.scene.sequence_editor.active_strip
-        
-        # zero out negative values
-        if active_s.vol_mass_base < 0:
-            active_s.vol_mass_base = 0
-        if active_s.vol_mass_mult < 0:
-            active_s.vol_mass_mult = 0
-
-        # only include selected strips
-        if len(self.sounds_by_sel[0]) > 0:
-            seqs = self.sounds_by_sel[0]
-        # include all sound strips
-        else:
-            seqs = [].extend(self.sounds_by_sel[0], self.sounds_by_sel [1])
-
-        # store new vol multiplicand
-        new_vol = None
-        if active_s.vol_mass_base != active_s.volume:
-            new_vol = active_s.vol_mass_base
-        
-        # set sound strip volumes
-        for s in seqs:
-            set_strip_vol (s, active_s.vol_mass_name, s.vol_mass_mult, new_vol)
-
-        # reset multiplier to 1.0
-        active_s.vol_mass_mult = 1.0
-
-        return {'FINISHED'}
+            self.layout.operator('soundsequence.mass_vol').sounds_by_sel = [{'name':'', 'value':sounds_sel}, {'name':'', 'value':sounds_unsel}]
 
 def register ():
     bpy.utils.register_class(SetMassVolOp)
