@@ -21,6 +21,7 @@ def set_strip_vol (s, substr, mult_x, new_x):
             s.volume = s.vol_mass_base
         else:
             s.volume = new_x
+            s.vol_mass_base = new_x
         return True
     else:
         return False
@@ -43,6 +44,9 @@ class SetMassVolPanel (bpy.types.Panel):
 
         # draw panel with options and operator
         if active_s.type == 'SOUND':
+            # update to match vol - /!\ setting not allowed here
+            #active_s.vol_mass_base = active_s.volume
+            
             # base and multiplier inputs
             self.layout.row().prop(active_s, 'vol_mass_base')
             self.layout.row().prop(active_s, 'vol_mass_mult')
@@ -73,14 +77,13 @@ class SetMassVolOp (bpy.types.Operator):
             active_s.vol_mass_base = 0
         if active_s.vol_mass_mult < 0:
             active_s.vol_mass_mult = 0
-
+        
         # only include selected strips
         if len(sounds_by_selection[0]) > 1:
             seqs = sounds_by_selection[0]
         # include all sound strips
         else:
-            seqs = [].extend(sounds_by_selection[0] + sounds_by_selection [1])
-        print (seqs)
+            seqs = sounds_by_selection[0] + sounds_by_selection [1]
 
         # store new vol multiplicand
         new_vol = None
