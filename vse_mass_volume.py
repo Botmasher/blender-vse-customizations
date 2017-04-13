@@ -27,6 +27,23 @@ def set_strip_vol (s, substr, mult_x, new_x):
         return False
 
 # TODO handle keyframes on strips
+# /!\ look at time/space for this!
+def handle_keyframes (strips_list):
+    sequence_timeline = #assign timeline frame range
+    # iterate through all frames
+    #for frame in sequence_timeline:
+    for strip in strips_list:
+        # find first frame
+        # try to set the volume to itself? to make sure we're in vol keys
+        # jump & set RECURSIVELY in a method
+        try:
+            current_frame = #assign current frame
+            bpy.ops.screen.keyframe_jump()
+            # > test to make sure volume is a keyframe
+            strip.keyframe_set(strip.volume, -1, current_frame)
+        except:
+            pass
+    # add boolean and toggle to op & panel to decide to run this
 
 class SetMassVolPanel (bpy.types.Panel):
     bl_label = 'Set master volume'
