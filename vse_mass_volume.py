@@ -8,7 +8,8 @@ original_s = bpy.context.scene.sequence_editor.active_strip
 # add property volume slider
 bpy.types.SoundSequence.vol_mass_mult = FloatProperty(name="Multiply volumes", description="Multiply all volumes")
 bpy.types.SoundSequence.vol_mass_base = FloatProperty(name="Set volumes", description="Set all volumes")
-bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Name contains", description = "Only set strips whose name contains this string.")
+bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Contains", description = "Only set strips whose name contains this string.")
+bpy.types.SoundSequence.vol_mass_keyframing = BoolProperty(name="Set keyframes")
 
 # volume fade in/out (probably a separate transitions thing)
 
@@ -26,42 +27,37 @@ def set_strip_vol (s, substr, mult_x, new_x):
     else:
         return False
 
-def jump_set_keyframe(strip):
+def jump_set_keyframe(strip, mult_x):
     try:
         bpy.ops.screen.keyframe_jump()
-        #set_strip_vol(### params needed)
-        strip.keyframe_set(strip.volume, -1, current_frame)
+        strip.volume = strip.volume * mult_x
+        strip.keyframe_set(strip.volume, -1, bpy.context.scene.frame_current)
         jump_set_keyframe(strip)
     # unable to find more keyframes
     except:
         return {'FINISHED'}
 
 # TODO handle keyframes on strips
-def handle_keyframes (strips_list):
+def handle_keyframes (strip, mult_x):
     #sequence_timeline = #assign timeline frame range
-    # iterate through all frames
-    for strip in strips_list:
-        ## iterate through all frames in strip
-        #for frame in range(strip.frame_start, strip.frame_start+strip.frame_final_duration)
-        # find first frame
-        frame = strip.frame_start
-        # set current frame to first frame
-        bpy.context.scene.frame_current = frame
-        # jump & set
-        ### TODO test to make sure volume is a keyframe
-        # force context to vse strip volume
-        strip.volume = strip.volume
-        jump_set_keyframe(strip)
-    # add boolean and toggle to op & panel to decide to run this
+    ## iterate through all frames in strip
+    #for frame in range(strip.frame_start, strip.frame_start+strip.frame_final_duration)
+    # find first frame
+    frame = strip.frame_start
+    # set current frame to first frame
+    bpy.context.scene.frame_current = frame
+    ### TODO test to make sure volume is a keyframe
+    # force context to vse strip volume
+    strip.volume = strip.volume
+    # jump between keyframes and set volumes
+    jump_set_keyframe(strip, mult_x)
+    return None
 
 class SetMassVolPanel (bpy.types.Panel):
     bl_label = 'Set master volume'
     bl_idname = 'soundsequence.massvol_panel'
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
-    
-    #vol_base = bpy.props.FloatProperty(name='Set Volumes')
-    #vol_factor = bpy.props.FloatProperty(name='Multiply Volumes')
 
     def draw (self, ctx):
         # grab strip and adjust target base volume based on strip volume
@@ -76,6 +72,7 @@ class SetMassVolPanel (bpy.types.Panel):
             # base and multiplier inputs
             self.layout.row().prop(active_s, 'vol_mass_base')
             self.layout.row().prop(active_s, 'vol_mass_mult')
+            self.layout.row().prop(active_s, 'vol_mass_keyframing')
             # input box for name_contains
             self.layout.row().prop(active_s, 'vol_mass_name')
             self.layout.operator('soundsequence.mass_vol')
@@ -119,6 +116,9 @@ class SetMassVolOp (bpy.types.Operator):
         # set sound strip volumes
         for s in seqs:
             set_strip_vol (s, active_s.vol_mass_name, s.vol_mass_mult, new_vol)
+            # also try to set every single keyframe
+            if active_s.vol_mass_keyframing and active_s.vol_mass_name in s.name:
+                handle_keyframes (s, active_s.vol_mass_mult)
 
         # reset multiplier to 1.0
         active_s.vol_mass_mult = 1.0
