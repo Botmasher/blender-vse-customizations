@@ -6,10 +6,13 @@ original_vols = {}
 original_s = bpy.context.scene.sequence_editor.active_strip
 
 # add property volume slider
-bpy.types.SoundSequence.vol_mass_mult = FloatProperty(name="Multiply volumes", description="Multiply all volumes")
-bpy.types.SoundSequence.vol_mass_base = FloatProperty(name="Set volumes", description="Set all volumes")
-bpy.types.SoundSequence.vol_mass_name = StringProperty(name="Contains", description = "Only set strips whose name contains this string.")
-bpy.types.SoundSequence.vol_mass_keyframing = BoolProperty(name="Set keyframes")
+class MassVolProperties (bpy.types.PropertyGroup):
+    mult = FloatProperty(name="Multiply volumes", description="Multiply all volumes")
+    base = FloatProperty(name="Set volumes", description="Set all volumes")
+    name = StringProperty(name="Contains", description = "Only set strips whose name contains this string.")
+    keyframing = BoolProperty(name="Set keyframes")
+
+bpy.types.SoundSequence.massvol_props = PointerProperty(type=MassVolProperties)
 
 # volume fade in/out (probably a separate transitions thing)
 
@@ -19,10 +22,10 @@ def set_strip_vol (s, substr, mult_x, new_x):
         s.volume = s.volume * mult_x
         # set the volume
         if new_x == None:
-            s.volume = s.vol_mass_base
+            s.volume = s.massvol_props.base
         else:
             s.volume = new_x
-            s.vol_mass_base = new_x
+            s.massvol_props.base = new_x
         return True
     else:
         return False
@@ -62,19 +65,19 @@ class SetMassVolPanel (bpy.types.Panel):
     def draw (self, ctx):
         # grab strip and adjust target base volume based on strip volume
         active_s = bpy.context.scene.sequence_editor.active_strip
-        #active_s.vol_mass_base = active_s.volume
+        #active_s.massvol_props.base = active_s.volume
 
         # draw panel with options and operator
         if active_s.type == 'SOUND':
             # update to match vol - /!\ setting not allowed here
-            #active_s.vol_mass_base = active_s.volume
+            #active_s.massvol_props.base = active_s.volume
             
             # base and multiplier inputs
-            self.layout.row().prop(active_s, 'vol_mass_base')
-            self.layout.row().prop(active_s, 'vol_mass_mult')
-            self.layout.row().prop(active_s, 'vol_mass_keyframing')
+            self.layout.row().prop(active_s, 'massvol_props.base')
+            self.layout.row().prop(active_s, 'massvol_props.mult')
+            self.layout.row().prop(active_s, 'massvol_props.keyframing')
             # input box for name_contains
-            self.layout.row().prop(active_s, 'vol_mass_name')
+            self.layout.row().prop(active_s, 'massvol_props.name')
             self.layout.operator('soundsequence.mass_vol')
 
 
@@ -96,10 +99,10 @@ class SetMassVolOp (bpy.types.Operator):
                 sounds_by_selection[1].append(s)
 
         # zero out negative values
-        if active_s.vol_mass_base < 0:
-            active_s.vol_mass_base = 0
-        if active_s.vol_mass_mult < 0:
-            active_s.vol_mass_mult = 0
+        if active_s.massvol_props.base < 0:
+            active_s.massvol_props.base = 0
+        if active_s.massvol_props.mult < 0:
+            active_s.massvol_props.mult = 0
         
         # only include selected strips
         if len(sounds_by_selection[0]) > 1:
@@ -110,18 +113,18 @@ class SetMassVolOp (bpy.types.Operator):
 
         # store new vol multiplicand
         new_vol = None
-        if active_s.vol_mass_base != active_s.volume:
-            new_vol = active_s.vol_mass_base
+        if active_s.massvol_props.base != active_s.volume:
+            new_vol = active_s.massvol_props.base
         
         # set sound strip volumes
         for s in seqs:
-            set_strip_vol (s, active_s.vol_mass_name, s.vol_mass_mult, new_vol)
+            set_strip_vol (s, active_s.massvol_props.name, s.massvol_props.mult, new_vol)
             # also try to set every single keyframe
-            if active_s.vol_mass_keyframing and active_s.vol_mass_name in s.name:
-                handle_keyframes (s, active_s.vol_mass_mult)
+            if active_s.massvol_props.keyframing and active_s.massvol_props.name in s.name:
+                handle_keyframes (s, active_s.massvol_props.mult)
 
         # reset multiplier to 1.0
-        active_s.vol_mass_mult = 1.0
+        active_s.massvol_props.mult = 1.0
 
         return {'FINISHED'}
 
@@ -129,5 +132,6 @@ class SetMassVolOp (bpy.types.Operator):
 def register ():
     bpy.utils.register_class(SetMassVolOp)
     bpy.utils.register_class(SetMassVolPanel)
+    bpy.utils.register_class(MassVolProperties)
 
 register()
