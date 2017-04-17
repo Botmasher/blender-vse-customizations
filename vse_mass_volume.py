@@ -11,7 +11,14 @@ class MassVolProperties (bpy.types.PropertyGroup):
     base = FloatProperty(name="Set volumes", description="Set all volumes")
     name = StringProperty(name="Contains", description = "Only set strips whose name contains this string.")
     keyframing = BoolProperty(name="Set keyframes")
+    def define_defaults(self):
+        self.base = 1.0
+        self.name = ''
+        self.mult = 1.0
+        self.keyframing = False
+        return None
 
+bpy.utils.register_class(MassVolProperties)
 bpy.types.SoundSequence.massvol_props = PointerProperty(type=MassVolProperties)
 
 # volume fade in/out (probably a separate transitions thing)
@@ -63,21 +70,17 @@ class SetMassVolPanel (bpy.types.Panel):
     bl_region_type = 'UI'
 
     def draw (self, ctx):
-        # grab strip and adjust target base volume based on strip volume
+        # grab strip
         active_s = bpy.context.scene.sequence_editor.active_strip
-        #active_s.massvol_props.base = active_s.volume
 
         # draw panel with options and operator
         if active_s.type == 'SOUND':
-            # update to match vol - /!\ setting not allowed here
-            #active_s.massvol_props.base = active_s.volume
-            
             # base and multiplier inputs
-            self.layout.row().prop(active_s, 'massvol_props.base')
-            self.layout.row().prop(active_s, 'massvol_props.mult')
-            self.layout.row().prop(active_s, 'massvol_props.keyframing')
+            self.layout.row().prop(active_s.massvol_props, 'base')
+            self.layout.row().prop(active_s.massvol_props, 'mult')
+            self.layout.row().prop(active_s.massvol_props, 'keyframing')
             # input box for name_contains
-            self.layout.row().prop(active_s, 'massvol_props.name')
+            self.layout.row().prop(active_s.massvol_props, 'name')
             self.layout.operator('soundsequence.mass_vol')
 
 
@@ -125,6 +128,7 @@ class SetMassVolOp (bpy.types.Operator):
 
         # reset multiplier to 1.0
         active_s.massvol_props.mult = 1.0
+        active_s.massvol_props.base = active_s.volume
 
         return {'FINISHED'}
 
@@ -132,6 +136,5 @@ class SetMassVolOp (bpy.types.Operator):
 def register ():
     bpy.utils.register_class(SetMassVolOp)
     bpy.utils.register_class(SetMassVolPanel)
-    bpy.utils.register_class(MassVolProperties)
 
 register()
