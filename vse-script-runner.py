@@ -19,6 +19,36 @@ shebang_line = '#!/usr/bin/'
 area = bpy.context.area.type
 bpy.context.area.type = 'CONSOLE'
 
+# execute a single statement in the Blender Python console
+def execute_in_console(txt):
+    try:
+        # run the line
+        bpy.ops.console.insert (text = txt)
+        bpy.console.execute()
+        # run a blank line to avoid errors (why do these happen?)
+        bpy.ops.console.insert (text = '')
+        bpy.console.execute()        
+        return True
+    except:
+        return False
+
+# recursively run through files and build up a text
+# /!\ TEST /!\ current implementation implies dangerous scope conflicts 
+def run_all_scripts (lines=[], i=0):
+    ignore_this_file = False
+    if i >= len(bpy.data.texts):
+        # read the built-up text in line by line
+        for l in lines:
+            # execute each line in the console
+            execute_in_console (l)            
+        return {'FINISHED'}
+    # figure out which scripts to ignore
+    script_txt = ''
+    # OR include
+    script_txt = [str(l) for l in lines]
+    # if you include a script, add its lines to next recursion
+    return run_files_recurs(l + txt, i+1)
+
 # iterate through and run lines in each file
 for txt in bpy.data.texts:
     # toggle to avoid running non-code or rerunning this file

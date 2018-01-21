@@ -221,7 +221,9 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
     filter_glob = StringProperty(default="", options={'HIDDEN'})
     # img alpha setting to pass to batch texturizer
     use_transparency = BoolProperty (name="Use transparency")
+    use_transparency = True
     replace_current = BoolProperty (name="Replace current textures")
+    replace_current = False
     update_existing = BoolProperty (options={'HIDDEN'})
 
     def store_files (self, files):
