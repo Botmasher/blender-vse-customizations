@@ -1,0 +1,19 @@
+# mac (also covered if ignore generic *.)
+.DS_Store
+
+# windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# python temp
+__pycache__/
+*.py[cod]
+
+# patches
+/*.patch
+/*.diff
+
+# blender
+/blender.bin
+/BUILD_NOTES.txt
