@@ -34,26 +34,27 @@ def chop_strip(step=1, trail=10):
 	for f in reversed(range(start_frame+1, end_frame)):
 		frames_remaining = f - start_frame
 		s.select = True
+		# move one frame back
 		bpy.context.scene.frame_current -= step
-		offset = trail * (frames_remaining-1) 	# step factored in the playhead move
-		print(offset)
+		# hard cut
 		bpy.ops.sequencer.cut(frame=bpy.context.scene.frame_current, type="HARD", side="RIGHT")
-		bpy.ops.transform.transform(mode="TRANSLATION", value=(offset, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+		bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
 		# contxt: 	3 frame strip starting on timeline frame 0
 		# params: 	step 1, trail 10, (cutframes=1, freezes=0)
 		# back to front iteration:
 			# - set current frame to frame - step
 			# - cut
-			# - move right by offset trail * frames_remaining - 1 (bc of first frame will remain stationary)
-			# 3 => frame 4 = start+3, 4-1 > 1 so move R by 20 and R to 31	=	(21, 30) 	EXPECT: 21
-			# 2 => frame 3 = start+2, 3-1 > 1 so move R by 10 and R to 21 = (11, 20)	EXPECT: 11
-			# 1 => frame 2 = start+1, 2-1 <= 1 so stop and pull R to 10		= (1, 10) 	EXPECT: 1
+		sequences = [seq for seq in bpy.context.scene.sequence_editor.sequences_all if seq.select]
+		latest_strip = sequences[0]
+		print(latest_strip)
+		
+		latest_strip.animation_offset_end -= trail
+
 		#bpy.ops.sequencer.select_handles(side="RIGHT")
-		# move one frame back
+		
 		# set context to sequence editor
-		# hard cut
 		# set context to code
-		# move new substrip forward its current frame_duration * your own offset
+		# move new substrip forward by offset
 		# 	- if doesn't select, later iterate thru strips sharing base strip name (formatted strip_name.index)
 		# 	- for each strip check if it's got the name and 
 		# stretch out the new one-frame substrip by frame_duration*my_offset-1 frames
@@ -102,11 +103,6 @@ class ChopStrip(bpy.types.Operator):
 	bl_descriptions = "Chop up sequence frames into new substrips"
 	bl_options = {'REGISTER', 'UNDO'}
 
-	inverted = bpy.props.BoolProperty(
-		name="Upside Down",
-		description="Generate the tetrahedron upside down",
-		default=False)
-
 	@classmethod
 	def poll(cls, context):
 		return context.mode == "OBJECT"
@@ -117,11 +113,6 @@ class ChopStrip(bpy.types.Operator):
 
 def register() :
 	bpy.utils.register_module(__name__)
-	bpy.types.Scene.chop_strip_frames = bpy.props.BoolProperty(
-		name = "Chopped Strip",
-		description = "Sequence was chopped into frames",
-		default = False
-	)
 
 def unregister() :
 	bpy.utils.unregister_module(__name__)
