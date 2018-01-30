@@ -4,63 +4,114 @@ import bpy
 # Output: one hard cut and lengthened strip for each frame in the input
 
 def get_strip():
-	return bpy.context.scene.sequence_editor.active_strip
+	strip = bpy.context.scene.sequence_editor.active_strip
+	return strip
 
-def chop_strip(step=1, trail=10):
-	print("\nSTARTING SCRIPT frame-splitter") 
+def extend_strips(sequences, trail):
+	"""Uniformly lengthen substrips
 
-	# find the input strip
-	s = get_strip()
+	Arguments:
+	sequences -- array of strips to extend
+	trail -- the left (neg) or right (pos) lengthening applied to each strip
+	"""
+	for sequence in bpy.context.scene.sequence_editor.sequences_all: sequence.select = False
+
+	first_sequence = sequences.pop()
+
+	for sequence in sequences:
+		sequence.select = True
+		#trail < 0 and bpy.ops.transform.transform(mode="TRANSLATION", value=(-trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+		sequence.select_right_handle = True if trail > 0 else False
+		sequence.select_left_handle = True if trail < 0 else False
+		bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+		sequence.select_right_handle = False
+		sequence.select_left_handle = False
+		sequence.select = False
+
+	# # remove first strip to avoid negative
+	# if trail < 0:
+	# 	first_sequence.select = True
+	# 	first_sequence.select_left_handle = True
+	# 	bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+	# 	first_sequence.select_left_handle = False
+	# 	first_sequence.select = False
+	# else:
+	# 	first_sequence.select = True
+	# 	first_sequence.select_right_handle = True
+	# 	bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+	# 	first_sequence.select_right_handle = False
+	# 	first_sequence.select = False
+
+	return {'FINISHED'}
+
+def subcut_strip(s, step, trail):
+	# calculate key strip frames
 	start_frame = s.frame_start
 	end_frame = start_frame + s.frame_final_duration
 	bpy.context.scene.frame_current = end_frame
 
-	# deselect all strips
-	for strip in bpy.context.scene.sequence_editor.sequences_all: strip.select = False
-	# select only active
+	# select only the active strip
+	for sequence in bpy.context.scene.sequence_editor.sequences_all: sequence.select = False
 	s.select = True
 
-	#print(bpy.context.scene.sequence_editor.active_strip)
-	#bpy.context.scene.frame_current -= 1
-	#bpy.ops.sequencer.cut(frame=bpy.context.scene.frame_current, type="HARD", side="RIGHT")
-	#bpy.ops.transform.transform(mode="TRANSLATION", value=(step, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
-	#print(bpy.context.scene.sequence_editor.active_strip)
-
-	#run_area = bpy.context.area.type
-	#bpy.context.area.type = "SEQUENCE_EDITOR"
-
-	# go to the end of the strip and cut back to the beginning
+	# go to end of active strip and cut back to start
+	strip_count = int( len(list(reversed(range(start_frame+1, end_frame)))) / step )
 	for f in reversed(range(start_frame+1, end_frame)):
-		frames_remaining = f - start_frame
 		s.select = True
-		# move one frame back
+		# playhead one frame back
 		bpy.context.scene.frame_current -= step
-		# hard cut
+		# hard cut and move
 		bpy.ops.sequencer.cut(frame=bpy.context.scene.frame_current, type="HARD", side="RIGHT")
-		bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
-		# contxt: 	3 frame strip starting on timeline frame 0
-		# params: 	step 1, trail 10, (cutframes=1, freezes=0)
-		# back to front iteration:
-			# - set current frame to frame - step
-			# - cut
-		#latest_strip = sequences[0]
-		#print(latest_strip)
+		# TODO each seq must move not just trail but trail * remaining strips to place
+		if trail < 0:
+			bpy.ops.transform.transform(mode="TRANSLATION", value=(abs(trail * 2) - step, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+		else:
+			bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+		strip_count -= 1
 
-		#latest_strip.animation_offset_end -= trail
+	# TODO move initial strip if trail is negative (above does not deal with start_frame)
+	# TODO correctly calculate and move strips along x
+		# - currently they're just auto nudging over as each chop is set step units before prev
+		# - leads to negative trail case when initial frame also handled: each strip is trail units too far right
+	
+	# list out all resulting strips
+	chopped_sequences = [seq for seq in bpy.context.scene.sequence_editor.sequences_all if seq.select]
+	chopped_sequences.append(s)
 
-		#bpy.ops.sequencer.select_handles(side="RIGHT")
+	return chopped_sequences
+
+def chop_strip(step=1, trail=0):
+	"""Chop a sequencer strip into substrips.
+
+	Arguments:
+	step -- the number of frames counted between hard cuts (default 1)
+	trail -- the left or right hand lengthening applied to each substrip (default 0)
+	"""
+	
+	print("\nSTARTING SCRIPT frame-splitter") 
+
+	# find the input strip
+	s = get_strip()
+
+	if s is not None:
+		# store and set context
+		initial_area = bpy.context.area.type
+		bpy.context.area.type = "SEQUENCE_EDITOR"
 		
-		# set context to sequence editor
-		# set context to code
-		# move new substrip forward by offset
-		# 	- if doesn't select, later iterate thru strips sharing base strip name (formatted strip_name.index)
-		# 	- for each strip check if it's got the name and 
-		# stretch out the new one-frame substrip by frame_duration*my_offset-1 frames
-		# (onto next frame)
+		# chop and stretch
+		chopped_strips = subcut_strip(s, step, trail)
+		extend_strips(chopped_strips, trail)
 
-	#bpy.context.area.type = run_area
+		# reset context
+		bpy.context.area.type = initial_area
 
-	# extra - allow selected set of strips to be uniformly lengthened/shortened
+	# Issues
+	#   - another strip in same channel to the right of active split strip
+	#       - note the option to select strips to the L/R in ops
+	#   - handle no strip selected
+
+	# Extras
+	# - allow selected set of strips to be uniformly lengthened/shortened
 	 	# check they are indeed contiguous in timeline
 	 	# run through each back to front if lengthening
 	 		# move strip right as required
@@ -70,26 +121,7 @@ def chop_strip(step=1, trail=10):
 	 		# move strip left as required (except the first)
 	 		# select right handle
 	 		# move strip handle left to shorten
-
-	chopped_sequences = [seq for seq in bpy.context.scene.sequence_editor.sequences_all if seq.select]
-
-	for seq in chopped_sequences: seq.select = False
-
-	chopped_sequences.append(s)
-
-	for seq in chopped_sequences:
-		seq.select = True
-		seq.select_right_handle = True
-		bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
-		seq.select_right_handle = False
-		seq.select = False
-
-	# Issues
-	#   - another strip in same channel to the right of active split strip
-	#       - note the option to select strips to the L/R in ops
-	#   - handle no strip selected
-
-	# Registration
+	
 	return {'FINISHED'}
 
 class ChopStripPanel(bpy.types.Panel):
@@ -115,7 +147,7 @@ class ChopStrip(bpy.types.Operator):
 		return context.mode == "OBJECT"
 
 	def execute(self, context):
-		chop_strip()
+		chop_strip(trail=20)
 		return {'FINISHED'}
 
 def register() :
