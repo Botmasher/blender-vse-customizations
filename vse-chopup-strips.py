@@ -16,8 +16,7 @@ def chop_strip(step=1, trail=10):
 	bpy.context.scene.frame_current = end_frame
 
 	# deselect all strips
-	for strip in bpy.context.scene.sequence_editor.sequences_all:
-		strip.select = False
+	for strip in bpy.context.scene.sequence_editor.sequences_all: strip.select = False
 	# select only active
 	s.select = True
 
@@ -44,11 +43,10 @@ def chop_strip(step=1, trail=10):
 		# back to front iteration:
 			# - set current frame to frame - step
 			# - cut
-		sequences = [seq for seq in bpy.context.scene.sequence_editor.sequences_all if seq.select]
-		latest_strip = sequences[0]
-		print(latest_strip)
-		
-		latest_strip.animation_offset_end -= trail
+		#latest_strip = sequences[0]
+		#print(latest_strip)
+
+		#latest_strip.animation_offset_end -= trail
 
 		#bpy.ops.sequencer.select_handles(side="RIGHT")
 		
@@ -73,14 +71,23 @@ def chop_strip(step=1, trail=10):
 	 		# select right handle
 	 		# move strip handle left to shorten
 
+	chopped_sequences = [seq for seq in bpy.context.scene.sequence_editor.sequences_all if seq.select]
+
+	for seq in chopped_sequences: seq.select = False
+
+	chopped_sequences.append(s)
+
+	for seq in chopped_sequences:
+		seq.select = True
+		seq.select_right_handle = True
+		bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+		seq.select_right_handle = False
+		seq.select = False
+
 	# Issues
 	#   - another strip in same channel to the right of active split strip
 	#       - note the option to select strips to the L/R in ops
 	#   - handle no strip selected
-
-	# Panel
-
-	# Operator
 
 	# Registration
 	return {'FINISHED'}
