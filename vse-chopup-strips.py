@@ -55,8 +55,9 @@ def subcut_strip(s, step, trail):
 	s.select = True
 
 	# go to end of active strip and cut back to start
-	strip_count = int( len(list(reversed(range(start_frame+1, end_frame)))) / step )
-	for f in reversed(range(start_frame+1, end_frame)):
+	frames = reversed(range(start_frame+1, end_frame))
+	strip_count = int( len(list(frames)) / step )
+	for f in frames:
 		s.select = True
 		# playhead one frame back
 		bpy.context.scene.frame_current -= step
@@ -75,7 +76,7 @@ def subcut_strip(s, step, trail):
 		# - leads to negative trail case when initial frame also handled: each strip is trail units too far right
 	
 	# list out all resulting strips
-	chopped_sequences = [seq for seq in bpy.context.scene.sequence_editor.sequences_all if seq.select]
+	chopped_sequences = [sequence for sequence in bpy.context.scene.sequence_editor.sequences_all if sequence.select]
 	chopped_sequences.append(s)
 
 	return chopped_sequences
