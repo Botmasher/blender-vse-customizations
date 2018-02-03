@@ -52,16 +52,12 @@ def run_all_scripts (lines=[], i=0):
 # iterate through and run lines in each file
 for txt in bpy.data.texts:
     # toggle to avoid running non-code or rerunning this file
-    ignore_this_file = False
-    if shebang_line not in txt.lines[0].body:
-        ignore_this_file = True
+    if shebang_line not in txt.lines[0].body: continue
     # read through file and execute lines
     for ln in txt.lines:
-        if ignore_this_file:
-            pass
         # avoid rerunning this file
-        elif ignore_k in ln.body:
-            ignore_this_file = True
+        if ignore_k in ln.body: break
+        # TODO remove previous lines if break to avoid running partial file
         elif ln.body == txt.lines[-1].body:
             bpy.ops.console.insert (text=ln.body)
             bpy.ops.console.execute()
