@@ -113,7 +113,6 @@ def configure_linestyle_sketchy(linestyle):
 	linestyle.use_chaining = True
 	linestyle.chaining = "SKETCHY"
 	linestyle.rounds = 5
-	linestyle.thickness = 10.0
 	# thickness
 	linestyle.thickness = 1.0
 	# alpha
@@ -129,6 +128,38 @@ def configure_linestyle_sketchy(linestyle):
 	linestyle.geometry_modifiers[-1].octaves = 4
 	linestyle.geometry_modifiers[-1].angle = 28.0
 	return linestyle
+
+def create_modifier(linestyle, modifier_name, modifier_type):
+	try:
+		modifiers = getattr(linestyle, attribute_name)
+		modifiers.new(name=modifier_name, type=modifier_type)
+	except:
+		return False 	# Python error object - could not create modifier; does not exist
+	return modifiers[-1]
+
+
+def set_linestyle_attribute(linestyle, attribute_name, value):
+	return None
+
+def create_configure_modifier(linestyle, modifier_dict):
+	# shape of modifier dict (peeled off from within modifiers array in the lineset dict)
+	# {
+	#		name: ,
+	# 	type: ,
+	# 	attributes: {
+	#			attr_0: val_0
+	# 		...
+	# 		attr_n: val_n
+	# 	}
+	# }
+	#
+
+ 	# Call create_modifier to add new modifier to the appropriate modifiers and get the returned modifier
+ 	modifier = create_modifier(modifier_dict.name, modifier_dict.type)
+ 	
+ 	# TODO iterate through modifier attributes
+
+ 	# TODO special case handling curves
 
 def run_npr_autoset(linesets={}, clear_all_linesets=False, clear_default_lineset=False):
 	scene = get_scene()
@@ -153,5 +184,150 @@ def run_npr_autoset(linesets={}, clear_all_linesets=False, clear_default_lineset
 	return {'FINISHED'}
 
 # TODO pass in dictionary to adjust settings
-linesets = {'bold': {'name': 'bold', 'edge': {'negation': "EXCLUSIVE"}, 'chaining': True}, 'sketchy': {'name': 'sketchy'}}
-run_npr_autoset(linesets, clear_all_linesets=True, clear_default_lineset=True)
+lines = {
+	'bold': {
+		'name': "bold",
+		'lineset': {
+			'edge_type_negation': "EXCLUSIVE",
+			'select_silhouette': False,
+			'select_border': False,
+			'select_contour': False,
+			'select_suggestive_contour': True,
+			'select_ridge_valley': True,
+			'select_crease': False,
+			'select_edge_mark': True,
+			'select_external_contour': False,
+			'select_material_boundary' False,
+		},
+		'linestyle': {
+			'name': "bold-linestyle"
+			'use_chaining': True,
+			'chaining': "PLAIN",
+			'rounds': None,
+			'color': [0.0, 0.0, 0.0],
+			'alpha': 1.0,
+			'thickness': 10.0
+		},
+		'alpha_modifiers': [
+			'name': "alpha-along-stroke",
+			'type': "DISTANCE_FROM_CAMERA",
+			'attributes': {
+				'mapping': "CURVE",
+				'curve': [(0.25, 1.0), (0.0, 0.64), (1.0, 0.6)],
+				'influence': 0.08
+			}
+		],
+		'thickness_modifiers': [
+			{
+				'name': "thickness-along-stroke",
+				'type': "ALONG_STROKE",
+				'attributes': {
+					'mapping': "CURVE",
+					'curve': [(0.0, 0.32), (0.38, 0.74), (1.0, 0.28)],
+					'value_min': 1.0,			# thickness * 0.1
+					'value_max': 10.0,
+					'influence': 0.98
+				}
+			},
+			{
+				'name': "thickness-calligraphy",
+				'type': "CALLIGRAPHY",
+				'attributes': {
+					'orientation': 42.0,
+					'thickness_min': 1.0,			# thickness * 0.1
+					'thickness_max': 10.0,
+					'influence': 0.86
+				}
+			},
+			{
+				'name': "thickness-distance-camera",
+				'type': "DISTANCE_FROM_CAMERA",
+				'attributes': {
+					'invert': True,
+					'range_min': 5.0, 		# TODO use empty to calibrate range
+					'range_max': 20.0,
+					'value_min': 2.0,			# thickness * 0.2
+					'value_max': 10.0,
+					'influence': 1.0
+				}
+			}
+		],
+		'geometry_modifiers': [
+			{
+				'name': "backbone-stretcher",
+				'type': "BACKBONE_STRETCHER",
+		 		'attributes': {
+					'backbone_length': 0.18 	 # thickness * 0.18
+				}
+			},
+			{
+				'name': "sinus-displacement",
+				'type': "SINUS_DISPLACEMENT",
+				'attributes': {
+					'wavelength': 22.5,
+					'amplitude': 0.26,
+					'phase': 0.264
+				}
+			},
+			{
+				'name': "perlin-noise-1d",
+				'type': "PERLIN_NOISE_1D",
+				'attributes': {
+					'frequency': 11.0,
+					'amplitude': 0.14,	 	# thickness * 0.14
+					'seed': random.randint(-999, 999),
+					'octaves': 5,
+					'angle': 42.0
+				}
+			}
+		]
+	},
+	'sketchy': {
+		'name': "sketchy",
+		'lineset': {
+			'edge_type_negation': "EXCLUSIVE",
+			'select_silhouette': False,
+			'select_border': False,
+			'select_contour': False,
+			'select_suggestive_contour': True,
+			'select_ridge_valley': True,
+			'select_crease': False,
+			'select_edge_mark': True,
+			'select_external_contour': False,
+			'select_material_boundary' False,
+		},
+		'linestyle': {
+			'name': "sketchy-linestyle"
+			'use_chaining': True,
+			'chaining': "SKETCHY",
+			'rounds': 5,
+			'color': [0.06, 0.06, 0.06],
+			'alpha': 0.95,
+			'thickness': 1.2
+		},
+		'geometry_modifiers': [
+			{
+				'name': "backbone-stretcher",
+				'type': "BACKBONE_STRETCHER",
+				'attributes': {
+					'backbone_length': 5.5
+				}
+			},
+			{
+				'name': "perlin-noise-2d",
+				'type': "PERLIN_NOISE_2D",
+				'attributes': {
+					'frequency': 9.0,
+					'amplitude': 2.1,
+					'seed': random.randint(0, 999),
+					'octaves': 4,
+					'angle': 28.0
+				}
+			}
+		]
+	}
+}
+
+# TODO output objects like above from Freestyle settings after they are set through Blender UI
+
+run_npr_autoset(lines, clear_all_linesets=True, clear_default_lineset=True)
