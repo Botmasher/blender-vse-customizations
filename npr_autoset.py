@@ -3,7 +3,7 @@ import bpy
 import random
 from mathutils import Vector
 
-## NPR Autoset Freestyle Line Configuration
+## NPR Autoset Freestyle Line Configuration for Blender
 ## by GitHub user Botmasher (Joshua R)
 ##
 ## Use:
@@ -12,6 +12,9 @@ from mathutils import Vector
 ##
 ## Other options, settings and the expected shape of that data are documented
 ## in the comments for specific functions.
+## 
+## See example line configuration below. Compare to Blender interface settings
+## to find further attribute strings and values for adjusting more properties.
 ##
 
 # TODO
@@ -234,6 +237,8 @@ lines = [
 			'select_edge_mark': True,
 			'select_external_contour': False,
 			'select_material_boundary': False,
+			'select_by_group': True,
+			'group_negation': "EXCLUSIVE"
 		},
 		'linestyle': {
 			'name': "bold-linestyle",
