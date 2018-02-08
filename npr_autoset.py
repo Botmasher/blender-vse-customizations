@@ -3,14 +3,32 @@ import bpy
 import random
 from mathutils import Vector
 
+## NPR Autoset Freestyle Line Configuration
+## by GitHub user Botmasher (Joshua R)
+##
+## Use:
+## Simply include a well-formatted line configuration data list, then call
+## the run_npr_autoset() function passing in that configuration data.
+##
+## Other options, settings and the expected shape of that data are documented
+## in the comments for specific functions.
+##
+
 # TODO
-# - documentation incl info here
-# - Errors and better error handling
+# - better documentation
+# - finer-grained error raising
 # - run with new untested properties added to the test object
 # - create __init__.py and separate out lines data
 # - separate this out into its own subproject (Addon)
 # - generate dicts from settings
 # - rerun script without crashing
+
+class NprAutosetException(Exception):
+	"""Custom error handling for this tool"""
+	def __init__(self, message, error):
+		exception_message = "%s – %s" % (message, error)
+		super(Exception, self).__init__(exception_message)
+		self.message = exception_message
 
 def activate_freestyle(scene, render_layer="RenderLayer"):
 	"""Turn on freestyle in both the render and layer settings"""
@@ -28,12 +46,6 @@ def clear_linesets(freestyle_settings, clear_all=True, clear_default=True, defau
 			bpy.ops.scene.freestyle_lineset_remove()
 	return True
 
-def create_lineset(freestyle_settings):
-	"""Add one new freestyle lineset"""
-	freestyle_settings.linesets.new("")
-	lineset = freestyle_settings.linesets[len(freestyle_settings.linesets)-1]
-	return lineset
-
 def set_line_attribute(line, attribute_name, attribute_value):
 	"""Set a value on a lineset or linestyle's dot notation property
 
@@ -43,9 +55,22 @@ def set_line_attribute(line, attribute_name, attribute_value):
 	"""
 	try:
 		setattr(line, attribute_name, attribute_value)
-	except:
-		return False	# TODO create Exception here
+	except Exception as e:
+		raise NprAutosetException("Unable to set line attribute \"%s\" to value %s" % (attribute_name, attribute_value), e)
 	return line
+
+def create_lineset(freestyle_settings, lineset_name=""):
+	"""Add one new freestyle lineset"""
+	freestyle_settings.linesets.new("")
+	lineset = freestyle_settings.linesets[len(freestyle_settings.linesets)-1]
+	lineset.name = lineset_name
+	return lineset
+
+def configure_lineset(lineset, lineset_data):
+	"""Set the value for each of this lineset's attributes"""
+	for attribute in lineset_data:
+		set_line_attribute(lineset, attribute, lineset_data[attribute])
+	return lineset
 
 def create_modifier(linestyle, modifiers_set, modifier_type, modifier_name=""):
 	"""Add one new modifier from a specific modifiers set to the linestyle
@@ -58,16 +83,9 @@ def create_modifier(linestyle, modifiers_set, modifier_type, modifier_name=""):
 	try:
 		modifiers = getattr(linestyle, modifiers_set)
 		modifiers.new(name=modifier_name, type=modifier_type)
-	except:
-		return False	# TODO create Exception here - could not create modifier; does not exist
+	except Exception as e:
+		raise NprAutosetException("Unable to create \"%s\" modifier \"%s\"" % (modifiers_set, modifier_type), e)
 	return modifiers[-1] 		# latest modifier in the modifiers set
-
-def configure_lineset(lineset, lineset_data):
-	"""Set the value for each of this lineset's attributes"""
-	lineset.name = lineset_data['name']
-	for attribute in lineset_data['lineset']:
-		set_line_attribute(lineset, attribute, lineset_data['lineset'][attribute])
-	return lineset
 
 def create_configure_modifier(linestyle, modifiers_set, modifier_dict):
 	"""Add and configure one modifier for this linestyle
@@ -77,17 +95,16 @@ def create_configure_modifier(linestyle, modifiers_set, modifier_dict):
 	modifier_dict 		dictionary containing the name, type and attribute settings for this modifier
 
 	Expected shape of modifier_dict:
-		{
-			'name': "",
-			'type': "",
-			'attributes': {
-				'attr_0': 0,
-				...
-				'attr_n': 0
-			}
+	{
+		'name': "",
+		'type': "",
+		'attributes': {
+			'attribute_0': 0,
+			...
 		}
+	}
 	"""
-	modifier = create_modifier(linestyle, modifiers_set, modifier_dict['name'], modifier_dict['type'])
+	modifier = create_modifier(linestyle, modifiers_set, modifier_dict['type'], modifier_dict['name'])
 	for attribute in modifier_dict['attributes']:
 		# handle mapping a curve
 		if attribute == 'curve':
@@ -100,26 +117,54 @@ def create_configure_modifier(linestyle, modifiers_set, modifier_dict):
 			set_line_attribute(modifier, attribute, modifier_dict['attributes'][attribute])
 	return modifier
 
-def configure_linestyle(lineset, line_dict):
-	"""Use a line configuration dictionary to configure the line's lineset.linestyle"""
+def setup_modifiers(linestyle, modifiers_dict):
+	"""Create and configure modifiers on a single freestyle linestyle
 
-	# basic settings for linestyle properties
-	linestyle = lineset.linestyle
-	for linestyle_attribute in line_dict['linestyle']:
-		set_line_attribute(linestyle, linestyle_attribute, line_dict['linestyle'][linestyle_attribute])
+	lineset  				one freestyle settings lineset
+	modifiers_dict 	dictionary of configuration data for a lineset's linestyle modifiers
 
-	# linestyle modifiers
-	for modifiers_set in line_dict['modifiers']: 	# nested dict e.g. line_dict['modifiers']['alpha_modifiers'] 
-		modifiers_list = line_dict['modifiers'][modifiers_set] 
+	Expected shape of modifiers_dict:
+	{
+		'modifiers_set': [
+			{
+				'name': "custom-modifier-name",
+				'type': "MODIFIER_TYPE",
+				'attributes': {
+					'attribute_0': 0,
+					...
+				}
+			},
+			...
+		],
+		...
+	}
+	"""
+	for modifiers_set in modifiers_dict: 
+		modifiers_list = modifiers_dict[modifiers_set] 
 		for modifier_dict in modifiers_list:
 			create_configure_modifier(linestyle, modifiers_set, modifier_dict)
+	return linestyle
 
+def configure_linestyle(linestyle, linestyle_dict):
+	"""Configure properties of a single freestyle linestyle
+
+	lineset  				one freestyle settings lineset
+	linestyle_dict 	dictionary of configuration data for a lineset's linestyle properties
+	
+	Expected shape of linestyle_dict:
+	{
+		'attribute_0': 0,
+		...
+	}
+	"""
+	for linestyle_attribute in linestyle_dict:
+		set_line_attribute(linestyle, linestyle_attribute, linestyle_dict[linestyle_attribute])
 	return linestyle
 
 def setup_line(freestyle, line_dict):
-	"""Use a line configuration dictionary to implement one Freestyle lineset with an associated linestyle
+	"""Use a line configuration dictionary to implement one freestyle lineset with an associated linestyle
 	
-	freestyle 	freestyle line settings for the render layer
+	freestyle 	freestyle settings for the render layer
 	line_dict 	line configuration dictionary
 	
 	Expected shape of line_dict:
@@ -130,18 +175,16 @@ def setup_line(freestyle, line_dict):
 		'modifiers': {} 	# modifier sets nested with specific modifiers
 	}
 	"""
-	print("\n-- Creating %s line --" % line_dict['name'])
 	try:
-		lineset = create_lineset(freestyle)
-		print(" - created lineset")
-		configure_lineset(lineset, line_dict) 			# update method to parse dict
-		print(" - configured lineset")
-		configure_linestyle(lineset, line_dict)			# new method
-		print(" - configured linestyle")
-		return True
-	except:
-		print("Failed to create styled linesets.")
-		return False 	# TODO create Exception here
+		lineset = create_lineset(freestyle, line_dict['name'])
+		configure_lineset(lineset, line_dict['lineset'])
+		configure_linestyle(lineset.linestyle, line_dict['linestyle'])
+		setup_modifiers(lineset.linestyle, line_dict['modifiers'])
+		print ("Created and configured `%s` line" % line_dict['name'])
+		return lineset
+	except Exception as e:
+		raise NprAutosetException("Failed run setup_line() on \"%s\" line" % line_dict['name'], e)
+		return e
 
 def setup_lines(freestyle, lines_list):
 	"""Iterate through lines data and perform a setup for each"""
@@ -158,12 +201,15 @@ def run_npr_autoset(scene=bpy.context.scene, lines_list=[], clear_all_linesets=F
 	clear_default_lineset	boolean to remove the default freestlye lineset "Lineset"
 
 	Expected shape of lines_list:
-	[{
-		'name': "",
-		'lineset': {}, 	 	# lineset settings, e.g. 'select_crease': False
-		'linestyle': {}, 	# linestyle settings, e.g. 'alpha': 1.0
-		'modifiers': {} 	# modifier sets, e.g. 'alpha_modifiers': {'name': "", 'type': "ALONG_STROKE", 'attributes': {'influence': 1.0}}
-	}, ... ]
+	[
+		{
+			'name': "",
+			'lineset': {}, 	 	# lineset settings, e.g. 'select_crease': False
+			'linestyle': {}, 	# linestyle settings, e.g. 'alpha': 1.0
+			'modifiers': {} 	# modifier sets, e.g. 'alpha_modifiers': {'name': "", 'type': "ALONG_STROKE", 'attributes': {'influence': 1.0}}
+		},
+		...
+	]
 	"""
 	freestyle = activate_freestyle(scene)
 	# cleanup existing linesets
@@ -173,7 +219,7 @@ def run_npr_autoset(scene=bpy.context.scene, lines_list=[], clear_all_linesets=F
 	freestyle.linesets.active_index = 0
 	return {'FINISHED'}
 
-# 
+# Example state (copied from my typical settings)
 lines = [
 	{
 		'name': "bold",
@@ -193,7 +239,6 @@ lines = [
 			'name': "bold-linestyle",
 			'use_chaining': True,
 			'chaining': "PLAIN",
-			'rounds': None,
 			'color': [0.0, 0.0, 0.0],
 			'alpha': 1.0,
 			'thickness': 10.0
