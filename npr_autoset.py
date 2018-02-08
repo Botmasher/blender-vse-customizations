@@ -3,6 +3,16 @@ import bpy
 import random
 from mathutils import Vector
 
+# TODO
+# - documentation incl info here
+# 	- document each method
+# - Errors and better error handling
+# - run with new untested properties added to the test object
+# - separate out the dict
+# - separate this out into its own subproject (Addon)
+# - generate dicts from settings
+# - see all TODO below
+
 def get_scene():
 	return bpy.context.scene
 
@@ -27,7 +37,7 @@ def clear_linesets(freestyle_settings, clear_all=True, clear_default=True, defau
 		freestyle_settings.linesets.active_index = 0
 		bpy.ops.scene.freestyle_lineset_remove()
 	for lineset in freestyle_settings.linesets:
-		if clear_all_linesets:
+		if clear_all:
 			bpy.ops.scene.freestyle_lineset_remove()
 		else:
 			freestyle_settings.linesets[lineset].show_render = False
@@ -37,14 +47,6 @@ def create_lineset(freestyle_settings):
 	freestyle_settings.linesets.new("")
 	lineset = freestyle_settings.linesets[len(freestyle_settings.linesets)-1]
 	return lineset
-
-# TODO rewrite above methods to match this path:
-# 	1) call setup_lines with the whole dict, which iterates through and runs setup_line
-# 	2) setup_line runs on each dict entry (each "line") to build and configure it
-#				- each line builds and configures one lineset
-# 			- each line builds and configures one linestyle
-# 	3) 
-#
 
 def set_line_attribute(line, attribute_name, attribute_value):
 	"""Set a value on a lineset or linestyle's dot notation property
@@ -58,9 +60,9 @@ def set_line_attribute(line, attribute_name, attribute_value):
 		return False	# TODO create Exception here
 	return line
 
-def create_modifier(linestyle, modifier_name, modifier_type):
+def create_modifier(linestyle, modifiers_set, modifier_name, modifier_type):
 	try:
-		modifiers = getattr(linestyle, attribute_name)
+		modifiers = getattr(linestyle, modifiers_set)
 		modifiers.new(name=modifier_name, type=modifier_type)
 	except:
 		return False	# TODO create Exception here - could not create modifier; does not exist
@@ -72,7 +74,7 @@ def configure_lineset(lineset, lineset_data):
 		set_line_attribute(lineset, attribute, lineset_data['lineset'][attribute])
 	return lineset
 
-def create_configure_modifier(linestyle, modifier_dict):
+def create_configure_modifier(linestyle, modifiers_set, modifier_dict):
 	# shape of modifier dict (peeled off from within modifiers array in the lineset dict)
 	# {
 	#		name: '',
@@ -84,16 +86,16 @@ def create_configure_modifier(linestyle, modifier_dict):
 	# 	}
 	# }
 	#
-
 	# Call create_modifier to add new modifier to the appropriate modifiers and get the returned modifier
-	modifier = create_modifier(modifier_dict.name, modifier_dict.type)
+	modifier = create_modifier(linestyle, modifiers_set, modifier_dict['name'], modifier_dict['type'])
 	# TODO check and fix iterate through modifier attributes
 	for attribute in modifier_dict['attributes']:
 		# TODO check and fix special case handling curves
 		if attribute == 'curve':
-			modifier.curve.curves[0].points.new(modifier_dict['attributes'][attribute][1])
-			modifier.curve.curves[0].points[0].location = Vector(modifier_dict['attributes'][attribute][0])
-			modifier.curve.curves[0].points[2].location = Vector(modifier_dict['attributes'][attribute][2])
+			point_left_coords, point_mid_coords, point_right_coords = modifier_dict['attributes'][attribute]
+			modifier.curve.curves[0].points.new(point_mid_coords[0], point_mid_coords[1])
+			modifier.curve.curves[0].points[0].location = Vector(point_left_coords)
+			modifier.curve.curves[0].points[2].location = Vector(point_right_coords)
 		else:
 			set_line_attribute(modifier, attribute, modifier_dict['attributes'][attribute])
 	return modifier
@@ -108,8 +110,9 @@ def configure_linestyle(lineset, line_dict):
 
 	# linestyle modifiers
 	for modifiers_set in line_dict['modifiers']: 	# nested dict e.g. line_dict['modifiers']['alpha_modifiers'] 
-		for modifier in modifiers_set: 							# nested array: line_dict['modifiers'][modifiers_set][i]
-			create_configure_modifier(linestyle, modifier)
+		modifiers_list = line_dict['modifiers'][modifiers_set] 
+		for modifier_dict in modifiers_list:
+			create_configure_modifier(linestyle, modifiers_set, modifier_dict)
 
 	return linestyle
 
@@ -127,13 +130,17 @@ def setup_line(freestyle, line_dict):
 		'modifiers': {} 	# modifier sets, e.g. 'alpha_modifiers': {'name': "", 'type': "ALONG_STROKE", 'attributes': {'influence': 1.0}}
 	}
 	"""
+	print("\n-- Creating %s lineset --" % line_dict['name'])
 	try:
 		lineset = create_lineset(freestyle)
-		print("Got lineset: %s" % lineset)
+		print(" - created lineset!")
 		configure_lineset(lineset, line_dict) 			# update method to parse dict
+		print(" - configured lineset!")
 		configure_linestyle(lineset, line_dict)			# new method
+		print(" - configured linestyle!")
 		return True
 	except:
+		print("Failed to create styled linesets.")
 		return False 	# TODO create Exception here
 
 def setup_lines(freestyle, lines_dict):
@@ -148,22 +155,12 @@ def setup_lines(freestyle, lines_dict):
 # 	3) setup_lines(lines_dict)
 # 	4) return {'FINISHED'}
 
-def run_npr_autoset(lines={}, clear_all_linesets=False, clear_default_lineset=False):
+def run_npr_autoset(lines_dict={}, clear_all_linesets=False, clear_default_lineset=False):
 	scene = get_scene()
 	freestyle = turnon_freestyle(scene)
 	clear_linesets(freestyle, clear_all=clear_all_linesets, clear_default=clear_default_lineset)
-	# custom settings
-	for line_name in lines:
-		setup_lines(freestyle, lines)
-		# # create
-		# lineset = create_lineset(scene, freestyle)
-		# # detection settings
-		# configure_lineset(lineset, linesets[lineset_name])
-		# # aesthetic settings
-		# if lineset_name == 'bold':
-		# 	configure_linestyle_bold(lineset.linestyle)
-		# elif lineset_name == 'sketchy':
-		# 	configure_linestyle_sketchy(lineset.linestyle)
+	# create and configure
+	setup_lines(freestyle, lines_dict)
 
 	# TODO select active lineset "bold" when finished
 
