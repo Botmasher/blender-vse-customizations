@@ -236,9 +236,7 @@ lines = [
 			'select_crease': False,
 			'select_edge_mark': True,
 			'select_external_contour': False,
-			'select_material_boundary': False,
-			'select_by_group': True,
-			'group_negation': "EXCLUSIVE"
+			'select_material_boundary': False
 		},
 		'linestyle': {
 			'name': "bold-linestyle",
