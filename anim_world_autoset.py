@@ -45,25 +45,46 @@ from mathutils import Vector
 
 # TODO manage cases where a context object's attribute should be set to a dict (example?)
 
-def search_dict_for_nondict_values(k, v, attr_chain=bpy.context):
+def set_project_named_attributes(attrs_dict, attr_chain=bpy.context):
 	"""
 	k 					key in a single {key: value} pair within a dict, representing an attribute
 	v 					value in a single {key: value} pair, representing an attribute value or nested attributes
 	attr_chain 	object onto which attributes are added starting from bpy.context
 	"""
-	# no kv pair
+	# no kv pairs:
 	try:
-		v
+		attrs_dict
 	except NameError:
-		raise Exception("Tried to set attribute on %s, but a single key:value attribute pair was not passed in" % attr_chain)
-	# base case - set value on attribute
-	if type(v) is not dict:
-		attr_chain = set_attr(attr_chain, k, v)
-		return attr_chain
-	# search nodes for children - get nested subattributes
-	attr_chain = get_attr(attr_chain, k)
-	for attr in v:
-		return search_dict_for_nondict_values(v[k], attr_chain)
+		raise Exception("Tried to set attribute on %s, but an attribute dict was not passed in" % attr_chain)
+	# iterate through and set each named context attribute
+	for k,v in attrs_dict.items():
+		print(k)
+		print(v)
+		# base case - set the attr value
+		if type(v) is not dict:
+			print("Setting attribute %s to value: %s" % (k, v))
+			attr_chain = setattr(attr_chain, k, v)
+			continue
+		# v is a nested dict - chain the attr and keep looking for subattr values
+		# search node for children to get nested subattributes
+		attr_chain = getattr(attr_chain, k)
+		print("Getting attribute %s to chain onto %s" % (k, attr_chain))
+		return set_project_named_attributes(v, attr_chain)
+	# finished setting all cases for this dict
+	return {'FINISHED'}
+
+contexts_test_dict = {
+	'scene': {
+		'render': {
+			'resolution_x': 512,
+			'resolution_y': 512,
+		},
+		'frame_start': 2,
+		'frame_end': 5
+	}
+}
+
+attribs = set_project_named_attributes(contexts_test_dict)
 
 contexts_setup_dict = {
 	'scene': {
@@ -107,44 +128,44 @@ contexts_setup_dict = {
 }
 
 # run through areas and adjust custom settings ad hoc
-areas = bpy.context.window.screen.areas
-initial_area = bpy.context.area.type
+# areas = bpy.context.window.screen.areas
+# initial_area = bpy.context.area.type
 
-for area in areas:
-	if area.type == "VIEW_3D" and area.spaces[0].type == "VIEW_3D":
-		area.spaces.active.show_manipulator = False
-		bpy.context.scene.objects['Lamp'].location = Vector((-2.7, 2.0, 2.5))
-		bpy.context.scene.objects['Lamp'].parent = bpy.context.scene.objects['Camera']
-		bpy.context.scene.objects['Lamp'].data.energy = 1.1
-		bpy.context.scene.objects['Lamp'].data.distance = 25.0
-		bpy.context.scene.objects['Lamp'].data.shadow_ray_samples = 3 			# check against standard settings
-		bpy.context.scene.objects['Camera'].location = Vector((0.0, 0.0, 5.0))
-		bpy.context.scene.objects['Camera'].rotation_euler = (0.0, 0.0, 0.0)
-		# delete default Cube
-		bpy.ops.object.select_all(action="DESELECT")
-		try:
-			bpy.context.scene.objects['Cube'].select = True
-		except:
-			#raise Exception("'Cube' object deleted but no longer exists in bpy.data.objects")
-			pass 	# TODO handle exception: 'Cube' still selected but no longer exists
-		bpy.ops.object.delete()
-		# TODO add plane c standard colors
-	elif area.type == "PROPERTIES":
-		bpy.context.scene.render.resolution_x = 1920
-		bpy.context.scene.render.resolution_y = 1080
-		bpy.context.scene.frame_start = 1
-		bpy.context.scene.frame_end = 1500
-		bpy.context.scene.render.antialiasing_samples = "5"
-		bpy.context.scene.render.alpha_mode = "TRANSPARENT"
-		try:
-			bpy.context.scene.render.filepath = "../render/"
-		except:
-			pass
-		bpy.context.scene.render.image_settings.file_format = "JPEG"
-		bpy.context.scene.world.light_settings.use_environment_light = True
-		bpy.context.scene.world.light_settings.environment_energy = 0.9 		# check against standard settings
-		bpy.context.scene.world.light_settings.gather_method = "RAYTRACE"
-		bpy.context.scene.world.light_settings.distance = 0.01 							# check against standard settings
-		bpy.context.scene.world.light_settings.samples = 4 									# check against standard settings
-	else:
-		pass
+# for area in areas:
+# 	if area.type == "VIEW_3D" and area.spaces[0].type == "VIEW_3D":
+# 		area.spaces.active.show_manipulator = False
+# 		bpy.context.scene.objects['Lamp'].location = Vector((-2.7, 2.0, 2.5))
+# 		bpy.context.scene.objects['Lamp'].parent = bpy.context.scene.objects['Camera']
+# 		bpy.context.scene.objects['Lamp'].data.energy = 1.1
+# 		bpy.context.scene.objects['Lamp'].data.distance = 25.0
+# 		bpy.context.scene.objects['Lamp'].data.shadow_ray_samples = 3 			# check against standard settings
+# 		bpy.context.scene.objects['Camera'].location = Vector((0.0, 0.0, 5.0))
+# 		bpy.context.scene.objects['Camera'].rotation_euler = (0.0, 0.0, 0.0)
+# 		# delete default Cube
+# 		bpy.ops.object.select_all(action="DESELECT")
+# 		try:
+# 			bpy.context.scene.objects['Cube'].select = True
+# 		except:
+# 			#raise Exception("'Cube' object deleted but no longer exists in bpy.data.objects")
+# 			pass 	# TODO handle exception: 'Cube' still selected but no longer exists
+# 		bpy.ops.object.delete()
+# 		# TODO add plane c standard colors
+# 	elif area.type == "PROPERTIES":
+# 		bpy.context.scene.render.resolution_x = 1920
+# 		bpy.context.scene.render.resolution_y = 1080
+# 		bpy.context.scene.frame_start = 1
+# 		bpy.context.scene.frame_end = 1500
+# 		bpy.context.scene.render.antialiasing_samples = "5"
+# 		bpy.context.scene.render.alpha_mode = "TRANSPARENT"
+# 		try:
+# 			bpy.context.scene.render.filepath = "../render/"
+# 		except:
+# 			pass
+# 		bpy.context.scene.render.image_settings.file_format = "JPEG"
+# 		bpy.context.scene.world.light_settings.use_environment_light = True
+# 		bpy.context.scene.world.light_settings.environment_energy = 0.9 		# check against standard settings
+# 		bpy.context.scene.world.light_settings.gather_method = "RAYTRACE"
+# 		bpy.context.scene.world.light_settings.distance = 0.01 							# check against standard settings
+# 		bpy.context.scene.world.light_settings.samples = 4 									# check against standard settings
+# 	else:
+# 		pass
