@@ -45,9 +45,11 @@ from mathutils import Vector
 
 # TODO manage cases where a context object's attribute should be set to a dict (example?)
 
-# TODO 
+# TODO handle square bracket selection of objects by key/index
+# 	- convert {'objects': {'[1]': {'attribute': "value"}}} to objects[1].attribute = "value"
+# 	- convert {'objects': {'["Name"]': {'attribute': "value"}}} to objects["Name"].attribute = "value"
 
-def set_named_attributes(k, v, attr_chain=bpy.context):
+def set_named_attributes(v, k=None, attr_chain=bpy):
 	"""
 	k 					key in a single {key: value} pair within a dict, representing an attribute
 	v 					value in a single {key: value} pair, representing an attribute value or nested attributes
@@ -55,45 +57,47 @@ def set_named_attributes(k, v, attr_chain=bpy.context):
 	"""
 	# no kv pairs:
 	try:
-		k and v
+		v
 	except NameError:
-		raise Exception("Tried to set attribute on %s.%s, but an attribute dict was not passed in" % (attr_chain, k))
+		raise Exception("Tried to set attribute(s) on %s, but an attribute value was not passed in" % attr_chain)
 	# base case - set the attr value
 	if type(v) is not dict:
 		attr_chain = setattr(attr_chain, k, v)
 		print("Setting attribute %s to value: %s" % (k, v))
 		return attr_chain
 	# v is a nested dict - chain the attr and look for subattr values
-	attr_chain = getattr(attr_chain, k)
+	if k is not None:
+		attr_chain = getattr(attr_chain, k)
 	# search node for children to get nested subattributes
 	for attribute, value in v.items():
 		print("Getting attribute %s to chain onto %s" % (k, attr_chain))
-		set_named_attributes(attribute, value, attr_chain)
+		set_named_attributes(value, attribute, attr_chain)
 
-contexts_test_dict = {
-	'scene': {
-		'render': {
-			'resolution_x': 512,
-			'resolution_y': 512,
-		},
-		'frame_start': 2,
-		'frame_end': 5,
-		'world': {
-			'light_settings': {
-				'use_environment_light': True,
-				'environment_energy': 0.9,
-				'gather_method': "RAYTRACE",
-				'distance': 0.01,
-				'samples': 4
+test_attrs_dict = {
+	'context': {
+		'scene': {
+			'render': {
+				'resolution_x': 512,
+				'resolution_y': 512,
+			},
+			'frame_start': 2,
+			'frame_end': 5,
+			'world': {
+				'light_settings': {
+					'use_environment_light': True,
+					'environment_energy': 0.9,
+					'gather_method': "RAYTRACE",
+					'distance': 0.01,
+					'samples': 4
+				}
 			}
 		}
 	}
 }
 
-for k,v in contexts_test_dict.items():
-	set_named_attributes(k,v)
+set_named_attributes(test_attrs_dict)
 
-contexts_setup_dict = {
+setup_dict = {
 	'scene': {
 		'objects': {
 			'["Camera"]': {
@@ -129,6 +133,19 @@ contexts_setup_dict = {
 				'gather_method': "RAYTRACE",
 				'distance': 0.01,
 				'samples': 4
+			}
+		}
+	},
+	'window': {
+		'screen': {
+			'areas': {
+				'[4]': {
+					'spaces': {
+						'active': {
+							'show_manipulator': False
+						}
+					}
+				}
 			}
 		}
 	}
