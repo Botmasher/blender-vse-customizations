@@ -45,7 +45,9 @@ from mathutils import Vector
 
 # TODO manage cases where a context object's attribute should be set to a dict (example?)
 
-def set_project_named_attributes(attrs_dict, attr_chain=bpy.context):
+# TODO 
+
+def set_named_attributes(k, v, attr_chain=bpy.context):
 	"""
 	k 					key in a single {key: value} pair within a dict, representing an attribute
 	v 					value in a single {key: value} pair, representing an attribute value or nested attributes
@@ -53,25 +55,20 @@ def set_project_named_attributes(attrs_dict, attr_chain=bpy.context):
 	"""
 	# no kv pairs:
 	try:
-		attrs_dict
+		k and v
 	except NameError:
-		raise Exception("Tried to set attribute on %s, but an attribute dict was not passed in" % attr_chain)
-	# iterate through and set each named context attribute
-	for k,v in attrs_dict.items():
-		print(k)
-		print(v)
-		# base case - set the attr value
-		if type(v) is not dict:
-			print("Setting attribute %s to value: %s" % (k, v))
-			attr_chain = setattr(attr_chain, k, v)
-			continue
-		# v is a nested dict - chain the attr and keep looking for subattr values
-		# search node for children to get nested subattributes
-		attr_chain = getattr(attr_chain, k)
+		raise Exception("Tried to set attribute on %s.%s, but an attribute dict was not passed in" % (attr_chain, k))
+	# base case - set the attr value
+	if type(v) is not dict:
+		attr_chain = setattr(attr_chain, k, v)
+		print("Setting attribute %s to value: %s" % (k, v))
+		return attr_chain
+	# v is a nested dict - chain the attr and look for subattr values
+	attr_chain = getattr(attr_chain, k)
+	# search node for children to get nested subattributes
+	for attribute, value in v.items():
 		print("Getting attribute %s to chain onto %s" % (k, attr_chain))
-		return set_project_named_attributes(v, attr_chain)
-	# finished setting all cases for this dict
-	return {'FINISHED'}
+		set_named_attributes(attribute, value, attr_chain)
 
 contexts_test_dict = {
 	'scene': {
@@ -80,11 +77,21 @@ contexts_test_dict = {
 			'resolution_y': 512,
 		},
 		'frame_start': 2,
-		'frame_end': 5
+		'frame_end': 5,
+		'world': {
+			'light_settings': {
+				'use_environment_light': True,
+				'environment_energy': 0.9,
+				'gather_method': "RAYTRACE",
+				'distance': 0.01,
+				'samples': 4
+			}
+		}
 	}
 }
 
-attribs = set_project_named_attributes(contexts_test_dict)
+for k,v in contexts_test_dict.items():
+	set_named_attributes(k,v)
 
 contexts_setup_dict = {
 	'scene': {
