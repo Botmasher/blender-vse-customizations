@@ -45,10 +45,6 @@ from mathutils import Vector
 
 # TODO manage cases where a context object's attribute should be set to a dict (example?)
 
-# TODO handle square bracket selection of objects by key/index
-# 	- convert {'objects': {'[1]': {'attribute': "value"}}} to objects[1].attribute = "value"
-# 	- convert {'objects': {'["Name"]': {'attribute': "value"}}} to objects["Name"].attribute = "value"
-
 def set_named_attributes(v, k=None, attr_chain=bpy):
 	"""
 	k 					key in a single {key: value} pair within a dict, representing an attribute
@@ -66,14 +62,30 @@ def set_named_attributes(v, k=None, attr_chain=bpy):
 		print("Setting attribute %s to value: %s" % (k, v))
 		return attr_chain
 	# v is a nested dict - chain the attr and look for subattr values
+	# note: current setup supports chaining (sub)attributes to either indices or attributes, but only assigning values to attributes
 	if k is not None:
-		attr_chain = getattr(attr_chain, k)
+		# TODO regex
+		if k[0] == "[" and k[-1] == "]":
+			# treat as name string (key among set of Blender objects)
+			# helps convert e.g. {'collection': {'["Name"]': {'attribute': "value"}}} to collection["Name"].attribute = "value"
+			if (k[1] == "\"" and k[-2] == "\"") or (k[1] == "'" and k[-2] == "'"):
+				attr_chain = attr_chain[k[2:-2]]
+			# treat as integer (index in Blender list)
+			# helps convert e.g. {'array': {'[1]': {'attribute': "value"}}} to array[1].attribute = "value"
+			else:
+				try:
+					i = int(k[1:-1])
+					attr_chain = attr_chain[i]
+				except:
+					raise Exception("Setting attributes - failed to access %s at [%s]" % (attr_chain, i))
+		else:
+			attr_chain = getattr(attr_chain, k)
 	# search node for children to get nested subattributes
 	for attribute, value in v.items():
 		print("Getting attribute %s to chain onto %s" % (k, attr_chain))
 		set_named_attributes(value, attribute, attr_chain)
 
-test_attrs_dict = {
+test_attr_settings = {
 	'context': {
 		'scene': {
 			'render': {
@@ -95,54 +107,55 @@ test_attrs_dict = {
 	}
 }
 
-set_named_attributes(test_attrs_dict)
-
-setup_dict = {
-	'scene': {
-		'objects': {
-			'["Camera"]': {
-				'location': Vector((0.0, 0.0, 5.0)),
-				'rotation_euler': (0.0, 0.0, 0.0)
+test_attrs_plus_indices = {
+	'context': {
+		'scene': {
+			'objects': {
+				'["Camera"]': {
+					'location': Vector((0.0, 0.0, 5.0)),
+					'rotation_euler': (0.0, 0.0, 0.0)
+				},
+				'["Lamp"]': {
+					'location': Vector((-4.0, 1.5, 6.5)),
+					'parent': bpy.context.scene.objects['Camera'],
+					'data': {
+						'energy': 1.1,
+						'distance': 25.0,
+						'shadow_ray_samples': 3
+					}
+				}
 			},
-			'["Lamp"]': {
-				'location': Vector((-4.0, 1.5, 6.5)),
-				'parent': bpy.context.scene.objects['Camera'],
-				'data': {
-					'energy': 1.1,
-					'distance': 25.0,
-					'shadow_ray_samples': 3
+			'render': {
+				'resolution_x': 1920,
+				'resolution_y': 1080,
+				'resolution_percentage': 100,
+				'antialiasing_samples': "5",
+				'alpha_mode': "TRANSPARENT",
+				'filepath': "../render/",
+				'image_settings': {
+					'file_format': "JPEG"
+				}
+			},
+			'frame_start': 1,
+			'frame_end': 1500,
+			'world': {
+				'light_settings': {
+					'use_environment_light': True,
+					'environment_energy': 0.9,
+					'gather_method': "RAYTRACE",
+					'distance': 0.01,
+					'samples': 4
 				}
 			}
 		},
-		'render': {
-			'resolution_x': 1920,
-			'resolution_y': 1080,
-			'antialiasing_samples': "5",
-			'alpha_mode': "TRANSPARENT",
-			'filepath': "../render/",
-			'image_settings': {
-				'file_format': "JPEG"
-			}
-		},
-		'frame_start': 1,
-		'frame_end': 1500,
-		'world': {
-			'light_settings': {
-				'use_environment_light': True,
-				'environment_energy': 0.9,
-				'gather_method': "RAYTRACE",
-				'distance': 0.01,
-				'samples': 4
-			}
-		}
-	},
-	'window': {
-		'screen': {
-			'areas': {
-				'[4]': {
-					'spaces': {
-						'active': {
-							'show_manipulator': False
+		'window': {
+			'screen': {
+				'areas': {
+					'[4]': {
+						'spaces': {
+							'active': {
+								'show_manipulator': False
+							}
 						}
 					}
 				}
@@ -150,6 +163,8 @@ setup_dict = {
 		}
 	}
 }
+
+set_named_attributes(test_attrs_plus_indices)
 
 # run through areas and adjust custom settings ad hoc
 # areas = bpy.context.window.screen.areas
