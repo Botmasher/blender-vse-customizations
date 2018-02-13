@@ -1,17 +1,19 @@
 import bpy
 from mathutils import Vector
+import re
 
-## Automatically Set up and Configure my Anim Worlds
+## Automatically set up default anim world
 ## script by GitHub user Botmasher (Joshua R)
-## Automatically apply my custom world and render settings when starting up a new animation.
+## Programmatically apply my custom world and render settings when starting up a new animation.
 ## Used for setting up, keyframing and rendering my core animations (my anim.blend files), not
-## for cutting the rendered sequences (my project.blend)
+## for cutting rendered sequences (my project.blend files).
+## 
 
 # TODO work for any settings across an entire blender project
 
 # TODO setup the areas / screen panels and their ratios in the window
 
-# TODO split out deleting objects (it's a separate process)
+# TODO split out adding and deleting objects (it's a separate process)
 
 # TODO base settings on a contexts dictionary
 # contexts_setup_dict = {
@@ -49,14 +51,13 @@ def set_named_attributes(v, k=None, attr_chain=bpy):
 	"""
 	k 					key in a single {key: value} pair within a dict, representing an attribute
 	v 					value in a single {key: value} pair, representing an attribute value or nested attributes
-	attr_chain 	object onto which attributes are added starting from bpy.context
+	attr_chain 	dot notation object for which attributes are set or onto which further attributes are added
 	"""
-	# no kv pairs:
 	try:
 		v
 	except NameError:
 		raise Exception("Tried to set attribute(s) on %s, but an attribute value was not passed in" % attr_chain)
-	# base case - set the attr value
+	# base case - set attr value
 	if type(v) is not dict:
 		attr_chain = setattr(attr_chain, k, v)
 		print("Setting attribute %s to value: %s" % (k, v))
@@ -64,20 +65,24 @@ def set_named_attributes(v, k=None, attr_chain=bpy):
 	# v is a nested dict - chain the attr and look for subattr values
 	# note: current setup supports chaining (sub)attributes to either indices or attributes, but only assigning values to attributes
 	if k is not None:
-		# TODO regex
-		if k[0] == "[" and k[-1] == "]":
-			# treat as name string (key among set of Blender objects)
-			# helps convert e.g. {'collection': {'["Name"]': {'attribute': "value"}}} to collection["Name"].attribute = "value"
-			if (k[1] == "\"" and k[-2] == "\"") or (k[1] == "'" and k[-2] == "'"):
-				attr_chain = attr_chain[k[2:-2]]
-			# treat as integer (index in Blender list)
-			# helps convert e.g. {'array': {'[1]': {'attribute': "value"}}} to array[1].attribute = "value"
-			else:
-				try:
-					i = int(k[1:-1])
-					attr_chain = attr_chain[i]
-				except:
-					raise Exception("Setting attributes - failed to access %s at [%s]" % (attr_chain, i))
+		is_bracketed_str = re.match("\[[\"\'](.+)[\"\']\]", k)
+		is_bracketed_int = False if is_bracketed_str else re.match("\[(.+)\]", k)
+		# treat as name string (key among set of Blender objects)
+		# helps convert e.g. {'collection': {'["Name"]': {'attribute': "value"}}} to collection["Name"].attribute = "value"
+		if is_bracketed_str:
+			try:
+				name = k[2:-2]
+				attr_chain = attr_chain[name]
+			except:
+				raise Exception("Setting attributes - failed to access %s at ['%s']" % (attr_chain, i))
+		# treat as integer (index in Blender list)
+		# helps convert e.g. {'array': {'[1]': {'attribute': "value"}}} to array[1].attribute = "value"
+		elif is_bracketed_int:
+			try:
+				i = int(k[1:-1])
+				attr_chain = attr_chain[i]
+			except:
+				raise Exception("Setting attributes - failed to access %s at [%s]" % (attr_chain, i))
 		else:
 			attr_chain = getattr(attr_chain, k)
 	# search node for children to get nested subattributes
@@ -85,29 +90,7 @@ def set_named_attributes(v, k=None, attr_chain=bpy):
 		print("Getting attribute %s to chain onto %s" % (k, attr_chain))
 		set_named_attributes(value, attribute, attr_chain)
 
-test_attr_settings = {
-	'context': {
-		'scene': {
-			'render': {
-				'resolution_x': 512,
-				'resolution_y': 512,
-			},
-			'frame_start': 2,
-			'frame_end': 5,
-			'world': {
-				'light_settings': {
-					'use_environment_light': True,
-					'environment_energy': 0.9,
-					'gather_method': "RAYTRACE",
-					'distance': 0.01,
-					'samples': 4
-				}
-			}
-		}
-	}
-}
-
-test_attrs_plus_indices = {
+example_settings = {
 	'context': {
 		'scene': {
 			'objects': {
@@ -164,7 +147,7 @@ test_attrs_plus_indices = {
 	}
 }
 
-set_named_attributes(test_attrs_plus_indices)
+set_named_attributes(example_settings)
 
 # run through areas and adjust custom settings ad hoc
 # areas = bpy.context.window.screen.areas
