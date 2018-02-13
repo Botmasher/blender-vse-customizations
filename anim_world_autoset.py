@@ -7,9 +7,6 @@ import re
 ## Programmatically apply my custom world and render settings when starting up a new animation.
 ## Used for setting up, keyframing and rendering my core animations (my anim.blend files), not
 ## for cutting rendered sequences (my project.blend files).
-## 
-
-# TODO work for any settings across an entire blender project
 
 # TODO setup the areas / screen panels and their ratios in the window
 
@@ -33,19 +30,12 @@ import re
 # 	...
 # }
 
-# TODO functions configure a project using contexts_setup_dict
-# - read through each key and treat it as an attribute of bpy
-# 	- bpy.context for single active objects (bpy.context.area)
-#		- bpy.context.window for areas (like bpy.context.window.areas)
-# 		- or consistency: expect this from the setup dictionary
-# 	- bpy.data for multiple active objects (like bpy.data.scenes)
+# TODO bpy.data for multiple active objects (like bpy.data.scenes)
 # - read through each dot notation property until getting to values
 # - traverse dictionary depth-first through dictionaries until reaching leaf kvs
 # 	- get attribute if the value is another dictionary
 # 	- set attribute to value if it's anything else
 # 	- catch getting and setting exceptions
-
-# TODO manage cases where a context object's attribute should be set to a dict (example?)
 
 def set_named_attributes(v, k=None, attr_chain=bpy):
 	"""
