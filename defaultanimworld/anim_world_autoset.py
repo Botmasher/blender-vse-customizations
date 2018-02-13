@@ -1,6 +1,6 @@
 import bpy
 from mathutils import Vector
-import re
+from defaultanimworld import autoset_attrs
 
 ## Automatically set up default anim world
 ## script by GitHub user Botmasher (Joshua R)
@@ -30,57 +30,9 @@ import re
 # 	...
 # }
 
-# TODO bpy.data for multiple active objects (like bpy.data.scenes)
-# - read through each dot notation property until getting to values
-# - traverse dictionary depth-first through dictionaries until reaching leaf kvs
-# 	- get attribute if the value is another dictionary
-# 	- set attribute to value if it's anything else
-# 	- catch getting and setting exceptions
+# TODO handle bpy.data for multiple selected objects (like bpy.data.scenes)
 
-def set_named_attributes(v, k=None, attr_chain=bpy):
-	"""
-	k 					key in a single {key: value} pair within a dict, representing an attribute
-	v 					value in a single {key: value} pair, representing an attribute value or nested attributes
-	attr_chain 	dot notation object for which attributes are set or onto which further attributes are added
-	"""
-	try:
-		v
-	except NameError:
-		raise Exception("Tried to set attribute(s) on %s, but an attribute value was not passed in" % attr_chain)
-	# base case - set attr value
-	if type(v) is not dict:
-		attr_chain = setattr(attr_chain, k, v)
-		print("Setting attribute %s to value: %s" % (k, v))
-		return attr_chain
-	# v is a nested dict - chain the attr and look for subattr values
-	# note: current setup supports chaining (sub)attributes to either indices or attributes, but only assigning values to attributes
-	if k is not None:
-		is_bracketed_str = re.match("\[[\"\'](.+)[\"\']\]", k)
-		is_bracketed_int = False if is_bracketed_str else re.match("\[(.+)\]", k)
-		# treat as name string (key among set of Blender objects)
-		# helps convert e.g. {'collection': {'["Name"]': {'attribute': "value"}}} to collection["Name"].attribute = "value"
-		if is_bracketed_str:
-			try:
-				name = k[2:-2]
-				attr_chain = attr_chain[name]
-			except:
-				raise Exception("Setting attributes - failed to access %s at ['%s']" % (attr_chain, i))
-		# treat as integer (index in Blender list)
-		# helps convert e.g. {'array': {'[1]': {'attribute': "value"}}} to array[1].attribute = "value"
-		elif is_bracketed_int:
-			try:
-				i = int(k[1:-1])
-				attr_chain = attr_chain[i]
-			except:
-				raise Exception("Setting attributes - failed to access %s at [%s]" % (attr_chain, i))
-		else:
-			attr_chain = getattr(attr_chain, k)
-	# search node for children to get nested subattributes
-	for attribute, value in v.items():
-		print("Getting attribute %s to chain onto %s" % (k, attr_chain))
-		set_named_attributes(value, attribute, attr_chain)
-
-example_settings = {
+settings = {
 	'context': {
 		'scene': {
 			'objects': {
@@ -137,7 +89,7 @@ example_settings = {
 	}
 }
 
-set_named_attributes(example_settings)
+autoset_attrs(settings)
 
 # run through areas and adjust custom settings ad hoc
 # areas = bpy.context.window.screen.areas
