@@ -37,10 +37,6 @@ class Context_Manager:
     '''
         return bpy.context.object
 
-# get context and the object to key
-ctx = Context_Manager ()
-obj = ctx.object ()
-
 class Audio_Shape_Key:
     def __init__ (self, selected_object, key_name, value=0.0):
     ''' Create and name a shape key in selected object's data.
@@ -134,6 +130,10 @@ class Audio_Shape_Key:
     '''
         self.key.value = value
         return self.key.value
+
+# get context and the object to key
+ctx = Context_Manager ()
+obj = ctx.object ()
 
 # add shape key
 audio_key = Audio_Shape_Key (obj, custom_key_name, 1.0)
