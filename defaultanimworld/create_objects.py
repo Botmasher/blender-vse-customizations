@@ -3,32 +3,43 @@ from mathutils import Vector
 
 ## Create new Blender objects within the current scene
 
-def create_objects(obj_settings={}):
+def create_objects(objects_settings={}):
 	"""Create and setup Blender objects in scene from an array of settings dicts"""
 	added_objects = []
-	for obj in obj_settings:
-		added_obj = bpy.data.objects.new(obj.name, None)
-		for attr in obj['attributes']:
-			setattr(obj, attr, obj['attributes'][attr])
-		bpy.context.scene.objects.link(added_obj)
-		added_objects.push(added_obj)
+	added_object = None
+	for object_settings in objects_settings:
+		# primitive mesh object
+		if 'primitive' in object_settings:
+			try:
+				add_primitive = getattr(bpy.ops.mesh, "primitive_%s_add" % object_settings['primitive'])
+				add_primitive()
+				added_obj = bpy.context.scene.objects.active 	# tested: new primitive set to active even when multiple other objects selected
+			except:
+				continue 	# TODO handle cannot add primitive (incl primitive_x_add method not found)
+		# blank object
+		else:
+			added_obj = bpy.data.objects.new(obj.name, None)
+			bpy.context.scene.objects.link(added_obj)
+		for attr in object_settings['attributes']:
+			setattr(added_obj, attr, object_settings['attributes'][attr])
+		added_objects.append(added_obj)
 	return added_objects
 
 objects_to_add = {
 	'data': {
 		'objects': [
 			{
-				'name': "Newly Created Object 0"
 				'primitive': 'cube',
 				'attributes': {
-					'location': Vector(0.0, 0.0, 0.0)
+					'name': "Newly Created Cube",
+					'location': Vector((0.0, 0.0, 0.0))
 				}
 			},
 			{
-				'name': "Newly Created Object 1"
-				'primitive': 'cube',
+				'primitive': 'uv_sphere',
 				'attributes': {
-					'location': Vector(1.0, 1.0, 1.0)
+					'name': "Newly Created Sphere",
+					'location': Vector((1.0, 1.0, 1.0))
 				}
 			}
 		]
