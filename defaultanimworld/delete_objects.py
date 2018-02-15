@@ -1,12 +1,12 @@
 import bpy
-from mathutils import Vector
 
-def list_object_names(objects):
-	return map(lambda o: o.name, objects)
-
-def remove_objects(object_names, map_names=False):
+def remove_objects(object_names):
 	"""Delete existing objects from scene where object name matches a name in the list"""
-	object_names = list_object_names(object_names) if map_names else object_names
+	object_names = [obj['name'] for obj in object_names] if type(object_names[0]) == dict else object_names
+	try:
+		getattr(object_names, "append")
+	except:
+		return False 		# TODO handle type error
 	bpy.ops.object.select_all(action="DESELECT")
 	for name in object_names:
 		try:
@@ -14,14 +14,22 @@ def remove_objects(object_names, map_names=False):
 		except:
 			pass 	# TODO handle exception: still selected but no longer exists
 		bpy.ops.object.delete()
-		#bpy.context.scene.objects[name].select = False
+	return True
 
 objects_to_remove = {
 	'data': {
 		'objects': [
 			{
 				'name': "Cube"
-			}
+			},
+			{
+				'name': "Lamp"
+			},
 		]
 	}
 }
+
+# string list works
+obj_names_remove = ["Cube", "Lamp"]
+
+remove_objects(objects_to_remove['data']['objects'])

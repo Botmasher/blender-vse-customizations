@@ -11,9 +11,25 @@ from defaultanimworld import autoset_attrs
 
 # TODO run through and configure the areas and screen panels incl their ratios
 
-# TODO split out adding and deleting objects (it's a separate process)
-
 # TODO handle bpy.data for multiple selected objects (like bpy.data.scenes)
+
+# TODO create and delete other incl (starting c) mat, tex
+
+# TODO create_objects run when 'new()' key found
+# TODO delete_objects run with 'delete()' key found
+# config_dict = {
+# 	'context': {
+# 		'scene': {
+# 			'objects': {
+#					'delete()': ["My Old Object Name", ...],
+# 				'new()': {},
+# 				'["My New Object Name"]': {
+# 					'attribute': "value"
+# 				}
+#				}
+# 		}
+# 	}
+# }
 
 settings = {
 	'context': {
