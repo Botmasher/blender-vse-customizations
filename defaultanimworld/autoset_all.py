@@ -5,11 +5,11 @@ from mathutils import Vector
 # adjust settings and create and delete objects, materials, textures from a single config dict
 # example config dict and instantiation at bottom
 
-# TODO .new() and .delete() keys may be accessed before modifying keys
-# - function to handle those first?
-
+# TODO handle new and deleted materials, textures, ...
+		
 class Autoconfig_Anim:
 	def __init__(self, create_method_name='new()', delete_method_name='delete()'):
+		# nested keys for special setup handling of create and delete
 		self.create_method_name = create_method_name
 		self.delete_method_name = delete_method_name
 		return None
@@ -38,7 +38,7 @@ class Autoconfig_Anim:
 				raise Exception("Setting attributes - failed to access %s at [%s]. Index may be out of range for scene objects collection." % (attr_chain, i))
 		return None
 
-	def create_objects(self, objects_settings={}):
+	def create_objects(self, objects_settings):
 		"""Create and setup Blender objects in scene from an array of settings dicts"""
 		added_objects = []
 		added_object = None
@@ -79,7 +79,7 @@ class Autoconfig_Anim:
 			bpy.ops.object.delete()
 		return True
 
-	def autoset_attrs(self, v, k=None, attr_chain=bpy):
+	def autoset_attributes(self, v, k=None, attr_chain=bpy):
 		"""Iterate through subdictionaries to configure find and set Blender attributes
 		
 		Current setup supports chaining (sub)attributes to either indices or attributes,
@@ -93,16 +93,12 @@ class Autoconfig_Anim:
 			v
 		except NameError:
 			raise Exception("Tried to set attribute(s) on %s, but an attribute value was not passed in" % attr_chain)
-		# 'new()' or 'delete()' keys with arrays of objects to create or delete
-		if k == self.create_method_name: return self.create_objects(v)
-		if k == self.delete_method_name: return self.delete_objects(v) 	# accepts dict!
-		# TODO handle new and deleted materials, textures, ...
-
 		# base case: node is an attribute=value settings pair
-		if type(v) is not dict:
+		if type(v) is not dict or k in [self.create_method_name, self.delete_method_name]:
 			# reached leaf - set attribute value
-			attr_chain = setattr(attr_chain, k, v)
-			print("Setting attribute %s to value: %s" % (k, v))
+			if k not in [self.create_method_name, self.delete_method_name]:
+				attr_chain = setattr(attr_chain, k, v)
+				print("Setting attribute %s to value: %s" % (k, v))
 			return attr_chain
 		# node is a nested dict: chain the attr and look for subattr values
 		if k is not None:
@@ -117,7 +113,7 @@ class Autoconfig_Anim:
 		# search node for nested subattributes
 		for attribute, value in v.items():
 			print("Getting attribute %s to chain onto %s" % (k, attr_chain))
-			self.autoset_attrs(value, attribute, attr_chain)
+			self.autoset_attributes(value, attribute, attr_chain)
 
 	def set_config(self, config_dict):
 		if type(config_dict) is dict:
@@ -132,7 +128,19 @@ class Autoconfig_Anim:
 	def setup(self, config_dict=None):
 		if config_dict is not None:
 			self.set_config(config_dict)
-		self.autoset_attrs(self.config)
+		# create objects based on array under key 'new()'
+		try:
+			objects_to_create = config_dict['context']['scene']['objects'][self.create_method_name]
+			self.create_objects(objects_to_create)
+		except:
+			pass
+		# delete objects based on array under key 'delete()'
+		try:
+			objects_to_delete = config_dict['context']['scene']['objects'][self.delete_method_name]
+			self.delete_objects(objects_to_delete)
+		except:
+			pass
+		self.autoset_attributes(self.config)
 
 example_settings = {
 	'context': {
