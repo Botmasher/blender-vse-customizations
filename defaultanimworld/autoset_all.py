@@ -6,7 +6,8 @@ from mathutils import Vector
 # example config dict and instantiation at bottom
 
 # TODO handle new and deleted materials, textures, ...
-		
+# TODO delete based on any attribute
+
 class Autoconfig_Anim:
 	def __init__(self, create_method_name='new()', delete_method_name='delete()'):
 		# nested keys for special setup handling of create and delete
@@ -39,7 +40,7 @@ class Autoconfig_Anim:
 		return None
 
 	def create_objects(self, objects_settings):
-		"""Create and setup Blender objects in scene from an array of settings dicts"""
+		"""Create and setup objects in scene from an array of settings dicts"""
 		added_objects = []
 		added_object = None
 		for object_config in objects_settings:
@@ -65,6 +66,7 @@ class Autoconfig_Anim:
 
 	def delete_objects(self, object_names):
 		"""Delete existing objects from scene where object name matches a name in the list"""
+		# convert names dict to list
 		object_names = [obj['name'] for obj in object_names] if type(object_names[0]) == dict else object_names
 		try:
 			getattr(object_names, "append")
@@ -77,6 +79,35 @@ class Autoconfig_Anim:
 			except:
 				pass
 			bpy.ops.object.delete()
+		return True
+
+	def create_materials(self, materials_settings):
+		"""Create and setup data for new materials"""
+		added_materials = []
+		for material in materials_settings:
+			new_material = bpy.data.materials.new(material['name'])
+			for attribute in material:
+				if attribute != 'name':
+					try:
+						setattr(new_material, attribute, material[attribute])
+					except:
+						continue
+			added_materials.append(new_material)
+		return added_materials
+
+	def delete_materials(self, material_names):
+		"""Delete existing materials where material name matches a name in the lsit"""
+		# convert names dict to list
+		material_names = [mat['name'] for mat in material_names] if type(material_names[0]) == dict else material_names
+		try:
+			getattr(material_names, "append")
+		except:
+			return False
+		for name in material_names:
+			try:
+				bpy.data.materials[name].user_clear() 	# set data block user count to 0
+			except:
+				pass
 		return True
 
 	def autoset_attributes(self, v, k=None, attr_chain=bpy):
@@ -128,38 +159,88 @@ class Autoconfig_Anim:
 	def setup(self, config_dict=None):
 		if config_dict is not None:
 			self.set_config(config_dict)
-		# create objects based on array under key 'new()'
-		try:
-			objects_to_create = config_dict['context']['scene']['objects'][self.create_method_name]
-			self.create_objects(objects_to_create)
-		except:
-			pass
 		# delete objects based on array under key 'delete()'
 		try:
-			objects_to_delete = config_dict['context']['scene']['objects'][self.delete_method_name]
+			objects_to_delete = config_dict['data']['objects'][self.delete_method_name]
 			self.delete_objects(objects_to_delete)
 		except:
 			pass
+		# create objects based on array under key 'new()'
+		try:
+			objects_to_create = config_dict['data']['objects'][self.create_method_name]
+			self.create_objects(objects_to_create)
+		except:
+			pass
+		# delete materials
+		try:
+			materials_to_delete = config_dict['data']['materials'][self.delete_method_name]
+			self.delete_materials(materials_to_delete)
+		except:
+			pass
+		# create materials
+		try:
+			materials_to_create = config_dict['data']['materials'][self.create_method_name]
+			self.create_materials(materials_to_create)
+		except:
+			pass
+		# main setup
 		self.autoset_attributes(self.config)
 
 example_settings = {
+	'data': {
+		'objects': {
+			'delete()': [
+				{
+					'name': "Cube"
+				}
+			],
+			'new()': [
+				{
+					'primitive': 'plane',
+					'attributes': {
+						'name': "bg",
+						'location': Vector((0.0, 0.0, 0.0))
+					}
+				}
+			],
+		},
+		'materials': {
+			'delete()': [
+				{
+					'name': "Material"
+				}
+			],
+			'new()': [
+				{
+					'name': "bg-color",
+					'diffuse_color': (0.53, 0.583, 0.827),
+					'diffuse_intensity': 1.0,
+					'specular_intensity': 0.0,
+					'use_transparent_shadows': True,
+					'preview_render_type': "FLAT"
+				},
+				{
+					'name': "color-black",
+					'diffuse_color': (0.0, 0.0, 0.0),
+					'diffuse_intensity': 1.0,
+					'specular_intensity': 0.0,
+					'use_transparent_shadows': True,
+					'preview_render_type': "FLAT"
+				},
+				{
+					'name': "color-white",
+					'diffuse_color': (1.0, 1.0, 1.0),
+					'diffuse_intensity': 1.0,
+					'specular_intensity': 0.0,
+					'use_transparent_shadows': True,
+					'preview_render_type': "FLAT"
+				}
+			]
+		}
+	},
 	'context': {
 		'scene': {
 			'objects': {
-				'delete()': [
-					{
-						'name': "Cube"
-					}
-				],
-				'new()': [
-					{
-						'primitive': 'plane',
-						'attributes': {
-							'name': "bg",
-							'location': Vector((0.0, 0.0, 0.0))
-						}
-					}
-				],
 				'["Camera"]': {
 					'rotation_euler': (0.0, 0.0, 0.0),
 					'location': Vector((0.0, 0.0, 5.0))
@@ -174,7 +255,12 @@ example_settings = {
 					}
 				},
 				'[\'bg\']': {
-					'scale': Vector((12.0, 12.0, 12.0))
+					'scale': Vector((12.0, 12.0, 12.0)),
+					'data': {
+						'materials': {
+							'[0]': bpy.data.materials['bg-color'] 	# Error: not yet created
+						}
+					}
 				}
 			},
 			'render': {
