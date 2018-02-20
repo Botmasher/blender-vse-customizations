@@ -7,6 +7,7 @@ from mathutils import Vector
 
 # TODO handle new and deleted materials, textures, ...
 # TODO delete based on any attribute
+# TODO pass values to function attributes
 
 class Autoconfig_Anim:
 	def __init__(self, create_method_name='new()', delete_method_name='delete()'):
@@ -15,28 +16,41 @@ class Autoconfig_Anim:
 		self.delete_method_name = delete_method_name
 		return None
 
-	def try_key_or_index(self, attr_string, attr_chain):
-		"""Translate an attribute string surrounded by brackets to a real key or index and access its element"""
-		is_bracketed_str = re.match("\[[\"\'](.+)[\"\']\]", attr_string)
-		is_bracketed_int = False if is_bracketed_str else re.match("\[(.+)\]", attr_string)
-		if not is_bracketed_str and not is_bracketed_int:
+	def is_string_bracketed_key(self, attribute_string):
+		"""Test if a string is formatted like a bracketed dictionary key"""
+		return re.match("\[[\"\'](.+)[\"\']\]", attribute_string)
+
+	def is_string_bracketed_index(self, attribute_string):
+		"""Test if a string is formatted like a bracketed index"""
+		return re.match("\[(.+)\]", attribute_string)
+
+	def try_key_or_index(self, attr_string, attr_chain, value_to_append=None):
+		"""Translate an attribute string surrounded by brackets to an element's key or index"""
+		is_bracketed_str = self.is_string_bracketed_key(attr_string)
+		is_bracketed_i = False if is_bracketed_str else self.is_string_bracketed_index(attr_string)
+		if not is_bracketed_str and not is_bracketed_i:
 			return None
-		# treat as name string (key among set of Blender objects)
+		# treat as dictionary key string
 		# helps convert e.g. {'collection': {'["Name"]': {'attribute': "value"}}} to collection["Name"].attribute = "value"
 		if is_bracketed_str:
 			try:
 				name = attr_string[2:-2]
-				return attr_chain[name]
+				return name
 			except:
 				raise Exception("Setting attributes - failed to access %s at ['%s']. Scene may be missing an object with this name." % (attr_chain, name))
-		# treat as integer (index in Blender list)
+		# treat as integer index in list
 		# helps convert e.g. {'arr': {'[1]': {'attr': "value"}}} to arr[1].attr = "value"
-		elif is_bracketed_int:
+		elif is_bracketed_i:
+			i = -1
 			try:
+				# return the index
 				i = int(attr_string[1:-1])
-				return attr_chain[i]
+				attr_chain[i]
 			except:
-				raise Exception("Setting attributes - failed to access %s at [%s]. Index may be out of range for scene objects collection." % (attr_chain, i))
+				# index out of range
+				pass
+				#	raise Exception("Setting attributes - failed to access %s index [%s]." % (attr_chain, i))
+			return i
 		return None
 
 	def create_objects(self, objects_settings):
@@ -128,14 +142,34 @@ class Autoconfig_Anim:
 		if type(v) is not dict or k in [self.create_method_name, self.delete_method_name]:
 			# reached leaf - set attribute value
 			if k not in [self.create_method_name, self.delete_method_name]:
-				attr_chain = setattr(attr_chain, k, v)
+				
+				bracketed = self.try_key_or_index(k, attr_chain)
+				
+				if bracketed is not None:
+					# add material to an object by material name (avoid new/deleted materials dict errors)
+					if attr_chain.path_from_id() == "materials":
+						# bpy.context.scene.objects['name'].data.materials[i] = bpy.data.materials['material_name']
+						v = bpy.data.materials[v]
+					try:
+						attr_chain[bracketed] = v
+					except:
+						try:
+							attr_chain.append(v)
+						except:
+							pass 	# unable to set accessed element to value, e.g. element doesn't exist, string when expected int, ...
+
+				else:
+					try:
+						attr_chain = setattr(attr_chain, k, v)
+					except:
+						raise Exception("Unable to set attribute %s on %s" % (k, attr_chain))
 				print("Setting attribute %s to value: %s" % (k, v))
 			return attr_chain
 		# node is a nested dict: chain the attr and look for subattr values
 		if k is not None:
-			is_bracketed = self.try_key_or_index(k, attr_chain)		
-			if is_bracketed is not None:
-				attr_chain = is_bracketed 		# TODO brainstorm counterexamples (any?) where [i]/['k'] directly associated with a value
+			bracketed = self.try_key_or_index(k, attr_chain)		
+			if bracketed is not None:
+				attr_chain = attr_chain[bracketed]
 			else:
 				try:
 					attr_chain = getattr(attr_chain, k)
@@ -258,7 +292,7 @@ example_settings = {
 					'scale': Vector((12.0, 12.0, 12.0)),
 					'data': {
 						'materials': {
-							'[0]': bpy.data.materials['bg-color'] 	# Error: not yet created
+							'[0]': 'bg-color' 		# do not use bpy.data.materials if not yet created
 						}
 					}
 				}
