@@ -1,6 +1,6 @@
 import bpy
 from defaultanimworld import Autoconfig_Anim
-from defaultanimworld import sample_settings
+from defaultanimworld import settings
 
 ## Automatically set up default anim world
 ## script by GitHub user Botmasher (Joshua R)
@@ -10,4 +10,4 @@ from defaultanimworld import sample_settings
 ## but not for cutting rendered sequences (my project.blend files).
 
 autoconfig = Autoconfig_Anim()
-autoconfig.setup(sample_settings)
+autoconfig.setup(settings)
