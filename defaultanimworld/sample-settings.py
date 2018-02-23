@@ -1,11 +1,11 @@
-# TODO example nodes
 settings = {
 	'data': {
 		'scenes': {
 			'["Scene"]': {
 				'game_settings': {
 					'material_mode': "GLSL"
-				}
+				},
+				'use_nodes': True
 			}
 		},
 		'objects': {
