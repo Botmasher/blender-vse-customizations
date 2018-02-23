@@ -123,7 +123,7 @@ class Autoconfig_Anim:
 		return added_materials
 
 	def delete_materials(self, material_names):
-		"""Delete existing materials where material name matches a name in the lsit"""
+		"""Delete existing materials where material name matches a name in the list"""
 		material_names = [mat['name'] for mat in material_names] if type(material_names[0]) == dict else material_names
 		try:
 			getattr(material_names, "append")
@@ -149,6 +149,20 @@ class Autoconfig_Anim:
 						continue
 			added_textures.append(new_texture)
 		return added_textures
+
+	def delete_data_block(self, element_names, data_path):
+		"""Delete existing elements of a type where element name matches a name in the list"""
+		element_names = [el['name'] for el in element_names] if type(element_names[0]) == dict else element_names
+		try:
+			getattr(element_names, "append")
+		except:
+			return False
+		for name in element_names:
+			try:
+				data_path[name].user_clear() 	# set data block user count to 0
+			except:
+				pass
+		return True
 
 	def delete_textures(self, texture_names):
 		"""Delete existing textures where texture name matches a name in the lsit"""
@@ -245,7 +259,7 @@ class Autoconfig_Anim:
 		# new and deleted materials
 		try:
 			materials_to_delete = config_dict['data']['materials'][self.delete_method_name]
-			self.delete_materials(materials_to_delete)
+			self.delete_elements(materials_to_delete, bpy.data.materials)
 		except:
 			pass
 		try:
@@ -256,7 +270,7 @@ class Autoconfig_Anim:
 		# new and deleted textures
 		try:
 			textures_to_delete = config_dict['data']['textures'][self.delete_method_name]
-			self.delete_textures(textures_to_delete)
+			self.delete_elements(textures_to_delete, bpy.data.textures)
 		except:
 			pass
 		try:
