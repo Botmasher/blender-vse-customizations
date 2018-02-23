@@ -26,11 +26,15 @@ def extend_strip(sequence, x_dir):
 	sequence.select = False
 	return sequence
 
-def insert_strip_gap(sequence, frames):
-	sequence.select = True
+def gap_strip(sequence, gap):
+	"""Insert a gap after the strip and push all subsequent strips ahead"""
 	bpy.context.scene.frame_current = sequence.frame_start + 1
-	bpy.ops.sequencer.gap_insert(frames=frames)
-	sequence.select = False
+	bpy.ops.sequencer.gap_insert(frames=gap)
+	return sequence
+
+def move_strip(sequence, offset):
+	"""Move the strip to a new origin along the x axis"""
+	sequence.frame_start += offset
 	return sequence
 
 def extend_strips(sequences, trail, gap):
@@ -44,8 +48,11 @@ def extend_strips(sequences, trail, gap):
 
 	#first_sequence = sequences.pop()
 
-	for sequence in sequences:
-		if gap != 0: insert_strip_gap(sequence, gap)
+	for i in reversed(range(len(sequences))):
+		sequence = sequences[i]
+		# move to the right by gap amount
+		move_strip(sequence, gap * (i+1))
+		# scale strip by handle
 		extend_strip(sequence, trail)
 	
 	# set first strip separately to avoid negative
@@ -161,7 +168,7 @@ class ChopStrip(bpy.types.Operator):
 		return context.mode == "OBJECT"
 
 	def execute(self, context):
-		chop_strip(trail=4, gap=0)
+		chop_strip(trail=4, gap=2)
 		return {'FINISHED'}
 
 def register() :
