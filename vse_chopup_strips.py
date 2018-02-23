@@ -8,6 +8,7 @@ import bpy
 # TODO correctly calculate and move strips along x
 	# - currently they're just auto nudging over as each chop is set step units before prev
 	# - leads to negative trail case when initial frame also handled: each strip is trail units too far right
+# TODO fix gap just translates adjacent strip in the same channel not all strips
 
 def get_strip():
 	strip = bpy.context.scene.sequence_editor.active_strip
@@ -25,6 +26,13 @@ def extend_strip(sequence, x_dir):
 	sequence.select = False
 	return sequence
 
+def insert_strip_gap(sequence, frames):
+	sequence.select = True
+	bpy.context.scene.frame_current = sequence.frame_start + 1
+	bpy.ops.sequencer.gap_insert(frames=frames)
+	sequence.select = False
+	return sequence
+
 def extend_strips(sequences, trail, gap):
 	"""Uniformly lengthen substrips
 
@@ -37,11 +45,7 @@ def extend_strips(sequences, trail, gap):
 	#first_sequence = sequences.pop()
 
 	for sequence in sequences:
-		if gap != 0:
-			sequence.select = True
-			bpy.context.scene.frame_current = sequence.frame_start + 1
-			bpy.ops.sequencer.gap_insert(frames=gap)
-			sequence.select = False
+		if gap != 0: insert_strip_gap(sequence, gap)
 		extend_strip(sequence, trail)
 	
 	# set first strip separately to avoid negative
@@ -157,7 +161,7 @@ class ChopStrip(bpy.types.Operator):
 		return context.mode == "OBJECT"
 
 	def execute(self, context):
-		chop_strip(trail=4, gap=4)
+		chop_strip(trail=4, gap=0)
 		return {'FINISHED'}
 
 def register() :
