@@ -84,7 +84,7 @@ def subcut_strip(s, step, trail):
 
 	current_strip = s
 
-	# duplicate and adjust cut strips (simulates hard cuts plus x transform shifts)
+	# test duplication as single-step only
 	for cut in range(cuts_count):
 
 		current_strip.select = True
@@ -92,30 +92,58 @@ def subcut_strip(s, step, trail):
 		# playhead one frame back
 		bpy.context.scene.frame_current += step
 		
-		# hard cut and move
-		#bpy.ops.sequencer.cut(frame=bpy.context.scene.frame_current, type="HARD", side="RIGHT")
-		
 		# mimic cut
 		print(bpy.context.scene.sequence_editor.active_strip)
+		
+		if current_strip == s:
+			s.animation_offset_end += cuts_count # (cuts_count * step)
+		
 		bpy.ops.sequencer.duplicate()
 		current_strip = bpy.context.scene.sequence_editor.active_strip
 		current_strip.frame_start = bpy.context.scene.frame_current
-		current_strip.animation_offset_start += ((cut + 1) * step)
-		current_strip.animation_offset_end += (cuts_count-cut)
+		current_strip.animation_offset_start += step
+		current_strip.animation_offset_end -= step
 		current_strip.frame_final_duration = step
 		print(bpy.context.scene.sequence_editor.active_strip)
 
-		# move strip to account for future strips
-		#if trail < 0:
-		#	bpy.ops.transform.transform(mode="TRANSLATION", value=(abs(trail * 2) - step, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
-		#else:
-		#	bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+		chopped_sequences.append(current_strip)
+
 		for sequence in bpy.context.scene.sequence_editor.sequences_all: sequence.select = False
 
-		# for sequence in bpy.context.scene.sequence_editor.sequences_all:
-		# 	if sequence.select and sequence not in cut_strips:
-		# 		cut_strips.append(sequence)
-		# print(len(cut_strips))
+
+	# duplicate and adjust cut strips (simulates hard cuts plus x transform shifts)
+	# for cut in range(cuts_count):
+
+	# 	current_strip.select = True
+
+	# 	# playhead one frame back
+	# 	bpy.context.scene.frame_current += step
+		
+	# 	# hard cut and move
+	# 	#bpy.ops.sequencer.cut(frame=bpy.context.scene.frame_current, type="HARD", side="RIGHT")
+		
+	# 	# mimic cut
+	# 	print(bpy.context.scene.sequence_editor.active_strip)
+	# 	bpy.ops.sequencer.duplicate()
+	# 	current_strip = bpy.context.scene.sequence_editor.active_strip
+	# 	current_strip.frame_start = bpy.context.scene.frame_current
+	# 	if current_strip == s:
+	# 		current_strip.animation_offset_start += step # ((cut + 1) * step)
+	# 		current_strip.animation_offset_end += (cuts_count - cut)
+	# 	else:
+	# 		current_strip.animation_offset_start += step # ((cut + 1) * step)
+	# 		current_strip.animation_offset_end += (cuts_count - (cut+1))
+	# 	current_strip.frame_final_duration = step
+	# 	print(bpy.context.scene.sequence_editor.active_strip)
+
+	# 	chopped_sequences.append(current_strip)
+
+	# 	# move strip to account for future strips
+	# 	#if trail < 0:
+	# 	#	bpy.ops.transform.transform(mode="TRANSLATION", value=(abs(trail * 2) - step, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+	# 	#else:
+	# 	#	bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
+	# 	for sequence in bpy.context.scene.sequence_editor.sequences_all: sequence.select = False
 
 	# list out all resulting strips
 	chopped_sequences.append(s)
