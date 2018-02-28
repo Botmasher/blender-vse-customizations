@@ -71,21 +71,26 @@ def subcut_strip(s, step, trail, gap):
 
 	# go to end of active strip and cut back to start
 	frames = reversed(range(start_frame+1, end_frame))
-	cuts_count = int(len(list(frames)) / step)
+	
+	# calculate how many strips will be produced (proportional to number of cuts)
+	split_strip_count = len(list(frames)) / step
+	if split_strip_count <= 1.0:
+		return [s]
+	else:
+		# account for range from 0 and separate handling of first strip
+		cuts_count = int(split_strip_count) + 1
 
 	# build list of cut strips
 	chopped_sequences = []
 
 	current_strip = s
 
-	# test duplication as single-step only
-	for cut in range(cuts_count+1):
+	for cut in range(cuts_count):
 
 		current_strip.select = True
 		
-		# mimic cut
 		if cut == 0:
-			s.animation_offset_end += cuts_count 	# (cuts_count * step)
+			s.animation_offset_end += s.frame_final_duration - step 	# (cuts_count * step)
 		else:
 			# playhead to cut spot
 			bpy.context.scene.frame_current += step
@@ -175,7 +180,7 @@ class ChopStrip(bpy.types.Operator):
 		return context.mode == "OBJECT"
 
 	def execute(self, context):
-		chop_strip(step=1, trail=4, gap=2)
+		chop_strip(step=-1, trail=4, gap=4)
 		return {'FINISHED'}
 
 def register() :
