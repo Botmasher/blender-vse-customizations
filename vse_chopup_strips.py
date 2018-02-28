@@ -4,11 +4,8 @@ import bpy
 # Output: one hard cut and lengthened strip for each frame in the input
 
 # TODO adjust params through interface
-# TODO move initial strip if trail is negative (above does not deal with start_frame)
-# TODO correctly calculate and move strips along x
-	# - currently they're just auto nudging over as each chop is set step units before prev
-	# - leads to negative trail case when initial frame also handled: each strip is trail units too far right
-# TODO fix gap just translates adjacent strip in the same channel not all strips
+# TODO cases where trail or gap is negative (correctly deal with dominoing start_frames)
+# TODO the first strip 
 
 def get_strip():
 	strip = bpy.context.scene.sequence_editor.active_strip
@@ -62,7 +59,7 @@ def extend_strips(sequences, trail, gap):
 
 	return sequences
 
-def subcut_strip(s, step, trail):
+def subcut_strip(s, step, trail, gap):
 	# calculate key strip frames
 	start_frame = s.frame_start
 	end_frame = start_frame + s.frame_final_duration
@@ -79,73 +76,34 @@ def subcut_strip(s, step, trail):
 	# build list of cut strips
 	chopped_sequences = []
 
-	# shrink root strip to its final chopped length
-	#s.animation_offset_end += (cuts_count * step)
-
 	current_strip = s
 
 	# test duplication as single-step only
-	for cut in range(cuts_count):
+	for cut in range(cuts_count+1):
 
 		current_strip.select = True
-
-		# playhead one frame back
-		bpy.context.scene.frame_current += step
 		
 		# mimic cut
-		print(bpy.context.scene.sequence_editor.active_strip)
-		
-		if current_strip == s:
-			s.animation_offset_end += cuts_count # (cuts_count * step)
-		
-		bpy.ops.sequencer.duplicate()
-		current_strip = bpy.context.scene.sequence_editor.active_strip
-		current_strip.frame_start = bpy.context.scene.frame_current
-		current_strip.animation_offset_start += step
-		current_strip.animation_offset_end -= step
-		current_strip.frame_final_duration = step
-		print(bpy.context.scene.sequence_editor.active_strip)
+		if cut == 0:
+			s.animation_offset_end += cuts_count 	# (cuts_count * step)
+		else:
+			# playhead to cut spot
+			bpy.context.scene.frame_current += step
+			bpy.ops.sequencer.duplicate()
+			current_strip = bpy.context.scene.sequence_editor.active_strip
+			current_strip.frame_start = bpy.context.scene.frame_current + ((trail + gap) * cut)
+			print(current_strip.frame_start)
+			current_strip.animation_offset_start += step
+			current_strip.animation_offset_end -= step
+			current_strip.frame_final_duration = step
+			print(bpy.context.scene.sequence_editor.active_strip)
+
+		current_strip.frame_offset_end -= trail
 
 		chopped_sequences.append(current_strip)
 
 		for sequence in bpy.context.scene.sequence_editor.sequences_all: sequence.select = False
 
-
-	# duplicate and adjust cut strips (simulates hard cuts plus x transform shifts)
-	# for cut in range(cuts_count):
-
-	# 	current_strip.select = True
-
-	# 	# playhead one frame back
-	# 	bpy.context.scene.frame_current += step
-		
-	# 	# hard cut and move
-	# 	#bpy.ops.sequencer.cut(frame=bpy.context.scene.frame_current, type="HARD", side="RIGHT")
-		
-	# 	# mimic cut
-	# 	print(bpy.context.scene.sequence_editor.active_strip)
-	# 	bpy.ops.sequencer.duplicate()
-	# 	current_strip = bpy.context.scene.sequence_editor.active_strip
-	# 	current_strip.frame_start = bpy.context.scene.frame_current
-	# 	if current_strip == s:
-	# 		current_strip.animation_offset_start += step # ((cut + 1) * step)
-	# 		current_strip.animation_offset_end += (cuts_count - cut)
-	# 	else:
-	# 		current_strip.animation_offset_start += step # ((cut + 1) * step)
-	# 		current_strip.animation_offset_end += (cuts_count - (cut+1))
-	# 	current_strip.frame_final_duration = step
-	# 	print(bpy.context.scene.sequence_editor.active_strip)
-
-	# 	chopped_sequences.append(current_strip)
-
-	# 	# move strip to account for future strips
-	# 	#if trail < 0:
-	# 	#	bpy.ops.transform.transform(mode="TRANSLATION", value=(abs(trail * 2) - step, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
-	# 	#else:
-	# 	#	bpy.ops.transform.transform(mode="TRANSLATION", value=(trail, 0.0, 0.0, 0.0), axis=(1.0, 0.0, 0.0))
-	# 	for sequence in bpy.context.scene.sequence_editor.sequences_all: sequence.select = False
-
-	# list out all resulting strips
 	chopped_sequences.append(s)
 
 	return chopped_sequences
@@ -169,7 +127,7 @@ def chop_strip(step=1, trail=0, gap=0):
 		bpy.context.area.type = "SEQUENCE_EDITOR"
 		
 		# chop and stretch
-		chopped_strips = subcut_strip(s, step, trail)
+		chopped_strips = subcut_strip(s, step, trail, gap)
 		#extend_strips(chopped_strips, trail, gap)
 
 		# reset context
