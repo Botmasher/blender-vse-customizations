@@ -1,13 +1,11 @@
 import bpy
+from bpy.props import *
 
 # Input: a single selected sequence strip
 # Output: one hard cut and lengthened strip for each frame in the input
 
-# TODO adjust params through interface
 
 # TODO cases where trail or gap is negative (correctly deal with dominoing start_frames)
-
-# TODO the first strip 
 
 # TODO another strip in same channel to the right of active split strip
 # 	- note the option to select strips to the L/R in ops
@@ -24,6 +22,25 @@ import bpy
 # 		- move strip left as required (except the first)
 # 		- select right handle
 # 		- move strip handle left to shorten
+
+# properties to set through UI panel
+bpy.types.ImageSequence.framesplitter_step = IntProperty (
+	name = "Step (frames)", 
+	default = 1,
+	description = "Number of source frames to cut into each substrip"
+)
+
+bpy.types.ImageSequence.framesplitter_trail = IntProperty (
+	name = "Trail (frames)", 
+	default = 4,
+	description = "Number of frames to extend each step cut substrip"
+)
+
+bpy.types.ImageSequence.framesplitter_gap = IntProperty (
+	name = "Gap (frames)", 
+	default = 4,
+	description = "Number of frames between resulting substrips"
+)
 
 def gap_push_strip(sequence, gap):
 	"""Insert a gap after the strip and push all subsequent strips ahead"""
@@ -78,7 +95,7 @@ def subcut_strip(s=bpy.context.scene.sequence_editor.active_strip, step=0, trail
 
 	# calculate how many strips will be produced (proportional to number of cuts)
 	frames = range(start_frame+1, end_frame)
-	split_strip_count = len(list(frames)) / step
+	split_strip_count = 0 if step == 0 else len(list(frames)) / step
 	if split_strip_count <= 1.0:
 		return [s]
 	else:
@@ -112,21 +129,24 @@ def subcut_strip(s=bpy.context.scene.sequence_editor.active_strip, step=0, trail
 
 	return resulting_strips
 
-class ChopStripPanel(bpy.types.Panel):
+class FramesplitterPanel(bpy.types.Panel):
 	#bl_context = "objectmode"
-	bl_label = "Chop up Strip"
-	bl_idname = "strip.chop_strip_panel"
+	bl_label = "Frame Splitter"
+	bl_idname = "strip.frame_splitter_panel"
 	bl_space_type = "SEQUENCE_EDITOR"
 	bl_region_type = "UI"
 
 	def draw(self, context):
-		column = self.layout.column(align=True)
-		column.operator("strip.chop_strip", text="Chop up strip")
+		strip = bpy.context.scene.sequence_editor.active_strip
+		self.layout.row().prop(strip, "framesplitter_step")
+		self.layout.row().prop(strip, "framesplitter_trail")
+		self.layout.row().prop(strip, "framesplitter_gap")
+		self.layout.row().operator("strip.frame_splitter", text="Subcut Strip")
 
-class ChopStrip(bpy.types.Operator):
-	bl_idname = "strip.chop_strip"
-	bl_label = "Chop Strip Frames"
-	bl_descriptions = "Chop up sequence frames into new substrips"
+class Framesplitter(bpy.types.Operator):
+	bl_idname = "strip.frame_splitter"
+	bl_label = "Frame Splitter Button"
+	bl_descriptions = "Split sequence frames into new substrips"
 	bl_options = {'REGISTER', 'UNDO'}
 
 	@classmethod
@@ -134,7 +154,11 @@ class ChopStrip(bpy.types.Operator):
 		return context.mode == "OBJECT"
 
 	def execute(self, context):
-		subcut_strip(step=1, trail=4, gap=4)
+		strip = bpy.context.scene.sequence_editor.active_strip
+		step = strip.framesplitter_step
+		trail = strip.framesplitter_trail
+		gap = strip.framesplitter_gap
+		subcut_strip(strip, step, trail, gap)
 		return {'FINISHED'}
 
 def register() :
