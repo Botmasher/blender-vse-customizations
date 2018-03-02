@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import bpy
 from bpy.props import *
 
@@ -130,7 +131,6 @@ def subcut_strip(s=bpy.context.scene.sequence_editor.active_strip, step=0, trail
 	return resulting_strips
 
 class FramesplitterPanel(bpy.types.Panel):
-	#bl_context = "objectmode"
 	bl_label = "Frame Splitter"
 	bl_idname = "strip.frame_splitter_panel"
 	bl_space_type = "SEQUENCE_EDITOR"
@@ -146,7 +146,7 @@ class FramesplitterPanel(bpy.types.Panel):
 class Framesplitter(bpy.types.Operator):
 	bl_idname = "strip.frame_splitter"
 	bl_label = "Frame Splitter Button"
-	bl_descriptions = "Split sequence frames into new substrips"
+	bl_description = "Split sequence frames into new substrips"
 	bl_options = {'REGISTER', 'UNDO'}
 
 	@classmethod
@@ -166,7 +166,7 @@ def register() :
 
 def unregister() :
 	bpy.utils.unregister_module(__name__)
-	del bpy.types.Scene.chop_strip_frames
+	del bpy.types.Scene.frame_splitter
 
 if __name__ == "__main__":
 	register()
