@@ -29,7 +29,7 @@ class CamAnim:
 		print("Placed marker and added it to path markers array!")
 		return None
 
-	def update_marker(self, id):
+	def replace_marker(self, id):
 		"""
 		TODO Update selected currently placed marker in the scene to current cam loc and rot
 		"""
@@ -55,11 +55,17 @@ camanim = CamAnim(bpy.context.scene.camera)
 class CamAnimPanel(bpy.types.Panel):
 	bl_label = "CamAnim Panel"
 	bl_idname = "camera.camanim_panel"
-	bl_space_type = "3D_VIEW"
-	bl_region_type = "UI"
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "TOOLS"
+	bl_category = "CamAnim"
 
 	def draw(self, ctx):
-		self.layout.column().operator("camera.camanim_animate", text="Keyframe cam path")
+		# 
+		# TODO check that selected is a marker
+		self.layout.row().operator("camera.camanim_set_marker", text="Place marker")
+		self.layout.row().operator("camera.camanim_replace_marker", text="Place marker")
+		self.layout.row().operator("camera.camanim_delete_marker", text="Delete marker")
+		self.layout.row().operator("camera.camanim_animate", text="Keyframe cam path")
 
 class CamAnimSetMarker(bpy.types.Operator):
 	bl_label = "CamAnim Set Marker"
@@ -76,6 +82,21 @@ class CamAnimSetMarker(bpy.types.Operator):
 		camanim.place_marker()
 		return {'FINISHED'}
 
+class CamAnimReplaceMarker(bpy.types.Operator):
+	bl_label = "CamAnim Replace Marker"
+	bl_idname = "camera.camanim_replace_marker"
+	bl_description = "Replace current marker along CamAnim path"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	@classmethod
+	def poll(c, ctx):
+		return ctx.mode == "OBJECT"
+
+	def execute(self, ctx):
+		# run camanim replace marker with current camera loc and rot
+		camanim.replace_marker(None)
+		return {'FINISHED'}
+
 class CamAnimRemoveMarker(bpy.types.Operator):
 	bl_label = "CamAnim Remove Marker"
 	bl_idname = "camera.camanim_delete_marker"
@@ -88,7 +109,7 @@ class CamAnimRemoveMarker(bpy.types.Operator):
 
 	def execute(self, ctx):
 		# get active object and check that it is a camanim marker
-		camanim.remove_marker()
+		camanim.remove_marker(None)
 		return {'FINISHED'}
 
 class CamAnimAnimate(bpy.types.Operator):
