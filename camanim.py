@@ -2,8 +2,9 @@ import bpy
 
 class CamAnim:
 	def __init__(self, cam, frames_per_space=1, frames_per_degree=0.2):
-		self.cam = cam 					# reference to the animated cam
-		self.path_markers = [] 	# list of markers to be set for and followed by animated cam
+		self.cam = cam 							# reference to the animated cam
+		self.path_markers = [] 			# list of markers to be set for and followed by animated cam
+		self.path_marker_ids = {} 	# use dict or just append to name?
 		self.frames_per_space = frames_per_space
 		self.frames_per_degree = frames_per_degree
 		return None
@@ -27,23 +28,34 @@ class CamAnim:
 		# prevent empty name change (if using name to track)
 		# push marker onto to camanim array at id position (plus dict assoc with bl_rna, object and list id?)
 		print("Placed marker and added it to path markers array!")
+		# TODO add empty through mesh data, then new object data, then link to scene
+		bpy.ops.object.empty_add(type="SINGLE_ARROW")
+		marker = bpy.context.scene.objects.active
+		marker.name = "camanim_marker.%s" % (len(self.path_markers) + 1)
+		marker.location = self.cam.location
+		marker.rotation_euler = self.cam.rotation_euler
+		self.path_markers.append(marker)
 		return None
 
-	def replace_marker(self, id):
+	def replace_marker(self, name_id):
 		"""
 		TODO Update selected currently placed marker in the scene to current cam loc and rot
 		"""
 		print("Updated existing marker!")
+		marker_i = name_id.split(".")[1]
+		marker = self.path_markers[marker_i]
+		marker.location = self.cam.location
+		marker.rotation_euler = self.cam.rotation_euler
 		return None
 
-	def remove_marker(self, id):
+	def remove_marker(self, name_id):
 		"""
 		TODO Delete selected currently placed marker from camanim tracking
 		"""
 		print("Deleted existing marker!")
 		return None
 
-	def animate(self, id):
+	def animate(self):
 		"""
 		TODO Use array of markers to set keyframes timed out by frames per loc and rot unit
 		"""
@@ -63,7 +75,7 @@ class CamAnimPanel(bpy.types.Panel):
 		# 
 		# TODO check that selected is a marker
 		self.layout.row().operator("camera.camanim_set_marker", text="Place marker")
-		self.layout.row().operator("camera.camanim_replace_marker", text="Place marker")
+		self.layout.row().operator("camera.camanim_replace_marker", text="Update marker")
 		self.layout.row().operator("camera.camanim_delete_marker", text="Delete marker")
 		self.layout.row().operator("camera.camanim_animate", text="Keyframe cam path")
 
