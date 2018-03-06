@@ -1,12 +1,17 @@
 import bpy
 
+# TODO adjust all markers / all markers following currently selected one
+# TODO place_marker empty through mesh data + object data -> link to scene
+# TODO track markers (incl replace and remove) through something other than name (add uuid property?)
+# TODO better way to store and retrieve markers (instance list breaks on undo or reload)
+
 class CamAnim:
-	def __init__(self, cam, frames_per_space=1, frames_per_degree=0.2):
-		self.cam = cam 							# reference to the animated cam
-		self.path_markers = [] 			# list of markers to be set for and followed by animated cam
-		self.path_marker_ids = {} 	# use dict or just append to name?
+	def __init__(self, cam=bpy.context.scene.camera, marker_name="camanim_marker", frames_per_space=1, frames_per_degree=0.2, frames_pause = 3):
+		self.cam = cam
+		self.marker_name = marker_name
 		self.frames_per_space = frames_per_space
 		self.frames_per_degree = frames_per_degree
+		self.frames_pause = frames_pause 		# number of frames to wait between movements (exclusive; used for cutting strips btwn motion blur and other multi fx)
 		return None
 
 	def set_frames_per_space(self, frames_per_space):
@@ -20,39 +25,30 @@ class CamAnim:
 		return self.frames_per_degree
 
 	def place_marker(self):
-		"""
-		TODO place marker in the scene at current cam loc and rot
-		"""
-		# set empty arrow for marker to cam loc and rot
-		# set object constraints on empty so it cannot be moved or 
-		# prevent empty name change (if using name to track)
-		# push marker onto to camanim array at id position (plus dict assoc with bl_rna, object and list id?)
+		"""Place marker in the scene at current cam loc and rot"""
 		print("Placed marker and added it to path markers array!")
-		# TODO add empty through mesh data, then new object data, then link to scene
 		bpy.ops.object.empty_add(type="SINGLE_ARROW")
 		marker = bpy.context.scene.objects.active
-		marker.name = "camanim_marker.%s" % (len(self.path_markers) + 1)
+		marker.name = self.marker_name
 		marker.location = self.cam.location
 		marker.rotation_euler = self.cam.rotation_euler
-		self.path_markers.append(marker)
+		#self.path_markers.append(marker)
 		return None
 
-	def replace_marker(self, name_id):
-		"""
-		TODO Update selected currently placed marker in the scene to current cam loc and rot
-		"""
+	def replace_marker(self, marker=bpy.context.scene.objects.active):
+		"""Update selected currently placed marker in the scene to current cam loc and rot"""
 		print("Updated existing marker!")
-		marker_i = name_id.split(".")[1]
-		marker = self.path_markers[marker_i]
+		if marker.name.split(".")[0] != self.marker_name: return None
 		marker.location = self.cam.location
 		marker.rotation_euler = self.cam.rotation_euler
 		return None
 
-	def remove_marker(self, name_id):
-		"""
-		TODO Delete selected currently placed marker from camanim tracking
-		"""
+	def remove_marker(self, marker=bpy.context.scene.objects.active):
+		"""Delete selected currently placed marker from camanim tracking"""
 		print("Deleted existing marker!")
+		if marker.name.split(".")[0] != self.marker_name: return None
+		bpy.context.scene.objects.unlink(marker)					# remove from scene
+		bpy.data.objects.remove(marker, do_unlink=True)		# delete and verify unlink from whole project
 		return None
 
 	def animate(self):
@@ -60,9 +56,27 @@ class CamAnim:
 		TODO Use array of markers to set keyframes timed out by frames per loc and rot unit
 		"""
 		# int(frames)! -- remember to round result of frames per space or per degree
+		# names count from .001 to unappended (LATEST one added)
+		marker_names = [o.name for o in bpy.context.scene.objects if o.name.split(".")[0] == self.marker_name]
+		marker_names.sort()
+		# place latest marker at the end
+		marker_names.append(marker_names.pop(0))
+		bpy.context.scene.frame_current = bpy.context.scene.frame_start + 1
+		for name in marker_names:
+			self.cam.location = bpy.context.scene.objects[name].location
+			self.cam.rotation_euler = bpy.context.scene.objects[name].rotation_euler
+			self.cam.keyframe_insert("location")
+			self.cam.keyframe_insert("rotation_euler")
+			if self.frames_pause > 0:
+				bpy.context.scene.frame_current += self.frames_pause
+				self.cam.keyframe_insert("location")
+				self.cam.keyframe_insert("rotation_euler")
+			bpy.context.scene.frame_current += self.frames_per_space * 10  	# TODO calc bu btwn kfs
+		if bpy.context.scene.frame_current > bpy.context.scene.frame_end:
+			bpy.context.scene.frame_end = bpy.context.scene.frame_current + 1
 		return None
 
-camanim = CamAnim(bpy.context.scene.camera)
+camanim = CamAnim()
 
 class CamAnimPanel(bpy.types.Panel):
 	bl_label = "CamAnim Panel"
@@ -106,7 +120,7 @@ class CamAnimReplaceMarker(bpy.types.Operator):
 
 	def execute(self, ctx):
 		# run camanim replace marker with current camera loc and rot
-		camanim.replace_marker(None)
+		camanim.replace_marker()
 		return {'FINISHED'}
 
 class CamAnimRemoveMarker(bpy.types.Operator):
@@ -121,7 +135,7 @@ class CamAnimRemoveMarker(bpy.types.Operator):
 
 	def execute(self, ctx):
 		# get active object and check that it is a camanim marker
-		camanim.remove_marker(None)
+		camanim.remove_marker()
 		return {'FINISHED'}
 
 class CamAnimAnimate(bpy.types.Operator):
@@ -135,6 +149,7 @@ class CamAnimAnimate(bpy.types.Operator):
 		return ctx.mode == "OBJECT"
 
 	def execute(self, ctx):
+		camanim.animate()
 		return {'FINISHED'}
 
 def register():
