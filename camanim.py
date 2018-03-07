@@ -1,11 +1,12 @@
 import bpy
+from mathutils import Vector
 
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
 # TODO adjust all markers, or all markers following currently selected one
 # TODO place marker empty through mesh data + object data -> link to scene
 
 class CamAnim:
-	def __init__(self, cam=bpy.context.scene.camera, marker_name_base_text="camanim_marker", frames_per_space=1, frames_per_degree=0.2, frames_pause = 3):
+	def __init__(self, cam=bpy.context.scene.camera, marker_name_base_text="camanim_marker", frames_per_space=2, frames_per_degree=0.2, frames_pause = 3):
 		self.cam = cam
 		self.marker_name_base_text = marker_name_base_text
 		self.frames_per_space = frames_per_space
@@ -135,19 +136,35 @@ class CamAnim:
 		"""Use placed markers to set keyframes timed out by frames per loc and rot unit"""
 		marker_names = self.sort_markers()
 		bpy.context.scene.frame_current = bpy.context.scene.frame_start + 1
-		for name in marker_names:
+		
+		# keyframe cam along markers
+		for i in range(len(marker_names)):
+			name = marker_names[i]
 			self.snap_cam_to_marker(name)
 			self.cam.keyframe_insert("location")
 			self.cam.keyframe_insert("rotation_euler")
+			# start/end stasis gaps
 			if self.frames_pause > 0:
 				bpy.context.scene.frame_current += self.frames_pause
 				self.cam.keyframe_insert("location")
 				self.cam.keyframe_insert("rotation_euler")
-			bpy.context.scene.frame_current += self.frames_per_space * 10
-			# TODO calc bu btwn kfs
-			# int(frames)! -- remember to round result of frames per space or per degree
+			
+			# calculate diff between keyframes
+			if i < len(marker_names) - 1:
+				this_marker = bpy.context.scene.objects.get(name)
+				next_marker = bpy.context.scene.objects.get(marker_names[i + 1])
+				distance = (next_marker.location - this_marker.location).length
+				added_frames = int(self.frames_per_space * distance)
+				# TODO frame counts increase logarithmically for sense of nearing top speed
+				# TODO factor in rotation (e.g. cam position stationary but rotates)
+			else:
+				added_frames = 0
+			bpy.context.scene.frame_current += added_frames
+
+		# stretch timeline to fit keyframes
 		if bpy.context.scene.frame_current > bpy.context.scene.frame_end:
 			bpy.context.scene.frame_end = bpy.context.scene.frame_current + 1
+
 		return None
 
 camanim = CamAnim()
