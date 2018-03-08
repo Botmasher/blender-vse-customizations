@@ -1,4 +1,5 @@
 import bpy
+from math import log
 from mathutils import Vector
 
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
@@ -6,25 +7,12 @@ from mathutils import Vector
 # TODO place marker empty through mesh data + object data -> link to scene
 
 class CamAnim:
-	def __init__(self, cam=bpy.context.scene.camera, marker_name_base_text="camanim_marker", frames_per_space=2, frames_per_degree=0.2, frames_pause = 3):
+	def __init__(self, cam=bpy.context.scene.camera, marker_name_base_text="camanim_marker"):
 		self.cam = cam
 		self.marker_name_base_text = marker_name_base_text
-		self.frames_per_space = frames_per_space
-		self.frames_per_degree = frames_per_degree
-		self.frames_pause = frames_pause 		# number of frames to wait between movements (exclusive; used for cutting strips btwn motion blur and other multi fx)
 		self.marker_names = None
 		self.current_marker_name = None
 		return None
-
-	def set_frames_per_space(self, frames_per_space):
-		"""Set frames per space unit while transitioning between keyframe locs"""
-		self.frames_per_space = frames_per_space
-		return self.frames_per_space
-
-	def set_frames_per_degree(self, frames_per_degree):
-		"""Set frames per degree while transitioning between keyframe rots"""
-		self.frames_per_degree = frames_per_degree
-		return self.frames_per_degree
 
 	def place_marker(self):
 		"""Place marker in the scene at current cam loc and rot"""
@@ -132,7 +120,7 @@ class CamAnim:
 			self.marker_names.append(self.marker_names.pop(0))
 		return self.marker_names
 
-	def animate(self):
+	def animate(self, frames_per_space=3, frames_per_degree=0.1, min_frames_per_kf=0, max_frames_per_kf=9999, frames_pause=3):
 		"""Use placed markers to set keyframes timed out by frames per loc and rot unit"""
 		marker_names = self.sort_markers()
 		bpy.context.scene.frame_current = bpy.context.scene.frame_start + 1
@@ -144,8 +132,8 @@ class CamAnim:
 			self.cam.keyframe_insert("location")
 			self.cam.keyframe_insert("rotation_euler")
 			# start/end stasis gaps
-			if self.frames_pause > 0:
-				bpy.context.scene.frame_current += self.frames_pause
+			if 0 < i < len(marker_names) - 1 and frames_pause > 0:
+				bpy.context.scene.frame_current += frames_pause
 				self.cam.keyframe_insert("location")
 				self.cam.keyframe_insert("rotation_euler")
 			
@@ -153,13 +141,17 @@ class CamAnim:
 			if i < len(marker_names) - 1:
 				this_marker = bpy.context.scene.objects.get(name)
 				next_marker = bpy.context.scene.objects.get(marker_names[i + 1])
-				distance = (next_marker.location - this_marker.location).length
-				added_frames = int(self.frames_per_space * distance)
-				# TODO frame counts increase logarithmically for sense of nearing top speed
-				# TODO factor in rotation (e.g. cam position stationary but rotates)
+				loc_distance = (next_marker.location - this_marker.location).length
+				rot_distance = (Vector(next_marker.rotation_euler) - Vector(this_marker.rotation_euler)).magnitude * 57.2958
+				# smooth frame count over distance to give sense of reaching top speed
+				added_loc_frames = int(log(max(1, 10 * frames_per_space * loc_distance), 2))
+				added_rot_frames = int(log(max(1, frames_per_degree * rot_distance), 2))
+				added_frames = added_loc_frames + added_rot_frames
+				# clamp frame count between the two keyframes
+				clamped_frames = min(max(min_frames_per_kf, int(added_frames)), max_frames_per_kf)
 			else:
-				added_frames = 0
-			bpy.context.scene.frame_current += added_frames
+				clamped_frames = 0
+			bpy.context.scene.frame_current += clamped_frames
 
 		# stretch timeline to fit keyframes
 		if bpy.context.scene.frame_current > bpy.context.scene.frame_end:
