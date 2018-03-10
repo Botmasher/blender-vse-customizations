@@ -3,6 +3,8 @@ import bpy
 modes = ['VSE', 'ANIM']
 mode = modes[0]
 
+# TODO set bools through AutoconfigAnim instead
+
 if mode == 'VSE':
 	# splitting areas for VSE
 	bpy.context.screen = bpy.data.screens['Video Editing']
