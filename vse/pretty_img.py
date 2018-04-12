@@ -3,11 +3,25 @@
 import bpy
 from bpy.props import *
 
-def load_scale_img (path):
+def load_scale_img (path, scale):
     # open a browser window and let user pick the path
     bpy.context.sequencer.image_strip_add()
-    print (path)
-    # TODO - scale image
+    strip = bpy.context.scene.sequence_editor.active_strip
+    # gather image data
+    image = strip.elements[0]
+    width = image.orig_width
+    height = image.orig_height
+    directory = strip.directory
+    filename = image.filename
+    # resize image
+    ratio = width / height
+    for s in bpy.context.scene.sequence_editor.sequences_all: s.selected = False
+    strip.selected = True
+    bpy.ops.sequencer.effect_strip_add(type='TRANSFORM')
+    transform_strip = bpy.context.scene.sequence_editor.active_strip
+    transform_strip.use_uniform_scale = False
+    transform_strip.scale_start_x = scale
+    transform_strip.scale_start_y = scale * ratio
     return path
 
 class PrettyImagePanel (bpy.types.Panel):
