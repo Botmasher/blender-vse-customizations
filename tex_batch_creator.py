@@ -19,7 +19,6 @@ class ImgTexturizer:
         obj = bpy.context.scene.objects.active
         bpy.context.area.type = old_area
         if transparent:
-            #obj.active_material.active_texture.use_alpha = True
             # set alpha on image
             obj.active_material.active_texture.image.use_alpha = True
             obj.active_material.active_texture.use_preview_alpha = True
@@ -198,8 +197,6 @@ class ImgTexturesPanel (bpy.types.Panel):
         # /!\ Returns error - see create img as plane method in main class /!\
         else:
             self.layout.operator('material.texbatch_import', text='Create New Plane').update_existing = False
-        #else:
-        #    self.layout.row().label("No active material.")
 
 class ImgTexturesToggleTransparency (bpy.types.Operator):
     bl_idname = 'material.toggle_transparency'
@@ -220,10 +217,8 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
     filter_folder = BoolProperty(default=True, options={'HIDDEN'})
     filter_glob = StringProperty(default="", options={'HIDDEN'})
     # img alpha setting to pass to batch texturizer
-    use_transparency = BoolProperty (name="Use transparency")
-    use_transparency = True
-    replace_current = BoolProperty (name="Replace current textures")
-    replace_current = False
+    use_transparency = BoolProperty (default=True, name="Use transparency")
+    replace_current = BoolProperty (default=False, name="Replace current textures")
     update_existing = BoolProperty (options={'HIDDEN'})
 
     def store_files (self, files):
@@ -233,8 +228,6 @@ class ImgTexturesImport (bpy.types.Operator, ImportHelper):
         return img_filenames
 
     def store_directory (self, path):
-        #img_dir = bpy.path.relpath (path)+'/'
-        #return img_dir
         return path
 
     def execute (self, ctx):
