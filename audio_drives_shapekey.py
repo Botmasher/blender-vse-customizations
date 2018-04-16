@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import bpy
 
 # audio input drives shape key value

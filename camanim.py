@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import bpy
 from math import log
 from mathutils import Vector
