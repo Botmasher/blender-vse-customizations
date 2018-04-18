@@ -43,10 +43,20 @@ def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.sc
     #   - in that case just figure the % diff btwn res h vs orig h and just use that factor for w as well
 
     # resize image
-    ratio = width / height
-    transform_strip.scale_start_x = scale
-    transform_strip.scale_start_y = scale
+
+    #ratio = width / height
+    #transform_strip.scale_start_x = scale
+    #transform_strip.scale_start_y = scale
     
+    strip.use_translation = True
+    rew_w = bpy.context.scene.render.resolution_x
+    res_h = bpy.context.scene.render.resolution_y
+    h_ratio = res_h / height
+    transform_strip.use_uniform_scale = True
+    transform_strip.scale_start_x = scale * h_ratio
+
+    ## TODO center to screen/res
+
     return strip
 
 class PrettyImagePanel (bpy.types.Panel):
