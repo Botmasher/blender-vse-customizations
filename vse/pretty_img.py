@@ -48,14 +48,19 @@ def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.sc
     #transform_strip.scale_start_x = scale
     #transform_strip.scale_start_y = scale
     
+    # PROBLEM: using translation crops larger than res images when transform strip applied
+    # - back to figuring out how to resize just using input dimensions, the stretch applied, transform scale
+
     strip.use_translation = True
-    rew_w = bpy.context.scene.render.resolution_x
+    res_w = bpy.context.scene.render.resolution_x
     res_h = bpy.context.scene.render.resolution_y
     h_ratio = res_h / height
     transform_strip.use_uniform_scale = True
     transform_strip.scale_start_x = scale * h_ratio
-
-    ## TODO center to screen/res
+    # how center to screen/res ?
+    display_h = min(res_h, transform_strip.scale_start_x * height)
+    display_w = min(res_w, transform_strip.scale_start_x * width)
+    transform_strip.translate_start_x = res_w - (transform_strip.scale_start_x * width)
 
     return strip
 
