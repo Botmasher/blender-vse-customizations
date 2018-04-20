@@ -26,13 +26,12 @@ def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.sc
     bpy.ops.render.opengl(sequencer=True)
 
     # gather image data
-    image = strip.elements[0]
-    width = image.orig_width
-    height = image.orig_height
+    img = strip.elements[0]
+    img_res = {'w': img.orig_width, 'h': img.orig_height}
     directory = strip.directory
-    filename = image.filename
+    filename = img.filename
     
-    print(str(width) + "x" + str(height))
+    print("%s: %s" % (filename, "{0} x {1}".format(img_res['w'], img_res['h'])))
 
     # TODO figure stretch into calc
     # - get render resolution
@@ -43,24 +42,35 @@ def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.sc
     #   - in that case just figure the % diff btwn res h vs orig h and just use that factor for w as well
 
     # resize image
-
     #ratio = width / height
     #transform_strip.scale_start_x = scale
     #transform_strip.scale_start_y = scale
     
     # PROBLEM: using translation crops larger than res images when transform strip applied
-    # - back to figuring out how to resize just using input dimensions, the stretch applied, transform scale
+    # strip.use_translation = True
+    # res_w = bpy.context.scene.render.resolution_x
+    # res_h = bpy.context.scene.render.resolution_y
+    # h_ratio = res_h / height
+    # transform_strip.use_uniform_scale = True
+    # transform_strip.scale_start_x = scale * h_ratio
+    # # how center to screen/res ?
+    # display_h = min(res_h, transform_strip.scale_start_x * height)
+    # display_w = min(res_w, transform_strip.scale_start_x * width)
+    # transform_strip.translate_start_x = res_w - (transform_strip.scale_start_x * width)
 
-    strip.use_translation = True
-    res_w = bpy.context.scene.render.resolution_x
-    res_h = bpy.context.scene.render.resolution_y
-    h_ratio = res_h / height
-    transform_strip.use_uniform_scale = True
-    transform_strip.scale_start_x = scale * h_ratio
-    # how center to screen/res ?
-    display_h = min(res_h, transform_strip.scale_start_x * height)
-    display_w = min(res_w, transform_strip.scale_start_x * width)
-    transform_strip.translate_start_x = res_w - (transform_strip.scale_start_x * width)
+    # - back to figuring out how to resize just using input dimensions, the stretch applied, transform scale
+    render_res = {'w': bpy.context.scene.render.resolution_x, 'h': bpy.context.scene.render.resolution_y}
+    img_render_ratio = {'w': img_res['w'] / render_res['w'], 'h': img_res['h'] / render_res['h']}
+    print("Image vs screen res ratio - w: {0:.0f}%, h: {1:.0f}%".format(img_render_ratio['w'] * 100, img_render_ratio['h'] * 100))
+
+    scaled_img_h = 1080     # 1.0 scale y == 100% render_res.h
+    scaled_img_w = 1920     # stretched value
+    scaled_img_w_target = img_res['w'] / img_res['h'] * 1080      # final value we're after
+    img_rescale_y = scaled_img_w_target / scaled_img_w  # what is that as a percentage of stretch?
+
+    transform_strip.use_uniform_scale = False
+    transform_strip.scale_start_y = scale                   # w
+    transform_strip.scale_start_x = img_rescale_y * scale   # h
 
     return strip
 
@@ -105,8 +115,6 @@ class PrettyImageOperator (bpy.types.Operator):
         print("\n\nRestarting PRETTY IMG LOADER...")
         img_filenames = self.store_files(self.files)
         img_path = self.directory
-        print(img_path)
-        print(img_filenames)
         for filename in img_filenames:
             load_scale_img(filename, "%s%s" % (img_path, filename))
         return {'FINISHED'}
