@@ -4,13 +4,13 @@ from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 
 ## Pretty Image Loader
-## a small Blender Python image loading tool by Botmasher (Joshua R)
+## sequencer image loading tool by Botmasher (Joshua R)
 ##
-## This small Blender Python tool loads images with your choice of a transform strip, transparency
-## and original image dimensions instead of default settings and wonkily stretched/squashed dimensions
+## This small Blender Python tool loads prettier images with transparency and original image
+## dimensions instead of default settings and wonkily stretched/squashed dimensions
 ## 
 
-def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.scene.frame_current):
+def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.scene.frame_current, length=10):
     # open a browser window and let user pick the path
     strip = bpy.context.scene.sequence_editor.sequences.new_image(name=name, filepath=path, channel=channel, frame_start=frame_start)
     
@@ -28,37 +28,13 @@ def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.sc
     # gather image data
     img = strip.elements[0]
     img_res = {'w': img.orig_width, 'h': img.orig_height}
-    directory = strip.directory
+    #directory = strip.directory
     filename = img.filename
     
     print("%s: %s" % (filename, "{0} x {1}".format(img_res['w'], img_res['h'])))
 
-    # TODO figure stretch into calc
-    # - get render resolution
-    # - compare image w/h to render w or h (probably h? eventually bool prop for user to pick)
-    # - if image h is sized up to res h, what would the orig width be relative to that height?
-    #   - Blender's not straightforwardly calculating height width ratio as resized?
-    # - maybe instead set crop, then size up/down to that height or width?
-    #   - in that case just figure the % diff btwn res h vs orig h and just use that factor for w as well
-
     # resize image
-    #ratio = width / height
-    #transform_strip.scale_start_x = scale
-    #transform_strip.scale_start_y = scale
-    
-    # PROBLEM: using translation crops larger than res images when transform strip applied
-    # strip.use_translation = True
-    # res_w = bpy.context.scene.render.resolution_x
-    # res_h = bpy.context.scene.render.resolution_y
-    # h_ratio = res_h / height
-    # transform_strip.use_uniform_scale = True
-    # transform_strip.scale_start_x = scale * h_ratio
-    # # how center to screen/res ?
-    # display_h = min(res_h, transform_strip.scale_start_x * height)
-    # display_w = min(res_w, transform_strip.scale_start_x * width)
-    # transform_strip.translate_start_x = res_w - (transform_strip.scale_start_x * width)
-
-    # - back to figuring out how to resize just using input dimensions, the stretch applied, transform scale
+    # figure out how to resize just using input dimensions, the stretch applied, transform scale
     render_res = {'w': bpy.context.scene.render.resolution_x, 'h': bpy.context.scene.render.resolution_y}
     img_render_ratio = {'w': img_res['w'] / render_res['w'], 'h': img_res['h'] / render_res['h']}
     print("Image vs screen res ratio - w: {0:.0f}%, h: {1:.0f}%".format(img_render_ratio['w'] * 100, img_render_ratio['h'] * 100))
@@ -71,6 +47,15 @@ def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.sc
     transform_strip.use_uniform_scale = False
     transform_strip.scale_start_y = scale                   # w
     transform_strip.scale_start_x = img_rescale_y * scale   # h
+
+    # set strip opacity
+    transform_strip.blend_type = 'ALPHA_OVER'
+    transform_strip.blend_alpha = 1.0
+    strip.blend_type = 'ALPHA_OVER'
+    strip.blend_alpha = 0.0
+
+    # set strip length
+    strip.frame_final_duration = length
 
     return strip
 
