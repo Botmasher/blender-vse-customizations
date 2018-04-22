@@ -10,10 +10,12 @@ from bpy_extras.io_utils import ImportHelper
 ## dimensions instead of default settings and wonkily stretched/squashed dimensions
 ## 
 
-def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.scene.frame_current, length=10):
+def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.scene.frame_current, length=10, alpha=True):
     # open a browser window and let user pick the path
     strip = bpy.context.scene.sequence_editor.sequences.new_image(name=name, filepath=path, channel=channel, frame_start=frame_start)
-    
+
+    # TODO set channel strip wisely - currently importing many causes interlaced stacking of transform and image strips
+
     for s in bpy.context.scene.sequence_editor.sequences_all: s.select = False
     strip.select = True
     
@@ -49,31 +51,44 @@ def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.sc
     transform_strip.scale_start_x = img_rescale_y * scale   # h
 
     # set strip opacity
-    transform_strip.blend_type = 'ALPHA_OVER'
-    transform_strip.blend_alpha = 1.0
-    strip.blend_type = 'ALPHA_OVER'
-    strip.blend_alpha = 0.0
+    if alpha:
+        transform_strip.blend_type = 'ALPHA_OVER'
+        transform_strip.blend_alpha = 1.0
+        strip.blend_type = 'ALPHA_OVER'
+        strip.blend_alpha = 0.0
 
     # set strip length
     strip.frame_final_duration = length
 
     return strip
 
+# UI menu properties
+PrettyImageProperties = {
+    'alpha': BoolProperty(name="Transparency", description="Use alpha blend on image transform", default=True),
+    'scale': FloatProperty(name="Scale", description="Transform scale to apply to fitted image", default=1.0),
+    'length': IntProperty(name="Strip length", description="Frame duration of imported images", default=10)
+}
+
 class PrettyImagePanel (bpy.types.Panel):
     # Blender UI label, name, placement
-    bl_label = 'Pretty Image Loader'
+    bl_label = "Pretty Image Loader"
     bl_idname = 'strip.pretty_image_loader'
     bl_space_type = 'SEQUENCE_EDITOR'
     bl_region_type = 'UI'
     def draw (self, context):
+
+        # TODO do not show if inspecting a single strip
+        sequencer = bpy.context.scene.sequence_editor
+        #if sequencer.active_strip: return
+
         row = self.layout.row()
-        row.operator("strip.add_pretty", text='Add Pretty Image')
+        row.operator("strip.add_pretty", text="Add Pretty Image")
         
 class PrettyImageOperator (bpy.types.Operator):
     # Blender UI label, id and description
-    bl_label = "Pretty Image Loader"
-    bl_idname = "strip.add_pretty"
-    bl_description = 'Add a new image with alpha, transform strip and proper dimensions.'
+    bl_label = "Pretty Image Operator"
+    bl_idname = 'strip.add_pretty'
+    bl_description = "Add a new image with alpha, transform strip and proper dimensions."
     def execute (self, context):
         bpy.context.scene.sequence_editor_create()  # verify vse is valid in scene
         load_scale_img ("MY-ASDF-PATH.png")
@@ -85,11 +100,10 @@ class PrettyImageOperator (bpy.types.Operator):
     filter_image = BoolProperty(default=True, options={'HIDDEN'})
     filter_folder = BoolProperty(default=True, options={'HIDDEN'})
     #filter_glob = StringProperty(default="", options={'HIDDEN'})
-    # img alpha setting to pass to batch texturizer
-    use_transparency = BoolProperty (default=True, name="Use transparency")
-    replace_current = BoolProperty (default=False, name="Replace current textures")
-    update_existing = BoolProperty (options={'HIDDEN'})
-
+    set_alpha = PrettyImageProperties['alpha']
+    img_scale = PrettyImageProperties['scale']
+    length = PrettyImageProperties['length']
+    
     def store_files (self, files):
         img_filenames = []
         for f in files:
@@ -101,7 +115,7 @@ class PrettyImageOperator (bpy.types.Operator):
         img_filenames = self.store_files(self.files)
         img_path = self.directory
         for filename in img_filenames:
-            load_scale_img(filename, "%s%s" % (img_path, filename))
+            load_scale_img(filename, "{0}{1}".format(img_path, filename), scale=self.img_scale, length=self.length, alpha=self.set_alpha)
         return {'FINISHED'}
 
     def invoke (self, context, event):
