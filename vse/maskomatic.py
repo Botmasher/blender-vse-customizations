@@ -8,6 +8,7 @@ import bpy.props
 ## Set up a basic mask and mask modifier for a single sequence editor strip.
 ##
 
+# TODO apply mask to array of selected strips
 # TODO more custom shapes (poly?) when configuring the mask strip
 # TODO custom loc, scale when configuring the mask strip
 # TODO load / ask which clip file will be masked over
@@ -37,8 +38,11 @@ def add_mask(strip, name, start_frame=0, end_frame=0, shape=None, invert=False):
 	bpy.context.area.spaces.active.clip.frame_offset = strip.animation_offset_start
 	# mask geometry
 	if shape == "circle" or shape == "square":
+		# TODO set to movie clip height and width
+		res_h = bpy.context.scene.render.resolution_x
+		res_w = bpy.context.scene.render.resolution_y
 		mask_primitive_add = getattr(bpy.ops.mask, "primitive_%s_add" % shape)
-		mask_primitive_add(size=1080, location=(1920 * 0.25, 1080 * 0.5))
+		mask_primitive_add(size=res_h, location=(res_w * 0.25, res_h * 0.5))
 	else:
 		# zeroth layer automatically added above with primitive
 		mask_strip.layers.new()
@@ -52,6 +56,8 @@ def add_mask(strip, name, start_frame=0, end_frame=0, shape=None, invert=False):
 	strip.blend_alpha = 1.0
 
 	mask = {'modifier': mask_modifier, 'strip': mask_strip}
+
+	bpy.context.area.type = initial_area
 
 	return mask
 

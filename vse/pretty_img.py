@@ -99,7 +99,7 @@ class PrettyImageOperator (bpy.types.Operator):
     directory = StringProperty(maxlen=1024, subtype='DIR_PATH',options={'HIDDEN'})
     filter_image = BoolProperty(default=True, options={'HIDDEN'})
     filter_folder = BoolProperty(default=True, options={'HIDDEN'})
-    #filter_glob = StringProperty(default="", options={'HIDDEN'})
+    # image loading/formatting
     set_alpha = PrettyImageProperties['alpha']
     img_scale = PrettyImageProperties['scale']
     length = PrettyImageProperties['length']
