@@ -23,6 +23,9 @@ import time
 ## 	6) run this script in Blender
 ##
 
+# TODO ignore copies by presence of dups not just by name typology
+	# - cases exist where stripname.nnn is the only copy left in the project
+
 def build_ignored_names_re(namestrings, ignored_res_list):
 	if namestrings is None or len(namestrings) < 1:
 		if ignored_res_list == []: return None
