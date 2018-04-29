@@ -35,23 +35,30 @@ def build_ignored_names_re(namestrings, ignored_res_list):
 	ignored_res_list.append(re.compile(".*%s.*" % re.escape(ignored_namestring)))
 	return build_ignored_names_re(namestrings, ignored_res_list)
 
-def find_sequence_names(sequencer=bpy.context.scene.sequence_editor, sequence_types=["SOUND", "MOVIE", "IMAGE"], ignored_res_dict={}, ignore_copies=True):
+def find_sequence_names(sequencer=bpy.context.scene.sequence_editor, sequence_types=["SOUND", "MOVIE", "IMAGE"], ignored_res_dict={}):
 	print(ignored_res_dict)
 	if sequencer is None:
 		print("Error finding sequence names: SEQUENCE_EDITOR not found")
 		return None
 	found_sequences = {sequence_type: [] for sequence_type in sequence_types}
 	for sequence in sequencer.sequences:
-		if ignore_copies == False or re.match(r".+(\.\d{3})", sequence.name) is None:
-			if sequence.type in sequence_types and (ignored_res_dict[sequence.type] is None or re.match(ignored_res_dict[sequence.type], sequence.name) is None):
-				found_sequences[sequence.type].append(sequence)
+		if sequence.type in sequence_types and (ignored_res_dict[sequence.type] is None or re.match(ignored_res_dict[sequence.type], sequence.name) is None):
+			found_sequences[sequence.type].append(sequence)
 	return found_sequences
 
-def print_sequence_names(sequences_by_type):
+def print_sequence_names(sequences_by_type, ignore_copies=True):
 	print("\nFound Sequences")
-	for sequence_type in sequences_by_type:
-		for sequence in sequences_by_type[sequence_type]:
-			print("%s sequence: %s" % (sequence.type, sequence.name))
+	if ignore_copies:
+		split_names = []
+		for sequence_type in sequences_by_type:
+			for sequence in sequences_by_type[sequence_type]:
+				split_name = re.split(r".+(\.\d{3})+", sequence.name)[0]
+				split_name != "" and split_names.append(split_name)
+		for name in split_names: print(name)
+	else:
+		for sequence_type in sequences_by_type:
+			for sequence in sequences_by_type[sequence_type]:
+				print("%s sequence: %s" % (sequence.type, sequence.name))
 	return {'FINISHED'}
 
 def run_strip_finder():
