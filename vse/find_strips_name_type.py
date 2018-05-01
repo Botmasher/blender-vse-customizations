@@ -47,13 +47,20 @@ def find_sequence_names(sequencer=bpy.context.scene.sequence_editor, sequence_ty
 	return found_sequences
 
 def print_sequence_names(sequences_by_type, ignore_copies=True):
-	print("\nFound Sequences")
+	ignore_mssg = "ignored" if ignore_copies else "included"
+	print("\nFound Sequences (duplicates %s):\n" % ignore_mssg)
 	if ignore_copies:
-		split_names = []
+		split_names = set()
+		suffix_re = re.compile(r"(\.\d{3})+")
+		# store cleaned names with any duplicate suffix (.nnn) removed
 		for sequence_type in sequences_by_type:
 			for sequence in sequences_by_type[sequence_type]:
-				split_name = re.split(r".+(\.\d{3})+", sequence.name)[0]
-				split_name != "" and split_names.append(split_name)
+				suffix_match = suffix_re.search(sequence.name)
+				if suffix_match is not None:
+					suffix_i = suffix_match.start()
+					split_names.add(sequence.name[:suffix_i])
+				else:
+					split_names.add(sequence.name)
 		for name in split_names: print(name)
 	else:
 		for sequence_type in sequences_by_type:
@@ -62,7 +69,7 @@ def print_sequence_names(sequences_by_type, ignore_copies=True):
 	return {'FINISHED'}
 
 def run_strip_finder():
-	ignored_names = {'SOUND': ["audio-", ".wav"], 'MOVIE': [], 'IMAGE': []}
+	ignored_names = {'SOUND': ["audio-"], 'MOVIE': [], 'IMAGE': []}
 	sequence_types = ["SOUND", "IMAGE"]
 	# build regexes of names to ignore
 	for sequence_type in sequence_types:
