@@ -1,9 +1,7 @@
 #!/usr/bin/python
 import bpy
 import re
-import time
 
-##
 ## Find and display relevant media sequence strips from the Blender VSE
 ##
 ## Built to catalog assets and display them for copyright/fair use documentation.
@@ -30,14 +28,14 @@ import time
 ## 		- set ignore_duplication=False to list duplicates as well (e.g. myaudio.001, myaudio.002)
 ##
 
-# TODO use file path and name to vet duplicates
 # TODO take documentation from above and include within multiline comments
 # TODO add ability to pass ignored_res_list into run function
+# TODO store file directory and name in tuple pairs, giving option to list just filename or full path
 
 def build_ignored_names_re(namestrings, ignored_res_list):
 	"""Build regular expression to successively filter out object names"""
 	if namestrings is None or len(namestrings) < 1:
-		if ignored_res_list == []: return None
+		if ignored_res_list == []: return ""
 		ignored_re = "|".join(regex.pattern for regex in ignored_res_list)
 		return ignored_re
 	ignored_namestring = namestrings.pop()
@@ -49,34 +47,47 @@ def find_sequence_names(sequencer=bpy.context.scene.sequence_editor, sequence_ty
 	if sequencer is None:
 		print("Error finding sequence names: SEQUENCE_EDITOR not found")
 		return None
-	found_sequences = {sequence_type: [] for sequence_type in sequence_types}
-	for sequence in sequencer.sequences:
-		if sequence.type in sequence_types and (ignored_res_dict[sequence.type] is None or not re.match(ignored_res_dict[sequence.type], sequence.name)):
-			found_sequences[sequence.type].append(sequence)
+	found_sequences = {}
+	for sequence_type in sequence_types: found_sequences[sequence_type] = set([])
+	for sequence in sequencer.sequences_all:
+		sequence.type in sequence_types and \
+		(sequence.type not in ignored_res_dict.keys() \
+		or not ignored_res_dict[sequence.type] \
+		or not re.match(ignored_res_dict[sequence.type], \
+		sequence.name)) \
+			and found_sequences[sequence.type].add(sequence)
 	return found_sequences
 
-def print_sequence_names(sequences_by_type, ignore_duplication=True):
+def print_sequence_names(sequences_by_type, ignore_duplication=True, full_paths=True):
 	"""Output the name of each sequence in a dictionary of sequences by type,
 	optionally ignoring unique Blender duplication suffix"""
 	ignore_mssg = "ignored" if ignore_duplication else "included"
-	print("\nFound Sequences (duplicates %s):" % ignore_mssg)
+	print("\nFound Sequences\n - duplicates %s\n - types include '%s'" % (ignore_mssg, "', '".join(sequences_by_type.keys())))
 	if ignore_duplication:
-		suffix_re = re.compile(r"(\.\d{3})+")
-		# store and print cleaned names with any duplicate suffix (.nnn) removed
+		# store filepath for each asset loaded into sequencer
 		for sequence_type in sequences_by_type:
-			split_names = set()
 			print("\n{0} strips:".format(sequence_type))
+			found_files = set()
 			for sequence in sequences_by_type[sequence_type]:
-				suffix_match = suffix_re.search(sequence.name)
-				if suffix_match is not None:
-					suffix_i = suffix_match.start()
-					split_names.add(sequence.name[:suffix_i])
+				if sequence_type is 'SOUND':
+					sound_path = sequence.sound.filepath
+					sound_path and found_files.add(sound_path)
+				elif sequence_type is 'IMAGE':
+					image_directory = sequence.directory
+					image_filename = sequence.elements[0].filename
+					if image_directory and image_filename:
+						image_path = "{0}{1}".format(image_directory, image_filename)
+						found_files.add(image_path)
+				elif sequence_type is 'MOVIE':
+					movie_path = sequence.filepath
+					movie_path and found_files.add(movie_path)
 				else:
-					split_names.add(sequence.name)
-			if len(split_names) < 1:
+					continue
+			# print all found filepaths
+			if len(found_files) < 1:
 				print("(0 sequences found)")
 			else:
-				for name in split_names: print(name)
+				for name in found_files: print(name)
 	else:
 		# print all passed-in names
 		for sequence_type in sequences_by_type:
@@ -95,10 +106,9 @@ def run_strip_finder(sequence_types=['IMAGE', 'MOVIE', 'SOUND'], ignored_names={
 			ignored_names[sequence_type] = build_ignored_names_re(ignored_names[sequence_type], [])
 		else:
 			ignored_names[sequence_type] = None
-	print(ignored_names)
 	# find sequences
 	sequences = find_sequence_names(ignored_res_dict=ignored_names, sequence_types=sequence_types)
 	# display names
-	print_sequence_names(sequences, ignore_duplication=ignore_duplication)
+	print_sequence_names(sequences, full_paths=False, ignore_duplication=ignore_duplication)
 
-run_strip_finder(sequence_types=['SOUND'], ignored_names={'SOUND': ["audio-"], 'MOVIE': [], 'IMAGE': []})
+run_strip_finder(sequence_types=['SOUND', 'IMAGE'], ignored_names={'SOUND': ["audio-"], 'MOVIE': [], 'IMAGE': []})
