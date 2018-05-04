@@ -30,7 +30,7 @@ import re
 
 # TODO take documentation from above and include within multiline comments
 # TODO add ability to pass ignored_res_list into run function
-# TODO store file directory and name in tuple pairs, giving option to list just filename or full path
+# TODO split filename from end of path if ignoring paths (but give some indication of duplicate names from different paths)
 
 def build_ignored_names_re(namestrings, ignored_res_list):
 	"""Build regular expression to successively filter out object names"""
@@ -70,16 +70,15 @@ def print_sequence_names(sequences_by_type, ignore_duplication=True, full_paths=
 			found_files = set()
 			for sequence in sequences_by_type[sequence_type]:
 				if sequence_type is 'SOUND':
-					sound_path = sequence.sound.filepath
+					sound_path = sequence.sound.filepath if full_paths else sequence.sound.name
 					sound_path and found_files.add(sound_path)
 				elif sequence_type is 'IMAGE':
 					image_directory = sequence.directory
 					image_filename = sequence.elements[0].filename
-					if image_directory and image_filename:
-						image_path = "{0}{1}".format(image_directory, image_filename)
-						found_files.add(image_path)
+					image_path = "{0}{1}".format(image_directory, image_filename) if full_paths else image_filename
+					found_files.add(image_path)
 				elif sequence_type is 'MOVIE':
-					movie_path = sequence.filepath
+					movie_path = sequence.filepath if full_paths else sequence.elements[0].filename
 					movie_path and found_files.add(movie_path)
 				else:
 					continue
@@ -109,6 +108,7 @@ def run_strip_finder(sequence_types=['IMAGE', 'MOVIE', 'SOUND'], ignored_names={
 	# find sequences
 	sequences = find_sequence_names(ignored_res_dict=ignored_names, sequence_types=sequence_types)
 	# display names
-	print_sequence_names(sequences, full_paths=False, ignore_duplication=ignore_duplication)
+	# NOTE if full_paths is set to False filenames may contain data duplication suffix
+	print_sequence_names(sequences, full_paths=True, ignore_duplication=ignore_duplication)
 
 run_strip_finder(sequence_types=['SOUND', 'IMAGE'], ignored_names={'SOUND': ["audio-"], 'MOVIE': [], 'IMAGE': []})
