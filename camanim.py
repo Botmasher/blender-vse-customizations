@@ -2,41 +2,49 @@
 import bpy
 from math import log
 from mathutils import Vector
+from bpy.props import *
 
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
 # TODO adjust all markers, or all markers following currently selected one
 # TODO place marker empty through mesh data + object data -> link to scene
 
+bpy.types.TimelineMarker.marker_id = StringProperty(
+    name = 'Marker ID',
+    description = 'Unique timeline marker ID'
+)
+
 class CamAnim:
-	def __init__(self, cam=bpy.context.scene.camera, marker_name_base_text="camanim_marker"):
+	def __init__(self, cam=bpy.context.scene.camera, marker_name_text="camanim_marker"):
 		self.cam = cam
-		self.marker_name_base_text = marker_name_base_text
-		self.marker_names = None
-		self.current_marker_name = None
+		# TODO decide to store markers array vs dict
+		self.markers = {}
+		self.marker_name_text = marker_name_base_text
+		self.current_marker = None
 		return None
 
 	def place_marker(self):
 		"""Place marker in the scene at current cam loc and rot"""
 		bpy.ops.object.empty_add(type="SINGLE_ARROW")
 		marker = bpy.context.scene.objects.active
-		marker.name = self.marker_name_base_text
+		marker.name = self.marker_name_text
 		marker.location = self.cam.location
 		marker.rotation_euler = self.cam.rotation_euler
-		return None
+		self.markers[marker.as_pointer] = marker
+		return marker
 
 	def replace_marker(self, marker):
 		"""Update selected currently placed marker in the scene to current cam loc and rot"""
-		if self.is_marker(marker.name):
+		if self.is_marker(marker):
 			marker.location = self.cam.location
 			marker.rotation_euler = self.cam.rotation_euler
-		return None
+		return marker
 
 	def remove_marker(self, marker):
 		"""Delete selected currently placed marker from camanim tracking"""
-		if self.is_marker(marker.name):
-			bpy.context.scene.objects.unlink(marker)					# remove from scene
+		if self.is_marker(marker):
+			bpy.context.scene.objects.unlink(marker)			# remove from scene
 			bpy.data.objects.remove(marker, do_unlink=True)		# delete and verify unlink from whole project
-		return None
+		return marker
 
 	def jump_first_marker(self):
 		"""Jump to the first tracked marker"""
@@ -47,32 +55,32 @@ class CamAnim:
 	def jump_last_marker(self):
 		"""Jump to the final tracked marker"""
 		sorted_markers = self.sort_markers()
-		self.snap_cam_to_marker(sorted_markers[len(sorted_markers) - 1])		
+		self.snap_cam_to_marker(sorted_markers[len(sorted_markers) - 1])
 		return None
 
 	def jump_marker(self, marker_count):
 		"""Jump camera count markers earlier or later along path"""
-		marker_names = self.sort_markers()
-		if self.current_marker_name is None:
-			self.current_marker_name = marker_names[0]
+		markers = self.sort_markers()
+		if self.current_marker is None:
+			self.current_marker = markers[0]
 		try:
 			marker_i = int(self.current_marker_name.split(".")[1])
 		except:
-			marker_i = len(marker_names)
+			marker_i = len(markers)
 		jump_i = marker_i + marker_count
 		# cycle forward or backward through markers
-		if jump_i > len(marker_names) or jump_i < 0:
+		if jump_i > len(markers) or jump_i < 0:
 			jump_i = 0
 		else:
 			jump_i -= 1		# generated names start from 001 and len is 1 over index
-		self.snap_cam_to_marker(marker_names[jump_i])
+		self.snap_cam_to_marker(markers[jump_i])
 		return None
 
-	def is_marker(self, obj_name=None, obj=None):
+	def is_marker(self, marker=None, obj_name=None):
 		"""Check if named object is a CamAnim marker"""
-		if obj is not None and self.marker_name_base_text in obj.name:
+		if marker is not None and marker.as_pointer in self.markers:
 			return True
-		elif obj_name is not None and self.marker_name_base_text in obj_name:
+		elif obj_name is not None and self.marker_name_text in obj_name:
 			return True
 		else:
 			return False
@@ -86,46 +94,46 @@ class CamAnim:
 	def get_current_marker_details(self):
 		"""Find the name and index of the current marker"""
 		return {
-			'name': self.current_marker_name,
-			'id': self.get_marker_index(self.current_marker_name)
+			'name': self.current_marker.name,
+			'id': self.get_marker_index(self.current_marker)
 		}
 
-	def get_marker_index(self, marker_name):
+	def get_marker_index(self, marker):
 		"""Return the index along path of the current marker"""
-		if marker_name is not None:
+		if marker is not None:
 			sorted_markers = self.sort_markers()
 			marker_i = None
 			for i in range(len(sorted_markers)):
-				if sorted_markers[i] == marker_name:
+				if sorted_markers[i] == marker:
 					marker_i = i
 			if marker_i is not None: return marker_i
 		return None
 
-	def snap_cam_to_marker(self, marker_name):
+	def snap_cam_to_marker(self, marker):
 		"""Set camera location and rotation to match marker"""
-		marker = bpy.context.scene.objects[marker_name]
 		self.cam.location = marker.location
 		self.cam.rotation_euler = marker.rotation_euler
-		self.current_marker_name = marker_name
+		self.current_marker = marker
 		return marker
 
 	def sort_markers(self, do_resort=True):
 		"""Retrieve well-named markers and sort from earliest to latest
-		
+
 		Caution when proceeding without resorting as markers unsync easily! (e.g. user deletes marker)
 		"""
-		if do_resort == True or self.marker_names is None:
-			self.marker_names = [o.name for o in bpy.context.scene.objects if self.is_marker(o.name)]
-			self.marker_names.sort()
+		# TODO handle sorting markers array
+		if do_resort == True or not self.markers:
+			self.markers = [o.name for o in bpy.context.scene.objects if self.is_marker(o)]
+			self.markers.sort()
 			# markers count from .001 - place latest marker (unappended) at the end
-			self.marker_names.append(self.marker_names.pop(0))
-		return self.marker_names
+			self.markers.append(self.markers.pop(0))
+		return self.markers
 
 	def animate(self, frames_per_space=3, frames_per_degree=0.1, min_frames_per_kf=0, max_frames_per_kf=9999, frames_pause=3):
 		"""Use placed markers to set keyframes timed out by frames per loc and rot unit"""
 		marker_names = self.sort_markers()
 		bpy.context.scene.frame_current = bpy.context.scene.frame_start + 1
-		
+
 		# keyframe cam along markers
 		for i in range(len(marker_names)):
 			name = marker_names[i]
@@ -137,7 +145,7 @@ class CamAnim:
 				bpy.context.scene.frame_current += frames_pause
 				self.cam.keyframe_insert("location")
 				self.cam.keyframe_insert("rotation_euler")
-			
+
 			# calculate diff between keyframes
 			if i < len(marker_names) - 1:
 				this_marker = bpy.context.scene.objects.get(name)
@@ -171,8 +179,8 @@ class CamAnimPanel(bpy.types.Panel):
 
 	def draw(self, ctx):
 		layout = self.layout
-		
-		if bpy.context.scene.objects.active == bpy.context.scene.camera or camanim.is_marker(obj_name=bpy.context.scene.objects.active.name):
+
+		if bpy.context.scene.objects.active == bpy.context.scene.camera or camanim.is_marker(obj_name=bpy.context.scene.objects.active):
 			col = layout.column(align=True)
 
 			# update marker data and marker objects
@@ -205,7 +213,7 @@ class CamAnimPanel(bpy.types.Panel):
 
 		else:
 			layout.label("Select Camera or CamAnim Marker...")
-		
+
 		return None
 
 class CamAnimSetMarker(bpy.types.Operator):
