@@ -18,7 +18,7 @@ class CamAnim:
 		self.cam = cam
 		# TODO decide to store markers array vs dict
 		self.markers = {}
-		self.marker_name_text = marker_name_base_text
+		self.marker_name_text = marker_name_text
 		self.current_marker = None
 		return None
 
@@ -87,7 +87,7 @@ class CamAnim:
 
 	def has_current_marker(self):
 		"""Check if there is a stored current marker"""
-		if self.current_marker_name is not None:
+		if self.current_marker is not None:
 			return True
 		return False
 
@@ -122,12 +122,14 @@ class CamAnim:
 		Caution when proceeding without resorting as markers unsync easily! (e.g. user deletes marker)
 		"""
 		# TODO handle sorting markers array
-		if do_resort == True or not self.markers:
-			self.markers = [o.name for o in bpy.context.scene.objects if self.is_marker(o)]
-			self.markers.sort()
+		if do_resort == True:
+			unsorted_markers = [o.name for o in bpy.context.scene.objects if self.is_marker(o)]
+			unsorted_markers.sort()
 			# markers count from .001 - place latest marker (unappended) at the end
-			self.markers.append(self.markers.pop(0))
-		return self.markers
+			sorted_marker_names.append(unsorted_markers.pop(0))
+            sorted_markers = [bpy.contxt.scene.objects[m] for m in sorted_marker_names]
+        # TODO return and use a sorted list instead of the dictionary
+        return sorted_markers
 
 	def animate(self, frames_per_space=3, frames_per_degree=0.1, min_frames_per_kf=0, max_frames_per_kf=9999, frames_pause=3):
 		"""Use placed markers to set keyframes timed out by frames per loc and rot unit"""
