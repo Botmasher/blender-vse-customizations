@@ -9,16 +9,15 @@ from bpy.props import *
 # TODO place marker empty through mesh data + object data -> link to scene
 
 bpy.types.TimelineMarker.marker_id = StringProperty(
-    name = 'Marker ID',
-    description = 'Unique timeline marker ID'
+	name = 'Marker ID',
+	description = 'Unique timeline marker ID'
 )
 
 class CamAnim:
 	def __init__(self, cam=bpy.context.scene.camera, marker_name_text="camanim_marker"):
 		self.cam = cam
-		# TODO decide to store markers array vs dict
-		self.markers = {}
-		self.marker_name_text = marker_name_text
+		self.markers = {}                         # marker objects store cam loc-rot state
+		self.marker_name_text = marker_name_text  # base - suffix added on duplication
 		self.current_marker = None
 		return None
 
@@ -29,7 +28,7 @@ class CamAnim:
 		marker.name = self.marker_name_text
 		marker.location = self.cam.location
 		marker.rotation_euler = self.cam.rotation_euler
-		self.markers[marker.as_pointer] = marker
+		self.markers[marker.as_pointer()] = marker
 		return marker
 
 	def replace_marker(self, marker):
@@ -48,42 +47,41 @@ class CamAnim:
 
 	def jump_first_marker(self):
 		"""Jump to the first tracked marker"""
+		if len(self.markers) < 1: return False
 		sorted_markers = self.sort_markers()
 		self.snap_cam_to_marker(sorted_markers[0])
-		return None
+		return True
 
 	def jump_last_marker(self):
 		"""Jump to the final tracked marker"""
+		if len(self.markers) < 1: return False
 		sorted_markers = self.sort_markers()
 		self.snap_cam_to_marker(sorted_markers[len(sorted_markers) - 1])
-		return None
+		return True
 
 	def jump_marker(self, marker_count):
 		"""Jump camera count markers earlier or later along path"""
-		markers = self.sort_markers()
+		sorted_markers = self.sort_markers()
 		if self.current_marker is None:
-			self.current_marker = markers[0]
+			self.current_marker = sorted_markers[0]
 		try:
 			marker_i = int(self.current_marker_name.split(".")[1])
 		except:
-			marker_i = len(markers)
+			marker_i = len(sorted_markers)
 		jump_i = marker_i + marker_count
 		# cycle forward or backward through markers
-		if jump_i > len(markers) or jump_i < 0:
+		if jump_i > len(sorted_markers) or jump_i < 0:
 			jump_i = 0
 		else:
 			jump_i -= 1		# generated names start from 001 and len is 1 over index
-		self.snap_cam_to_marker(markers[jump_i])
+		self.snap_cam_to_marker(sorted_markers[jump_i])
 		return None
 
-	def is_marker(self, marker=None, obj_name=None):
+	def is_marker(self, obj=None):
 		"""Check if named object is a CamAnim marker"""
-		if marker is not None and marker.as_pointer in self.markers:
+		if obj is not None and obj.as_pointer() in self.markers:
 			return True
-		elif obj_name is not None and self.marker_name_text in obj_name:
-			return True
-		else:
-			return False
+		return False
 
 	def has_current_marker(self):
 		"""Check if there is a stored current marker"""
@@ -121,37 +119,37 @@ class CamAnim:
 
 		Caution when proceeding without resorting as markers unsync easily! (e.g. user deletes marker)
 		"""
-		# TODO handle sorting markers array
-		if do_resort == True:
-			unsorted_markers = [o.name for o in bpy.context.scene.objects if self.is_marker(o)]
-			unsorted_markers.sort()
+		if do_resort == True and len(self.markers) > 0:
+			marker_names = [o.name for o in bpy.context.scene.objects if self.is_marker(o)]
+			marker_names.sort()
 			# markers count from .001 - place latest marker (unappended) at the end
-			sorted_marker_names.append(unsorted_markers.pop(0))
-            sorted_markers = [bpy.contxt.scene.objects[m] for m in sorted_marker_names]
-        # TODO return and use a sorted list instead of the dictionary
-        return sorted_markers
+			marker_names.append(marker_names.pop(0))
+			sorted_markers = [bpy.context.scene.objects[name] for name in marker_names]
+		else:
+			sorted_markers = self.markers
+		return sorted_markers
 
 	def animate(self, frames_per_space=3, frames_per_degree=0.1, min_frames_per_kf=0, max_frames_per_kf=9999, frames_pause=3):
 		"""Use placed markers to set keyframes timed out by frames per loc and rot unit"""
-		marker_names = self.sort_markers()
+		sorted_markers = self.sort_markers()
 		bpy.context.scene.frame_current = bpy.context.scene.frame_start + 1
 
 		# keyframe cam along markers
-		for i in range(len(marker_names)):
-			name = marker_names[i]
-			self.snap_cam_to_marker(name)
+		for i in range(len(sorted_markers)):
+			marker = sorted_markers[i]
+			self.snap_cam_to_marker(marker)
 			self.cam.keyframe_insert("location")
 			self.cam.keyframe_insert("rotation_euler")
 			# start/end stasis gaps
-			if 0 < i < len(marker_names) - 1 and frames_pause > 0:
+			if 0 < i < len(sorted_markers) - 1 and frames_pause > 0:
 				bpy.context.scene.frame_current += frames_pause
 				self.cam.keyframe_insert("location")
 				self.cam.keyframe_insert("rotation_euler")
 
 			# calculate diff between keyframes
-			if i < len(marker_names) - 1:
-				this_marker = bpy.context.scene.objects.get(name)
-				next_marker = bpy.context.scene.objects.get(marker_names[i + 1])
+			if i < len(sorted_markers) - 1:
+				this_marker = sorted_markers[i]
+				next_marker = sorted_markers[i + 1]
 				loc_distance = (next_marker.location - this_marker.location).length
 				rot_distance = (Vector(next_marker.rotation_euler) - Vector(this_marker.rotation_euler)).magnitude * 57.2958
 				# smooth frame count over distance to give sense of reaching top speed
@@ -182,7 +180,7 @@ class CamAnimPanel(bpy.types.Panel):
 	def draw(self, ctx):
 		layout = self.layout
 
-		if bpy.context.scene.objects.active == bpy.context.scene.camera or camanim.is_marker(obj_name=bpy.context.scene.objects.active):
+		if bpy.context.scene.objects.active == bpy.context.scene.camera or camanim.is_marker(obj=bpy.context.scene.objects.active):
 			col = layout.column(align=True)
 
 			# update marker data and marker objects
@@ -284,6 +282,9 @@ class CamAnimFirstMarker(bpy.types.Operator):
 	def poll(c, ctx):
 		return ctx.mode == "OBJECT"
 
+	def draw(self, ctx):
+		self.layout.row().label("Jumping to first available marker")
+
 	def execute(self, ctx):
 		camanim.jump_first_marker()
 		return {'FINISHED'}
@@ -297,6 +298,9 @@ class CamAnimPrevMarker(bpy.types.Operator):
 	@classmethod
 	def poll(c, ctx):
 		return ctx.mode == "OBJECT"
+
+	def draw(self, ctx):
+		self.layout.row().label("Jumping to previous available marker")
 
 	def execute(self, ctx):
 		camanim.jump_marker(-1)
@@ -312,6 +316,9 @@ class CamAnimNextMarker(bpy.types.Operator):
 	def poll(c, ctx):
 		return ctx.mode == "OBJECT"
 
+	def draw(self, ctx):
+		self.layout.row().label("Jumping to next available marker")
+
 	def execute(self, ctx):
 		camanim.jump_marker(1)
 		return {'FINISHED'}
@@ -325,6 +332,9 @@ class CamAnimLastMarker(bpy.types.Operator):
 	@classmethod
 	def poll(c, ctx):
 		return ctx.mode == "OBJECT"
+
+	def draw(self, ctx):
+		self.layout.row().label("Jumping to last available marker")
 
 	def execute(self, ctx):
 		camanim.jump_last_marker()
