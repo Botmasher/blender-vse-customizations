@@ -4,8 +4,16 @@ from math import log
 from mathutils import Vector
 from bpy.props import *
 
+# TODO add properties to camera to persist state between loads
+# 	- remove markers, current_marker, marker_name_text class variables and add as properties
+# 	- check for values before setting new ones
+
+# TODO add properties to set keyframing params through UI
+
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
+
 # TODO adjust all markers, or all markers following currently selected one
+
 # TODO place marker empty through mesh data + object data -> link to scene
 
 bpy.types.TimelineMarker.marker_id = StringProperty(
@@ -65,7 +73,7 @@ class CamAnim:
 		if self.current_marker is None:
 			self.current_marker = sorted_markers[0]
 		try:
-			marker_i = int(self.current_marker_name.split(".")[1])
+			marker_i = int(self.current_marker.name.split(".")[1])
 		except:
 			marker_i = len(sorted_markers)
 		jump_i = marker_i + marker_count
@@ -73,7 +81,7 @@ class CamAnim:
 		if jump_i > len(sorted_markers) or jump_i < 0:
 			jump_i = 0
 		else:
-			jump_i -= 1		# generated names start from 001 and len is 1 over index
+			jump_i -= 1		# generated names start from 001 and len is index + 1
 		self.snap_cam_to_marker(sorted_markers[jump_i])
 		return None
 
