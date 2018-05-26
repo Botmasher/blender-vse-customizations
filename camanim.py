@@ -4,11 +4,10 @@ from math import log
 from mathutils import Vector
 from bpy.props import *
 
-# TODO add properties to camera to persist state between loads
-# 	- remove markers, current_marker, marker_name_text class variables and add as properties
-# 	- check for values before setting new ones
+# TODO revert to using names (like jump_marker() already does) to avoid losing state between loads
 
-# TODO add properties to set keyframing params through UI
+# TODO fix that Prev/Last selections show before markers placed and after markers deleted
+# 	- causes unknown location list errors
 
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
 
@@ -16,17 +15,19 @@ from bpy.props import *
 
 # TODO place marker empty through mesh data + object data -> link to scene
 
-bpy.types.TimelineMarker.marker_id = StringProperty(
-	name = 'Marker ID',
-	description = 'Unique timeline marker ID'
-)
-
 class CamAnim:
 	def __init__(self, cam=bpy.context.scene.camera, marker_name_text="camanim_marker"):
+		# internal refs for building and storing markers
 		self.cam = cam
 		self.markers = {}                         # marker objects store cam loc-rot state
 		self.marker_name_text = marker_name_text  # base - suffix added on duplication
 		self.current_marker = None
+		# UI props for setting keyframing params
+		bpy.types.Camera.camanim_frames_per_space = FloatProperty(name="Location frames", description="how many frames to count between location units", default=3)
+		bpy.types.Camera.camanim_frames_per_degree = FloatProperty(name="Rotation frames", description="how many frames to count between rotation degrees", default=0.1)
+		bpy.types.Camera.camanim_min_frames_per_kf = IntProperty(name="Min in-betweens", description="minimum number of frames between keyframes", default=0)
+		bpy.types.Camera.camanim_max_frames_per_kf = IntProperty(name="Max in-betweens", description="maximum number of frames between keyframes", default=9999)
+		bpy.types.Camera.camanim_frames_pause = IntProperty(name="Pause frames", description="length of \"long keyframes\" between movements", default=3)
 		return None
 
 	def place_marker(self):
@@ -188,7 +189,7 @@ class CamAnimPanel(bpy.types.Panel):
 	def draw(self, ctx):
 		layout = self.layout
 
-		if bpy.context.scene.objects.active == bpy.context.scene.camera or camanim.is_marker(obj=bpy.context.scene.objects.active):
+		if ctx.scene.objects.active == ctx.scene.camera or camanim.is_marker(obj=ctx.scene.objects.active):
 			col = layout.column(align=True)
 
 			# update marker data and marker objects
@@ -217,6 +218,12 @@ class CamAnimPanel(bpy.types.Panel):
 
 			# set keyframes
 			col.label("Animate camera")
+			cam = ctx.scene.camera.data
+			col.row().prop(cam, "camanim_frames_per_space")
+			col.row().prop(cam, "camanim_frames_per_degree")
+			col.row().prop(cam, "camanim_min_frames_per_kf")
+			col.row().prop(cam, "camanim_max_frames_per_kf")
+			col.row().prop(cam, "camanim_frames_pause")
 			col.row().operator("camera.camanim_animate", text="Keyframe camera")
 
 		else:
@@ -363,9 +370,11 @@ class CamAnimAnimate(bpy.types.Operator):
 		return {'FINISHED'}
 
 def register():
+	bpy.utils.register_class(CamAnimPanel)
 	bpy.utils.register_module(__name__)
 
 def unregister():
+	bpy.utils.unregister_class(CamAnimPanel)
 	bpy.utils.unregister_module(__name__)
 
 if __name__ == "__main__": register()
