@@ -6,21 +6,20 @@ from bpy.props import *
 
 # TODO revert to using names (like jump_marker() already does) to avoid losing state between loads
 
-# TODO fix that Prev/Last selections show before markers placed and after markers deleted
-# 	- causes unknown location list errors
-
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
 
 # TODO adjust all markers, or all markers following currently selected one
 
 # TODO place marker empty through mesh data + object data -> link to scene
 
+# TODO allow for multiple cameras (currently leans on context.scene.camera)
+
 class CamAnim:
 	def __init__(self, cam=bpy.context.scene.camera, marker_name_text="camanim_marker"):
 		# internal refs for building and storing markers
 		self.cam = cam
 		self.markers = {}                         # marker objects store cam loc-rot state
-		self.marker_name_text = marker_name_text  # base - suffix added on duplication
+		self.marker_name_text = marker_name_text  # unique string found only in marker names - suffix added on duplication
 		self.current_marker = None
 		# UI props for setting keyframing params
 		bpy.types.Camera.camanim_frames_per_space = FloatProperty(name="Location frames", description="how many frames to count between location units", default=3)
@@ -38,6 +37,7 @@ class CamAnim:
 		marker.location = self.cam.location
 		marker.rotation_euler = self.cam.rotation_euler
 		self.markers[marker.as_pointer()] = marker
+		self.current_marker = marker
 		return marker
 
 	def replace_marker(self, marker):
@@ -45,6 +45,7 @@ class CamAnim:
 		if self.is_marker(marker):
 			marker.location = self.cam.location
 			marker.rotation_euler = self.cam.rotation_euler
+		self.current_marker = marker
 		return marker
 
 	def remove_marker(self, marker):
@@ -71,6 +72,8 @@ class CamAnim:
 	def jump_marker(self, marker_count):
 		"""Jump camera count markers earlier or later along path"""
 		sorted_markers = self.sort_markers()
+		if len(sorted_markers) < 1:
+			return None
 		if self.current_marker is None:
 			self.current_marker = sorted_markers[0]
 		try:
@@ -98,12 +101,27 @@ class CamAnim:
 			return True
 		return False
 
+	def has_any_marker(self):
+		"""Check if there are any stored markers"""
+		sorted_markers = self.sort_markers()
+		if len(sorted_markers) > 0:
+			return True
+		return False
+
+	def is_marker(self, obj):
+		"""Check that an object's name contains the unique marker name base string"""
+		if obj is not None and len(obj.name) >= len(self.marker_name_text) and self.marker_name_text == obj.name[0:len(self.marker_name_text)-1]:
+			return True
+		return False
+
 	def get_current_marker_details(self):
 		"""Find the name and index of the current marker"""
-		return {
-			'name': self.current_marker.name,
-			'id': self.get_marker_index(self.current_marker)
-		}
+		if self.current_marker:
+			return {
+				'name': self.current_marker.name,
+				'id': self.get_marker_index(self.current_marker)
+			}
+		return {}
 
 	def get_marker_index(self, marker):
 		"""Return the index along path of the current marker"""
@@ -128,7 +146,7 @@ class CamAnim:
 
 		Caution when proceeding without resorting as markers unsync easily! (e.g. user deletes marker)
 		"""
-		if do_resort == True and len(self.markers) > 0:
+		if do_resort == True and len(list(self.markers.keys())) > 0:	 # and len(self.markers) > 0:
 			marker_names = [o.name for o in bpy.context.scene.objects if self.is_marker(o)]
 			marker_names.sort()
 			# markers count from .001 - place latest marker (unappended) at the end
@@ -194,40 +212,44 @@ class CamAnimPanel(bpy.types.Panel):
 
 			# update marker data and marker objects
 			col.label("Manage markers")
-			col.operator("camera.camanim_set_marker", text="Place marker")
-			col.operator("camera.camanim_replace_marker", text="Update marker")
-			col.operator("camera.camanim_delete_marker", text="Delete marker")
+			if ctx.scene.objects.active == ctx.scene.camera:
+				col.operator("camera.camanim_set_marker", text="Place marker")
+				col.operator("camera.camanim_replace_marker", text="Update marker")
+				col.operator("camera.camanim_delete_marker", text="Delete marker")
 
-			# update marker data and cam
-			col.label("Jump to marker")
-			row = col.row(align=True)
-			row.operator("camera.camanim_first_marker", text="First")
-			row.operator("camera.camanim_last_marker", text="Last")
-			if camanim.has_current_marker() == True:
+			# update camera loc-rot to match marker loc-rot
+			if camanim.has_any_marker():
+				col.label("Jump to marker")
 				row = col.row(align=True)
-				row.operator("camera.camanim_prev_marker", text="Previous")
-				row.operator("camera.camanim_next_marker", text="Next")
+				row.operator("camera.camanim_first_marker", text="First")
+				row.operator("camera.camanim_last_marker", text="Last")
+				if camanim.has_current_marker():
+					row = col.row(align=True)
+					row.operator("camera.camanim_prev_marker", text="Previous")
+					row.operator("camera.camanim_next_marker", text="Next")
 
 			# update marker data and display marker stats
 			current_marker_stats = camanim.get_current_marker_details()
 			col.operator("camera.camanim_refresh_markers", text="Refresh markers")
-			if current_marker_stats['id'] is not None and current_marker_stats['id'] > -1:
+			if current_marker_stats and current_marker_stats['id'] is not None and current_marker_stats['id'] > -1:
 				col.label("marker %s: %s" % (current_marker_stats.get('id'), current_marker_stats.get('name')))
 			else:
 				col.label("(no current marker)")
 
 			# set keyframes
-			col.label("Animate camera")
-			cam = ctx.scene.camera.data
-			col.row().prop(cam, "camanim_frames_per_space")
-			col.row().prop(cam, "camanim_frames_per_degree")
-			col.row().prop(cam, "camanim_min_frames_per_kf")
-			col.row().prop(cam, "camanim_max_frames_per_kf")
-			col.row().prop(cam, "camanim_frames_pause")
-			col.row().operator("camera.camanim_animate", text="Keyframe camera")
+			if camanim.has_any_marker():
+				col.label("Animate camera")
+				cam = ctx.scene.camera.data
+				col.row().prop(cam, "camanim_frames_per_space")
+				col.row().prop(cam, "camanim_frames_per_degree")
+				col.row().prop(cam, "camanim_min_frames_per_kf")
+				col.row().prop(cam, "camanim_max_frames_per_kf")
+				col.row().prop(cam, "camanim_frames_pause")
+				col.row().operator("camera.camanim_animate", text="Keyframe camera")
 
+		# invalid selection
 		else:
-			layout.label("Select Camera or CamAnim Marker...")
+			layout.label("Select Scene Camera...")
 
 		return None
 
