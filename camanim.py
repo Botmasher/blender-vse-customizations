@@ -18,7 +18,7 @@ class CamAnim:
 	def __init__(self, cam=bpy.context.scene.camera, marker_name_text="camanim_marker"):
 		# internal refs for building and storing markers
 		self.cam = cam
-		self.markers = {}                         # marker objects store cam loc-rot state
+		self.sorted_markers = []                  # marker objects store cam loc-rot state
 		self.marker_name_text = marker_name_text  # unique string found only in marker names - suffix added on duplication
 		self.current_marker = None
 		# UI props for setting keyframing params
@@ -36,7 +36,6 @@ class CamAnim:
 		marker.name = self.marker_name_text
 		marker.location = self.cam.location
 		marker.rotation_euler = self.cam.rotation_euler
-		self.markers[marker.as_pointer()] = marker
 		self.current_marker = marker
 		return marker
 
@@ -57,43 +56,37 @@ class CamAnim:
 
 	def jump_first_marker(self):
 		"""Jump to the first tracked marker"""
-		if len(self.markers) < 1: return False
-		sorted_markers = self.sort_markers()
-		self.snap_cam_to_marker(sorted_markers[0])
+		self.sort_markers()
+		if len(self.sorted_markers) < 1: return False
+		self.snap_cam_to_marker(self.sorted_markers[0])
 		return True
 
 	def jump_last_marker(self):
 		"""Jump to the final tracked marker"""
-		if len(self.markers) < 1: return False
-		sorted_markers = self.sort_markers()
-		self.snap_cam_to_marker(sorted_markers[len(sorted_markers) - 1])
+		self.sort_markers()
+		if len(self.sorted_markers) < 1: return False
+		self.snap_cam_to_marker(sorted_markers[len(self.sorted_markers) - 1])
 		return True
 
 	def jump_marker(self, marker_count):
 		"""Jump camera count markers earlier or later along path"""
-		sorted_markers = self.sort_markers()
-		if len(sorted_markers) < 1:
+		self.sort_markers()
+		if len(self.sorted_markers) < 1:
 			return None
 		if self.current_marker is None:
-			self.current_marker = sorted_markers[0]
+			self.current_marker = self.sorted_markers[0]
 		try:
 			marker_i = int(self.current_marker.name.split(".")[1])
 		except:
-			marker_i = len(sorted_markers)
+			marker_i = len(self.sorted_markers)
 		jump_i = marker_i + marker_count
 		# cycle forward or backward through markers
-		if jump_i > len(sorted_markers) or jump_i < 0:
+		if jump_i > len(self.sorted_markers) or jump_i < 0:
 			jump_i = 0
 		else:
 			jump_i -= 1		# generated names start from 001 and len is index + 1
-		self.snap_cam_to_marker(sorted_markers[jump_i])
+		self.snap_cam_to_marker(self.sorted_markers[jump_i])
 		return None
-
-	def is_marker(self, obj=None):
-		"""Check if named object is a CamAnim marker"""
-		if obj is not None and obj.as_pointer() in self.markers:
-			return True
-		return False
 
 	def has_current_marker(self):
 		"""Check if there is a stored current marker"""
@@ -103,12 +96,12 @@ class CamAnim:
 
 	def has_any_marker(self):
 		"""Check if there are any stored markers"""
-		sorted_markers = self.sort_markers()
-		if len(sorted_markers) > 0:
+		self.sort_markers()
+		if len(self.sorted_markers) > 0:
 			return True
 		return False
 
-	def is_marker(self, obj):
+	def is_marker(self, obj=None):
 		"""Check that an object's name contains the unique marker name base string"""
 		if obj is not None and len(obj.name) >= len(self.marker_name_text) and self.marker_name_text == obj.name[0:len(self.marker_name_text)-1]:
 			return True
@@ -126,10 +119,10 @@ class CamAnim:
 	def get_marker_index(self, marker):
 		"""Return the index along path of the current marker"""
 		if marker is not None:
-			sorted_markers = self.sort_markers()
+			self.sort_markers()
 			marker_i = None
-			for i in range(len(sorted_markers)):
-				if sorted_markers[i] == marker:
+			for i in range(len(self.sorted_markers)):
+				if self.sorted_markers[i] == marker:
 					marker_i = i
 			if marker_i is not None: return marker_i
 		return None
@@ -146,37 +139,37 @@ class CamAnim:
 
 		Caution when proceeding without resorting as markers unsync easily! (e.g. user deletes marker)
 		"""
-		if do_resort == True and len(list(self.markers.keys())) > 0:	 # and len(self.markers) > 0:
-			marker_names = [o.name for o in bpy.context.scene.objects if self.is_marker(o)]
+		markers = [o for o in bpy.context.scene.objects if self.is_marker(o)]
+		if do_resort == True and len(markers) > 0:
+			marker_names = [m.name for m in markers]
 			marker_names.sort()
 			# markers count from .001 - place latest marker (unappended) at the end
 			marker_names.append(marker_names.pop(0))
-			sorted_markers = [bpy.context.scene.objects[name] for name in marker_names]
-		else:
-			sorted_markers = self.markers
-		return sorted_markers
+			markers = [bpy.context.scene.objects[name] for name in marker_names]
+		self.sorted_markers = markers
+		return markers
 
 	def animate(self, frames_per_space=3, frames_per_degree=0.1, min_frames_per_kf=0, max_frames_per_kf=9999, frames_pause=3):
 		"""Use placed markers to set keyframes timed out by frames per loc and rot unit"""
-		sorted_markers = self.sort_markers()
+		self.sort_markers()
 		bpy.context.scene.frame_current = bpy.context.scene.frame_start + 1
 
 		# keyframe cam along markers
-		for i in range(len(sorted_markers)):
-			marker = sorted_markers[i]
+		for i in range(len(self.sorted_markers)):
+			marker = self.sorted_markers[i]
 			self.snap_cam_to_marker(marker)
 			self.cam.keyframe_insert("location")
 			self.cam.keyframe_insert("rotation_euler")
 			# start/end stasis gaps
-			if 0 < i < len(sorted_markers) - 1 and frames_pause > 0:
+			if 0 < i < len(self.sorted_markers) - 1 and frames_pause > 0:
 				bpy.context.scene.frame_current += frames_pause
 				self.cam.keyframe_insert("location")
 				self.cam.keyframe_insert("rotation_euler")
 
 			# calculate diff between keyframes
-			if i < len(sorted_markers) - 1:
-				this_marker = sorted_markers[i]
-				next_marker = sorted_markers[i + 1]
+			if i < len(self.sorted_markers) - 1:
+				this_marker = self.sorted_markers[i]
+				next_marker = self.sorted_markers[i + 1]
 				loc_distance = (next_marker.location - this_marker.location).length
 				rot_distance = (Vector(next_marker.rotation_euler) - Vector(this_marker.rotation_euler)).magnitude * 57.2958
 				# smooth frame count over distance to give sense of reaching top speed
