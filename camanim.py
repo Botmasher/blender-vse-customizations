@@ -4,15 +4,13 @@ from math import log
 from mathutils import Vector
 from bpy.props import *
 
-# TODO revert to using names (like jump_marker() already does) to avoid losing state between loads
-
-# TODO track markers (incl replace and remove) through something other than name (add uuid property?)
+# TODO fix deleting zeroth marker causes jump count to end before list ends
 
 # TODO adjust all markers, or all markers following currently selected one
 
-# TODO place marker empty through mesh data + object data -> link to scene
-
 # TODO allow for multiple cameras (currently leans on context.scene.camera)
+
+# TODO track markers (incl replace and remove) through something other than name (add uuid property?)
 
 class CamAnim:
 	def __init__(self, cam=bpy.context.scene.camera, marker_name_text="camanim_marker"):
@@ -31,8 +29,9 @@ class CamAnim:
 
 	def place_marker(self):
 		"""Place marker in the scene at current cam loc and rot"""
-		bpy.ops.object.empty_add(type="SINGLE_ARROW")
-		marker = bpy.context.scene.objects.active
+		marker = bpy.data.objects.new(name="", object_data=None)
+		bpy.context.scene.objects.link(marker)
+		marker.empty_draw_type = "SINGLE_ARROW"
 		marker.name = self.marker_name_text
 		marker.location = self.cam.location
 		marker.rotation_euler = self.cam.rotation_euler
@@ -65,7 +64,7 @@ class CamAnim:
 		"""Jump to the final tracked marker"""
 		self.sort_markers()
 		if len(self.sorted_markers) < 1: return False
-		self.snap_cam_to_marker(sorted_markers[len(self.sorted_markers) - 1])
+		self.snap_cam_to_marker(self.sorted_markers[len(self.sorted_markers) - 1])
 		return True
 
 	def jump_marker(self, marker_count):
@@ -90,6 +89,7 @@ class CamAnim:
 
 	def has_current_marker(self):
 		"""Check if there is a stored current marker"""
+		print("HAS 1 CURRENT MARKER? --- MY MARKER: %s" % self.current_marker)
 		if self.current_marker is not None:
 			return True
 		return False
@@ -97,13 +97,15 @@ class CamAnim:
 	def has_any_marker(self):
 		"""Check if there are any stored markers"""
 		self.sort_markers()
+		print("HAS ANY MARKER? --- MY MARKERS: %s" % self.sorted_markers)
 		if len(self.sorted_markers) > 0:
 			return True
 		return False
 
 	def is_marker(self, obj=None):
 		"""Check that an object's name contains the unique marker name base string"""
-		if obj is not None and len(obj.name) >= len(self.marker_name_text) and self.marker_name_text == obj.name[0:len(self.marker_name_text)-1]:
+		if obj is not None and len(obj.name) >= len(self.marker_name_text) and self.marker_name_text == obj.name[0:len(self.marker_name_text)]:
+			print("found a marker!")
 			return True
 		return False
 
@@ -205,10 +207,9 @@ class CamAnimPanel(bpy.types.Panel):
 
 			# update marker data and marker objects
 			col.label("Manage markers")
-			if ctx.scene.objects.active == ctx.scene.camera:
-				col.operator("camera.camanim_set_marker", text="Place marker")
-				col.operator("camera.camanim_replace_marker", text="Update marker")
-				col.operator("camera.camanim_delete_marker", text="Delete marker")
+			col.operator("camera.camanim_set_marker", text="Place marker")
+			col.operator("camera.camanim_replace_marker", text="Update marker")
+			col.operator("camera.camanim_delete_marker", text="Delete marker")
 
 			# update camera loc-rot to match marker loc-rot
 			if camanim.has_any_marker():
