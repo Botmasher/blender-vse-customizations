@@ -89,7 +89,6 @@ class CamAnim:
 
 	def has_current_marker(self):
 		"""Check if there is a stored current marker"""
-		print("HAS 1 CURRENT MARKER? --- MY MARKER: %s" % self.current_marker)
 		if self.current_marker is not None:
 			return True
 		return False
@@ -97,7 +96,6 @@ class CamAnim:
 	def has_any_marker(self):
 		"""Check if there are any stored markers"""
 		self.sort_markers()
-		print("HAS ANY MARKER? --- MY MARKERS: %s" % self.sorted_markers)
 		if len(self.sorted_markers) > 0:
 			return True
 		return False
@@ -105,7 +103,6 @@ class CamAnim:
 	def is_marker(self, obj=None):
 		"""Check that an object's name contains the unique marker name base string"""
 		if obj is not None and len(obj.name) >= len(self.marker_name_text) and self.marker_name_text == obj.name[0:len(self.marker_name_text)]:
-			print("found a marker!")
 			return True
 		return False
 
@@ -143,10 +140,32 @@ class CamAnim:
 		"""
 		markers = [o for o in bpy.context.scene.objects if self.is_marker(o)]
 		if do_resort == True and len(markers) > 0:
-			marker_names = [m.name for m in markers]
-			marker_names.sort()
+
+			# TODO:
+			# - detach and parse numeral suffix
+			# - sort markers by number
+			# - renumber them based on position in list, with bare assigned .000
+			# - attach new numeral suffix
+
+			# determine given indexes of all existing marker objects
+			markers_by_index_suffix = {}
+			marker_name_indexes = []
+			for m in markers:
+				marker_name_index = int(marker.name.split(".")[1])
+				markers_by_index_suffix[marker_name_index] = m
+				if not marker_name_index: marker_name_index = 0
+				marker_name_indexes.add(marker_name_index)
+			marker_name_indexes.sort()
+			# swap existing indexes for well-ordered indexes
+			for i in marker_name_indexes:
+				m = markers_by_index_suffix[marker_name_indexes[i]]
+				m.name = "{0}.{1}".format(self.marker_name_text, i)
+
+			# current way of indexing and sorting by name
+			#marker_names.sort()
 			# markers count from .001 - place latest marker (unappended) at the end
-			marker_names.append(marker_names.pop(0))
+			#marker_names.append(marker_names.pop(0))
+
 			markers = [bpy.context.scene.objects[name] for name in marker_names]
 		self.sorted_markers = markers
 		return markers
