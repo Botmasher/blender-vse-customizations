@@ -4,6 +4,15 @@ from math import log
 from mathutils import Vector
 from bpy.props import *
 
+## CamAnim
+## a Blender Python extension by Joshua R (GitHub user Botmasher)
+##
+## Numbered marking of camera locations and rotations.
+## Automatic camera animation along those markers.
+##
+
+# TODO allow jump to cycle through markers again when reach start/end of list
+
 # TODO adjust all markers, or all markers following currently selected one
 
 # TODO allow for multiple cameras (currently leans on context.scene.camera)
@@ -91,24 +100,20 @@ class CamAnim:
 		return True
 
 	def jump_marker(self, marker_count):
-		"""Jump camera count markers earlier or later along path"""
+		"""Jump camera a certain number of markers earlier or later along path"""
 		self.sort_markers()
 		if len(self.sorted_markers) < 1:
-			return None
-		if self.current_marker is None:
-			self.current_marker = self.sorted_markers[0]
-		try:
-			marker_i = int(self.current_marker.name.split(".")[1])
-		except:
-			marker_i = len(self.sorted_markers)
-		jump_i = marker_i + marker_count
-		# cycle forward or backward through markers
-		if jump_i > len(self.sorted_markers) or jump_i < 0:
-			jump_i = 0
-		else:
-			jump_i -= 1		# generated names start from 001 and len is index + 1
+			return 0
+		# determine index to jump from
+		current_index = 0
+		if self.current_marker is not None: 	# else current_index = 0
+			for i in range(len(self.sorted_markers)):
+				if self.sorted_markers[i] == self.current_marker:
+					current_index = i
+		# clamp jump count to marker list length
+		jump_i = min(len(self.sorted_markers)-1, max(0, current_index + marker_count))
 		self.snap_cam_to_marker(self.sorted_markers[jump_i])
-		return None
+		return jump_i
 
 	def has_current_marker(self):
 		"""Check if there is a stored current marker"""
