@@ -4,16 +4,6 @@ from math import log
 from mathutils import Vector
 from bpy.props import *
 
-# TODO fix deleting zeroth marker causes jump count to end before list ends
-# 	- take over the naming process: append suffix yourself when creating or replacing
-# 		- append after "."
-# 		- count from "1"
-# 		- look for largest and one-up that when adding a new marker
-# 	- use naming process to check all markers in sort_markers()
-# 		- still split marker names at "."
-# 		- still grab last index in split array (no more fussing with bare unsuffixed form)
-# 		- store markers in i:obj dict, sort keys list, get the sorted markers
-
 # TODO adjust all markers, or all markers following currently selected one
 
 # TODO allow for multiple cameras (currently leans on context.scene.camera)
@@ -35,14 +25,39 @@ class CamAnim:
 		bpy.types.Camera.camanim_frames_pause = IntProperty(name="Pause frames", description="length of \"long keyframes\" between movements", default=3)
 		return None
 
+	def find_highest_suffix(self):
+		"""Find the highest numeral suffixed to placed marker names"""
+		highest_i = 0
+		found_marker = False
+		for obj in bpy.context.scene.objects:
+			if self.is_marker(obj):
+				found_marker = True
+				split_name = obj.name.split(".")
+				marker_i = int(split_name[len(split_name)-1]) if len(split_name) > 0 else 0
+				highest_i = marker_i if marker_i > highest_i else highest_i
+		if found_marker:
+			return highest_i
+		else:
+			return -1
+
 	def place_marker(self):
 		"""Place marker in the scene at current cam loc and rot"""
+		# create object
 		marker = bpy.data.objects.new(name="", object_data=None)
 		bpy.context.scene.objects.link(marker)
 		marker.empty_draw_type = "SINGLE_ARROW"
-		marker.name = self.marker_name_text
-		marker.location = self.cam.location
+
+		# orient to camera
 		marker.rotation_euler = self.cam.rotation_euler
+
+		# take over the duplication naming process
+		# - append ".nnn" to base name
+		# - count from "1"
+		# - look for and increment largest suffix so far
+		marker_suffix = self.find_highest_suffix() + 1
+		marker.name = "{0}.{1}".format(self.marker_name_text, marker_suffix)
+		marker.location = self.cam.location
+
 		self.current_marker = marker
 		return marker
 
@@ -141,48 +156,28 @@ class CamAnim:
 		self.current_marker = marker
 		return marker
 
-	def sort_markers(self, do_resort=True):
-		"""Retrieve well-named markers and sort from earliest to latest
+	def sort_markers(self):
+		"""Retrieve well-named markers and sort from earliest to latest"""
 
-		Caution when proceeding without resorting as markers unsync easily! (e.g. user deletes marker)
-		"""
-		markers = []
+		marker_indexes = [] 	# store all suffix "indexes" to sort
+		markers_by_index = {} 	# marker_index: marker_object pairs for hash retrieval after sort
 
-		if do_resort == True and len(markers) > 0:
-			# TODO:
-			# - detach and parse numeral suffix
-			# - sort markers by number
-			# - renumber them based on position in list, with bare assigned .000
-			# - attach new numeral suffix
+		# use name topology to check all markers
+		# - split marker names at "."
+		# - grab last index in split array (no more fussing with bare unsuffixed form)
+		# - store markers in i:obj dict, sort keys list, get the sorted markers
 
-			# determine given indexes of all existing marker objects
-			markers_by_index_suffix = {}
-			marker_name_indexes = []
-			for obj in bpy.context.scene.objects:
-				if self.is_marker(obj):
-					marker_split_name = marker.name.split(".")
-					# handle unsuffixed initial marker
-					marker_index = int(marker_split_name[len(marker_split_name)-1]) if len(marker_split_name) > 1 else 0
-					markers_by_index[marker_index] = marker
-					marker_indexes.add(marker_index)
-			marker_indexes.sort()
-
-			# swap existing indexes for well-ordered indexes
-			# example: [1, 3, 4] -> [1, 2, 3]
-			for i in marker_indexes:
-				m = markers_by_index[marker_indexes[i]]
-				# leave initial marker unsuffixed
-				if m.name != self.marker_name_text:
-					m.name = "{0}.{1}".format(self.marker_name_text, i)
-
-			# current way of indexing and sorting by name
-			#marker_names.sort()
-			# markers count from .001 - place latest marker (unappended) at the end
-			#marker_names.append(marker_names.pop(0))
-
-			markers = [bpy.context.scene.objects[name] for name in marker_names]
-		else:
-			markers = [o for o in bpy.context.scene.objects if self.is_marker(o)]
+		# catalog indexes suffixed to all marker objects
+		# NOTE relies on proper name formatting on marker creation
+		for obj in bpy.context.scene.objects:
+			if self.is_marker(obj):
+				marker_split_name = obj.name.split(".") 	# "name_base.nnn"
+				marker_index = int(marker_split_name[len(marker_split_name)-1])
+				markers_by_index[marker_index] = obj
+				marker_indexes.append(marker_index)
+		# sort split suffixes and grab markers in that order
+		marker_indexes.sort()
+		markers = [markers_by_index[i] for i in marker_indexes]
 		self.sorted_markers = markers
 		return markers
 
