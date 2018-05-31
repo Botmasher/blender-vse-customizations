@@ -7,15 +7,13 @@ from bpy.props import *
 ## CamAnim
 ## a Blender Python extension by Joshua R (GitHub user Botmasher)
 ##
-## Numbered marking of camera locations and rotations.
+## Ordered marking of camera locations and rotations.
 ## Automatic camera animation along those markers.
 ##
 
-# TODO allow jump to cycle through markers again when reach start/end of list
-
 # TODO adjust all markers, or all markers following currently selected one
 
-# TODO allow for multiple cameras (currently leans on context.scene.camera)
+# TODO allow for multiple cameras (currently leans on scene camera)
 
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
 
@@ -110,10 +108,12 @@ class CamAnim:
 			for i in range(len(self.sorted_markers)):
 				if self.sorted_markers[i] == self.current_marker:
 					current_index = i
-		# clamp jump count to marker list length
-		jump_i = min(len(self.sorted_markers)-1, max(0, current_index + marker_count))
-		self.snap_cam_to_marker(self.sorted_markers[jump_i])
-		return jump_i
+		# add index to jump to
+		jump_i = current_index + marker_count
+		# clamp jump to marker list length
+		clamped_jump_i = jump_i % (len(self.sorted_markers))
+		self.snap_cam_to_marker(self.sorted_markers[clamped_jump_i])
+		return clamped_jump_i
 
 	def has_current_marker(self):
 		"""Check if there is a stored current marker"""
