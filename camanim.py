@@ -14,13 +14,15 @@ from bpy.props import *
 # TODO adjust all markers, or all markers following currently selected one
 
 # TODO allow for multiple cameras (currently leans on scene camera)
+# - place, replace, jump, animate methods now take camera
+# - check and pass currently selected camera from operators
+# - update markers to store name of camera as well, allowing multiple tracks for multiple cameras
 
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
 
 class CamAnim:
-	def __init__(self, cam=bpy.context.scene.camera, marker_name_text="camanim_marker"):
+	def __init__(self, marker_name_text="camanim_marker"):
 		# internal refs for building and storing markers
-		self.cam = cam
 		self.sorted_markers = []                  # marker objects store cam loc-rot state
 		self.marker_name_text = marker_name_text  # unique string found only in marker names - suffix added on duplication
 		self.current_marker = None
@@ -47,7 +49,7 @@ class CamAnim:
 		else:
 			return -1
 
-	def place_marker(self):
+	def place_marker(self, camera):
 		"""Place marker in the scene at current cam loc and rot"""
 		# create object
 		marker = bpy.data.objects.new(name="", object_data=None)
@@ -55,7 +57,7 @@ class CamAnim:
 		marker.empty_draw_type = "SINGLE_ARROW"
 
 		# orient to camera
-		marker.rotation_euler = self.cam.rotation_euler
+		marker.rotation_euler = camera.rotation_euler
 
 		# take over the duplication naming process
 		# - append ".nnn" to base name
@@ -63,16 +65,16 @@ class CamAnim:
 		# - look for and increment largest suffix so far
 		marker_suffix = self.find_highest_suffix() + 1
 		marker.name = "{0}.{1}".format(self.marker_name_text, marker_suffix)
-		marker.location = self.cam.location
+		marker.location = camera.location
 
 		self.current_marker = marker
 		return marker
 
-	def replace_marker(self, marker):
+	def replace_marker(self, camera, marker):
 		"""Update selected currently placed marker in the scene to current cam loc and rot"""
 		if self.is_marker(marker):
-			marker.location = self.cam.location
-			marker.rotation_euler = self.cam.rotation_euler
+			marker.location = camera.location
+			marker.rotation_euler = camera.rotation_euler
 		self.current_marker = marker
 		return marker
 
@@ -83,21 +85,21 @@ class CamAnim:
 			bpy.data.objects.remove(marker, do_unlink=True)		# delete and verify unlink from whole project
 		return marker
 
-	def jump_first_marker(self):
+	def jump_first_marker(self, camera):
 		"""Jump to the first tracked marker"""
 		self.sort_markers()
 		if len(self.sorted_markers) < 1: return False
-		self.snap_cam_to_marker(self.sorted_markers[0])
+		self.snap_cam_to_marker(camera, self.sorted_markers[0])
 		return True
 
-	def jump_last_marker(self):
+	def jump_last_marker(self, camera):
 		"""Jump to the final tracked marker"""
 		self.sort_markers()
 		if len(self.sorted_markers) < 1: return False
-		self.snap_cam_to_marker(self.sorted_markers[len(self.sorted_markers) - 1])
+		self.snap_cam_to_marker(camera, self.sorted_markers[len(self.sorted_markers) - 1])
 		return True
 
-	def jump_marker(self, marker_count):
+	def jump_marker(self, camera, marker_count):
 		"""Jump camera a certain number of markers earlier or later along path"""
 		self.sort_markers()
 		if len(self.sorted_markers) < 1:
@@ -112,7 +114,7 @@ class CamAnim:
 		jump_i = current_index + marker_count
 		# clamp jump to marker list length
 		clamped_jump_i = jump_i % (len(self.sorted_markers))
-		self.snap_cam_to_marker(self.sorted_markers[clamped_jump_i])
+		self.snap_cam_to_marker(camera, self.sorted_markers[clamped_jump_i])
 		return clamped_jump_i
 
 	def has_current_marker(self):
@@ -154,10 +156,10 @@ class CamAnim:
 			if marker_i is not None: return marker_i
 		return None
 
-	def snap_cam_to_marker(self, marker):
+	def snap_cam_to_marker(self, camera, marker):
 		"""Set camera location and rotation to match marker"""
-		self.cam.location = marker.location
-		self.cam.rotation_euler = marker.rotation_euler
+		camera.location = marker.location
+		camera.rotation_euler = marker.rotation_euler
 		self.current_marker = marker
 		return marker
 
@@ -186,7 +188,7 @@ class CamAnim:
 		self.sorted_markers = markers
 		return markers
 
-	def animate(self, frames_per_space=3, frames_per_degree=0.1, min_frames_per_kf=0, max_frames_per_kf=9999, frames_pause=3):
+	def animate(self, camera, frames_per_space=3, frames_per_degree=0.1, min_frames_per_kf=0, max_frames_per_kf=9999, frames_pause=3):
 		"""Use placed markers to set keyframes timed out by frames per loc and rot unit"""
 		self.sort_markers()
 		bpy.context.scene.frame_current = bpy.context.scene.frame_start + 1
@@ -194,14 +196,14 @@ class CamAnim:
 		# keyframe cam along markers
 		for i in range(len(self.sorted_markers)):
 			marker = self.sorted_markers[i]
-			self.snap_cam_to_marker(marker)
-			self.cam.keyframe_insert("location")
-			self.cam.keyframe_insert("rotation_euler")
+			self.snap_cam_to_marker(camera, marker)
+			camera.keyframe_insert("location")
+			camera.keyframe_insert("rotation_euler")
 			# start/end stasis gaps
 			if 0 < i < len(self.sorted_markers) - 1 and frames_pause > 0:
 				bpy.context.scene.frame_current += frames_pause
-				self.cam.keyframe_insert("location")
-				self.cam.keyframe_insert("rotation_euler")
+				camera.keyframe_insert("location")
+				camera.keyframe_insert("rotation_euler")
 
 			# calculate diff between keyframes
 			if i < len(self.sorted_markers) - 1:
@@ -293,7 +295,7 @@ class CamAnimSetMarker(bpy.types.Operator):
 		return ctx.mode == "OBJECT"
 
 	def execute(self, ctx):
-		camanim.place_marker()
+		camanim.place_marker(bpy.context.scene.camera)
 		return {'FINISHED'}
 
 class CamAnimReplaceMarker(bpy.types.Operator):
@@ -307,7 +309,7 @@ class CamAnimReplaceMarker(bpy.types.Operator):
 		return ctx.mode == "OBJECT"
 
 	def execute(self, ctx):
-		camanim.replace_marker(bpy.context.scene.objects.active)
+		camanim.replace_marker(bpy.context.scene.camera, bpy.context.scene.objects.active)
 		return {'FINISHED'}
 
 class CamAnimRemoveMarker(bpy.types.Operator):
@@ -335,7 +337,7 @@ class CamAnimRefreshMarkers(bpy.types.Operator):
 		return ctx.mode == "OBJECT"
 
 	def execute(self, ctx):
-		camanim.jump_marker(0)
+		camanim.jump_marker(bpy.context.scene.camera, 0)
 		return {'FINISHED'}
 
 class CamAnimFirstMarker(bpy.types.Operator):
@@ -352,7 +354,7 @@ class CamAnimFirstMarker(bpy.types.Operator):
 		self.layout.row().label("Jumping to first available marker")
 
 	def execute(self, ctx):
-		camanim.jump_first_marker()
+		camanim.jump_first_marker(bpy.context.scene.camera)
 		return {'FINISHED'}
 
 class CamAnimPrevMarker(bpy.types.Operator):
@@ -369,7 +371,7 @@ class CamAnimPrevMarker(bpy.types.Operator):
 		self.layout.row().label("Jumping to previous available marker")
 
 	def execute(self, ctx):
-		camanim.jump_marker(-1)
+		camanim.jump_marker(bpy.context.scene.camera, -1)
 		return {'FINISHED'}
 
 class CamAnimNextMarker(bpy.types.Operator):
@@ -386,7 +388,7 @@ class CamAnimNextMarker(bpy.types.Operator):
 		self.layout.row().label("Jumping to next available marker")
 
 	def execute(self, ctx):
-		camanim.jump_marker(1)
+		camanim.jump_marker(bpy.context.scene.camera, 1)
 		return {'FINISHED'}
 
 class CamAnimLastMarker(bpy.types.Operator):
@@ -403,7 +405,7 @@ class CamAnimLastMarker(bpy.types.Operator):
 		self.layout.row().label("Jumping to last available marker")
 
 	def execute(self, ctx):
-		camanim.jump_last_marker()
+		camanim.jump_last_marker(bpy.context.scene.camera)
 		return {'FINISHED'}
 
 class CamAnimAnimate(bpy.types.Operator):
@@ -417,7 +419,7 @@ class CamAnimAnimate(bpy.types.Operator):
 		return ctx.mode == "OBJECT"
 
 	def execute(self, ctx):
-		camanim.animate()
+		camanim.animate(bpy.context.scene.camera)
 		return {'FINISHED'}
 
 def register():
