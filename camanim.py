@@ -18,7 +18,12 @@ from bpy.props import *
 # - check and pass currently selected camera from operators
 # - update markers to store name of camera as well, allowing multiple tracks for multiple cameras
 
+# TODO allow updating markers when the camera is selected and UI indicates a current marker
+# - right now you have to select marker, select camera, move camera, select marker, select "Update marker"
+
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
+
+# TODO allow for undoing keyframing along path and resetting it
 
 class CamAnim:
 	def __init__(self, marker_name_text="camanim_marker"):
@@ -229,6 +234,10 @@ class CamAnim:
 
 camanim = CamAnim()
 
+def is_camera(obj=bpy.context.scene.objects.active):
+	"""Check if an object has type 'CAMERA'"""
+	return ctx.scene.objects.active.type == ctx.scene.camera.type
+
 class CamAnimPanel(bpy.types.Panel):
 	bl_label = "CamAnim"
 	bl_idname = "camera.camanim_panel"
@@ -252,6 +261,7 @@ class CamAnimPanel(bpy.types.Panel):
 			if camanim.has_any_marker():
 				col.label("Jump to marker")
 				row = col.row(align=True)
+				if 
 				row.operator("camera.camanim_first_marker", text="First")
 				row.operator("camera.camanim_last_marker", text="Last")
 				if camanim.has_current_marker():
@@ -295,7 +305,9 @@ class CamAnimSetMarker(bpy.types.Operator):
 		return ctx.mode == "OBJECT"
 
 	def execute(self, ctx):
-		camanim.place_marker(bpy.context.scene.camera)
+		obj = ctx.scene.objects.active
+		if is_camera():
+			camanim.place_marker(obj)
 		return {'FINISHED'}
 
 class CamAnimReplaceMarker(bpy.types.Operator):
