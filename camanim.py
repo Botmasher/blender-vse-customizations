@@ -11,15 +11,14 @@ from bpy.props import *
 ## Automatic camera animation along those markers.
 ##
 
+# TODO chck that replace_current_markers and remove_current_markers do not break cycling or placement
+
 # TODO adjust all markers, or all markers following currently selected one
 
 # TODO allow for multiple cameras (currently leans on scene camera)
 # - place, replace, jump, animate methods now take camera
 # - check and pass currently selected camera from operators
 # - update markers to store name of camera as well, allowing multiple tracks for multiple cameras
-
-# TODO allow updating markers when the camera is selected and UI indicates a current marker
-# - right now you have to select marker, select camera, move camera, select marker, select "Update marker"
 
 # TODO track markers (incl replace and remove) through something other than name (add uuid property?)
 
@@ -32,11 +31,11 @@ class CamAnim:
 		self.marker_name_text = marker_name_text  # unique string found only in marker names - suffix added on duplication
 		self.current_marker = None
 		# UI props for setting keyframing params
-		bpy.types.Camera.camanim_frames_per_space = FloatProperty(name="Location frames", description="how many frames to count between location units", default=3)
-		bpy.types.Camera.camanim_frames_per_degree = FloatProperty(name="Rotation frames", description="how many frames to count between rotation degrees", default=0.1)
-		bpy.types.Camera.camanim_min_frames_per_kf = IntProperty(name="Min in-betweens", description="minimum number of frames between keyframes", default=0)
-		bpy.types.Camera.camanim_max_frames_per_kf = IntProperty(name="Max in-betweens", description="maximum number of frames between keyframes", default=9999)
-		bpy.types.Camera.camanim_frames_pause = IntProperty(name="Pause frames", description="length of \"long keyframes\" between movements", default=3)
+		bpy.types.Camera.camanim_frames_per_space = FloatProperty(name="Location frames", description="How many frames to count between location units", default=3)
+		bpy.types.Camera.camanim_frames_per_degree = FloatProperty(name="Rotation frames", description="How many frames to count between rotation degrees", default=0.1)
+		bpy.types.Camera.camanim_min_frames_per_kf = IntProperty(name="Min in-betweens", description="Minimum number of frames between keyframes", default=0)
+		bpy.types.Camera.camanim_max_frames_per_kf = IntProperty(name="Max in-betweens", description="Maximum number of frames between keyframes", default=9999)
+		bpy.types.Camera.camanim_frames_pause = IntProperty(name="Pause frames", description="Length of \"long keyframes\" between movements", default=3)
 		return None
 
 	def find_highest_suffix(self):
@@ -65,8 +64,7 @@ class CamAnim:
 		marker.rotation_euler = camera.rotation_euler
 
 		# take over the duplication naming process
-		# - append ".nnn" to base name
-		# - count from "1"
+		# - append number to base name counting from "1"
 		# - look for and increment largest suffix so far
 		marker_suffix = self.find_highest_suffix() + 1
 		marker.name = "{0}.{1}".format(self.marker_name_text, marker_suffix)
@@ -76,18 +74,32 @@ class CamAnim:
 		return marker
 
 	def replace_marker(self, camera, marker):
-		"""Update selected currently placed marker in the scene to current cam loc and rot"""
-		if self.is_marker(marker):
-			marker.location = camera.location
-			marker.rotation_euler = camera.rotation_euler
+		"""Update selected placed marker in the scene to current cam loc and rot"""
+		if not self.is_marker(marker): return
+		marker.location = camera.location
+		marker.rotation_euler = camera.rotation_euler
 		self.current_marker = marker
 		return marker
 
-	def remove_marker(self, marker):
-		"""Delete selected currently placed marker from camanim tracking"""
+	def replace_current_marker(self, camera):
+		"""Update current camera marker in the scene to a new cam loc and rot"""
+		marker = self.current_marker
+		if marker is None: return
+		self.replace_marker(camera, marker)
+		return marker
+
+	def remove_marker(self, marker=None):
+		"""Delete selected placed marker from camanim tracking"""
 		if self.is_marker(marker):
-			bpy.context.scene.objects.unlink(marker)			# remove from scene
+			bpy.context.scene.objects.unlink(marker)					# remove from scene
 			bpy.data.objects.remove(marker, do_unlink=True)		# delete and verify unlink from whole project
+		return marker
+
+	def remove_current_marker(self):
+		"""Delete current camer marker from camanim tracking"""
+		marker = self.current_marker
+		if marker is None: return
+		self.remove_marker(marker)
 		return marker
 
 	def jump_first_marker(self, camera):
@@ -174,11 +186,6 @@ class CamAnim:
 		marker_indexes = [] 	# store all suffix "indexes" to sort
 		markers_by_index = {} 	# marker_index: marker_object pairs for hash retrieval after sort
 
-		# use name topology to check all markers
-		# - split marker names at "."
-		# - grab last index in split array (no more fussing with bare unsuffixed form)
-		# - store markers in i:obj dict, sort keys list, get the sorted markers
-
 		# catalog indexes suffixed to all marker objects
 		# NOTE relies on proper name formatting on marker creation
 		for obj in bpy.context.scene.objects:
@@ -254,14 +261,13 @@ class CamAnimPanel(bpy.types.Panel):
 			# update marker data and marker objects
 			col.label("Manage markers")
 			col.operator("camera.camanim_set_marker", text="Place marker")
-			col.operator("camera.camanim_replace_marker", text="Update marker")
-			col.operator("camera.camanim_delete_marker", text="Delete marker")
+			col.operator("camera.camanim_replace_current_marker", text="Update marker")
+			col.operator("camera.camanim_remove_current_marker", text="Delete marker")
 
 			# update camera loc-rot to match marker loc-rot
 			if camanim.has_any_marker():
 				col.label("Jump to marker")
 				row = col.row(align=True)
-				if 
 				row.operator("camera.camanim_first_marker", text="First")
 				row.operator("camera.camanim_last_marker", text="Last")
 				if camanim.has_current_marker():
@@ -312,7 +318,7 @@ class CamAnimSetMarker(bpy.types.Operator):
 
 class CamAnimReplaceMarker(bpy.types.Operator):
 	bl_label = "CamAnim Replace Marker"
-	bl_idname = "camera.camanim_replace_marker"
+	bl_idname = "camera.camanim_replace_current_marker"
 	bl_description = "Replace current marker along CamAnim path"
 	bl_options = {'REGISTER', 'UNDO'}
 
@@ -321,12 +327,12 @@ class CamAnimReplaceMarker(bpy.types.Operator):
 		return ctx.mode == "OBJECT"
 
 	def execute(self, ctx):
-		camanim.replace_marker(bpy.context.scene.camera, bpy.context.scene.objects.active)
+		camanim.replace_current_marker(bpy.context.scene.camera)
 		return {'FINISHED'}
 
 class CamAnimRemoveMarker(bpy.types.Operator):
 	bl_label = "CamAnim Remove Marker"
-	bl_idname = "camera.camanim_delete_marker"
+	bl_idname = "camera.camanim_remove_current_marker"
 	bl_description = "Remove marker from CamAnim path"
 	bl_options = {'REGISTER', 'UNDO'}
 
@@ -335,7 +341,7 @@ class CamAnimRemoveMarker(bpy.types.Operator):
 		return ctx.mode == "OBJECT"
 
 	def execute(self, ctx):
-		camanim.remove_marker(bpy.context.scene.objects.active)
+		camanim.remove_current_marker(bpy.context.scene.objects.active)
 		return {'FINISHED'}
 
 class CamAnimRefreshMarkers(bpy.types.Operator):

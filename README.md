@@ -43,7 +43,7 @@ I do a lot of Python scripting in Blender for each of my projects. Much of the t
 
 ## My typical uses
 
-Above I mentioned that the closer your needs are to mine, the more likely you are to get some use out of thee. So here are things I normally do when making a video in Blender. Roughly in order, and without getting into the details, I do these things:
+Above I mentioned that the closer your needs are to mine, the more likely you are to get some use out of these. Here are things I normally do when making a video in Blender. Roughly in order, and without getting into the details, I do these things:
 
 - create mesh models for scene objects
 - create mesh models for some characters
