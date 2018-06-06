@@ -60,6 +60,19 @@ class MaterialColorizer:
         self.material_name_base = name_base
         return
 
+    def get_color_value(self, color_name):
+        """Read the value of a named color in the color map"""
+        color_value = self.color_map[color_name] if color_name in self.color_map else None:
+        return color_value
+
+    def get_color_name(self, color_vec):
+        """Read any names associated with a color value in the color map"""
+        found_names = []
+        for color_name in self.color_map.keys():
+            if self.color_map[color_name] == color_vec:
+                found_names.append(color_name)
+        return found_names
+
     def assign_color(self, material, color_name):
         """Set the diffuse color of a basic material"""
         if color_name not in self.color_map: return
