@@ -22,7 +22,7 @@ class MaterialColorizer:
 
 	def add_color(self, color_name, color_vec):
 		"""Map a color value to a named color"""
-		if not color_name or color_name in color_map or not color_vec or len(color_vec) != 3:
+		if not color_name or color_name in self.color_map or not color_vec or len(color_vec) != 3:
 			return False
 		self.color_map[color_name] = color_vec
 		return True     # self.color_map[color_name]
@@ -62,7 +62,8 @@ class MaterialColorizer:
 
 	def get_color_value(self, color_name):
 		"""Read the value of a named color in the color map"""
-		color_value = self.color_map[color_name] if color_name in self.color_map else None:
+		if color_name not in self.color_map: return None
+		color_value = self.color_map[color_name]
 		return color_value
 
 	def get_color_name(self, color_vec):
@@ -92,7 +93,7 @@ class MaterialColorizer:
 			'hardness': 120,
 			'use_transparent_shadows': True
 		}
-		self.set_material_attributes(material_attributes)
+		self.set_material_attributes(material, material_attributes)
 		return
 
 	def color_object_material(self, obj=bpy.context.scene.objects.active, color_name=None, existing_material=False):
@@ -103,6 +104,10 @@ class MaterialColorizer:
 		else:
 			material = bpy.data.materials.new(name="{0}{1}".format(self.material_name_base, color_name))
 			obj.data.materials.append(material)
-		# NOTE select active material here either way?
 		self.assign_color(material, color_name)
 		return True
+
+# Default scene test
+mc = MaterialColorizer(name_base="color-")
+mc.add_color('purple', (0.3, 0.0, 0.9))
+mc.color_object_material(color_name='purple')

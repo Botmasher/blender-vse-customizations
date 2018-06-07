@@ -11,7 +11,7 @@
 
 ## Future plans
 - [ ] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
-- [ ] create materials from common color names
+- [X] create materials from common color names
 - [ ] save loc/rot/scale points and animate between them over n frames (allow push XOR pull anims)
 	- even togglable mode where you move/rot/scale object, it sets kfs n frames apart
 	- you can reverse for in/out
