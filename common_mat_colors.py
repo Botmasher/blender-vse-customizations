@@ -3,6 +3,9 @@ import bpy
 ## Create Materials from Common Color Names
 ## script by Joshua R (GitHub user Botmasher)
 
+# TODO find materials with current color setup and replace that too
+# 	- first thoroughly test that update_color works well
+
 class MaterialColorizer:
 	color_map = {
 		'red': (1.0, 0.0, 0.0),
