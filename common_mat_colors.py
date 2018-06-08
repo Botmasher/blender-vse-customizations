@@ -23,6 +23,15 @@ class MaterialColorizer:
 		self.material_name_base = name_base
 		return
 
+	def change_colors_having_vec(self, color_match, color_target):
+		"""Change materials with matching color vector to target color"""
+		if color_match not in self.color_map or color_target not in self.color_map:
+			return False
+		for material in bpy.data.materials:
+			if material.diffuse_color == color_match:
+				material.diffuse_color = self.color_map[color_target]
+		return True
+
 	def add_color(self, color_name, color_vec):
 		"""Map a color value to a named color"""
 		if not color_name or color_name in self.color_map or not color_vec or len(color_vec) != 3:

@@ -10,6 +10,10 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
+- [ ] auto blend texture setup (including blend direction side-to-side, top-to-bottom, ...)
+- [ ] scene popin objects (scale-overshoot-settle keyframes)
+- [ ] fancy animated text (make array of letters/words, set fx, chain fx, allow random)
+	- check out work from [other authors](https://gitlab.com/bkurdali/blender-addon-experiments/blob/master/text_fx.py)
 - [ ] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
 - [X] create materials from common color names
 - [ ] save loc/rot/scale points and animate between them over n frames (allow push XOR pull anims)
