@@ -13,9 +13,23 @@ class KeyframeOvershooter:
 		self.overshoot_strength = 0.2
 		self.rebound_frames = 2
 		self.rebound_bounce = True
+		self.rebound_fraction = 0.4
 		# TODO add extra rebound bounces getting recursively smaller and switching polarity
 		return
 
+	def get_object_attribute(self, obj, attr_name):
+		"""Return the value for an object's named property"""
+		return getattr(obj, attr_name, None)
+
+	def check_rebounds(self, keyframe_values, full_value, bounce=1):
+		"""Check that rebounds get smaller each time"""
+		if bounce-1 > len(keyframe_values):
+			return True
+		elif keyframe_values[bounce-1] != (self.rebound_fraction ** bounce) * full_value:
+			return False
+		return self.check_rebounds(keyframe_values, full_value, bounce=bounce+1)
+
+	# TODO test and implement
 	def analyze_keyframes(self, keyframes, obj, attr):
 		"""Check if the current selection matches an overshoot"""
 		expected_kf_count = 2 + self.rebound_bounce 	# overshot + rebound + target
@@ -33,6 +47,7 @@ class KeyframeOvershooter:
 				continue
 		return is_overshoot
 
+	#
 	def overshoot(self, kf_origin, kf_destination):
 		"""Turn current selected keyframes into an overshoot-rebound-settle animation"""
 		# Steps:
