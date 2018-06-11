@@ -47,7 +47,6 @@ class KeyframeOvershooter:
 				continue
 		return is_overshoot
 
-	#
 	def overshoot(self, kf_origin, kf_destination):
 		"""Turn current selected keyframes into an overshoot-rebound-settle animation"""
 		# Steps:

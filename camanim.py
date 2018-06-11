@@ -24,18 +24,22 @@ from bpy.props import *
 
 # TODO allow for undoing keyframing along path and resetting it
 
+# UI props for setting keyframing params
+def setup_cam_ui_props():
+	Cam = bpy.types.Camera
+	cam.camanim_frames_per_space = FloatProperty(name="Location frames", description="How many frames to count between location units", default=3)
+	Cam.camanim_frames_per_degree = FloatProperty(name="Rotation frames", description="How many frames to count between rotation degrees", default=0.1)
+	Cam.camanim_min_frames_per_kf = IntProperty(name="Min in-betweens", description="Minimum number of frames between keyframes", default=0)
+	Cam.camanim_max_frames_per_kf = IntProperty(name="Max in-betweens", description="Maximum number of frames between keyframes", default=9999)
+	Cam.camanim_frames_pause = IntProperty(name="Pause frames", description="Length of \"long keyframes\" between movements", default=3)
+	return
+
 class CamAnim:
 	def __init__(self, marker_name_text="camanim_marker"):
 		# internal refs for building and storing markers
 		self.sorted_markers = []                  # marker objects store cam loc-rot state
 		self.marker_name_text = marker_name_text  # unique string found only in marker names - suffix added on duplication
 		self.current_marker = None
-		# UI props for setting keyframing params
-		bpy.types.Camera.camanim_frames_per_space = FloatProperty(name="Location frames", description="How many frames to count between location units", default=3)
-		bpy.types.Camera.camanim_frames_per_degree = FloatProperty(name="Rotation frames", description="How many frames to count between rotation degrees", default=0.1)
-		bpy.types.Camera.camanim_min_frames_per_kf = IntProperty(name="Min in-betweens", description="Minimum number of frames between keyframes", default=0)
-		bpy.types.Camera.camanim_max_frames_per_kf = IntProperty(name="Max in-betweens", description="Maximum number of frames between keyframes", default=9999)
-		bpy.types.Camera.camanim_frames_pause = IntProperty(name="Pause frames", description="Length of \"long keyframes\" between movements", default=3)
 		return None
 
 	def find_highest_suffix(self):
@@ -253,6 +257,8 @@ class CamAnimPanel(bpy.types.Panel):
 	bl_category = "CamAnim"
 
 	def draw(self, ctx):
+		setup_cam_ui_props()
+
 		layout = self.layout
 
 		if ctx.scene.objects.active == ctx.scene.camera or camanim.is_marker(obj=ctx.scene.objects.active):
