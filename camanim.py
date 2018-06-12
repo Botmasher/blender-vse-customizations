@@ -24,6 +24,17 @@ from bpy.props import *
 
 # TODO allow for undoing keyframing along path and resetting it
 
+# NOTE sketch procedure to get all cameras
+def get_scene_cameras():
+	cams = []
+	scene = bpy.context.scene
+	for obj in scene.objects:
+		if obj.type == 'CAMERA':
+			cams.append(obj)
+	return cams
+
+print(get_scene_cameras())
+
 # UI props for setting keyframing params
 def setup_cam_ui_props():
 	Cam = bpy.types.Camera
