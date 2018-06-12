@@ -49,7 +49,16 @@ class KeyframeOvershooter:
 
 	def overshoot(self, kf_origin, kf_destination):
 		"""Turn current selected keyframes into an overshoot-rebound-settle animation"""
-		# Steps:
+		# NOTE attempt using fcurve dynamics instead
+		for fcurve in bpy.context.scene.objects.active.animation_data.action.fcurves:
+			print(fcurve)
+			if fcurve.select:
+				# TODO set curve interpolation to dynamic
+				area = bpy.context.area.type
+				bpy.context.area.type = 'GRAPH_EDITOR'
+				bpy.ops.graph.interpolation_type(type='BACK')
+				bpy.context.area.type = area
+		# Original Steps:
 		# - calculate magnitude from origin to destination
 		# - store type of change ("channels") from origin to destination
 		# - calculate overshoot
