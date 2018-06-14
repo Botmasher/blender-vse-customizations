@@ -1,4 +1,4 @@
-# mac (also covered if ignore generic *.)
+# mac
 .DS_Store
 
 # windows
@@ -6,7 +6,7 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# python temp
+# python
 __pycache__/
 *.py[cod]
 
@@ -15,5 +15,6 @@ __pycache__/
 /*.diff
 
 # blender
+*.blend1
 /blender.bin
 /BUILD_NOTES.txt
