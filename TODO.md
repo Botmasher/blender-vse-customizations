@@ -10,6 +10,7 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
+- [ ] auto set alpha tex img to have nontransparent solid color bg
 - [ ] auto blend texture setup (including blend direction side-to-side, top-to-bottom, ...)
 - [ ] scene popin objects (scale-overshoot-settle keyframes)
 - [ ] fancy animated text (make array of letters/words, set fx, chain fx, allow random)
