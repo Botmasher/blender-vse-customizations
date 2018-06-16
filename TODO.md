@@ -10,6 +10,7 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
+- [ ] make text editor keypress <kbd>OPT + A</kbd> default to animate instead of "å" unless held
 - [ ] auto set alpha tex img to have nontransparent solid color bg
 - [ ] auto blend texture setup (including blend direction side-to-side, top-to-bottom, ...)
 - [ ] scene popin objects (scale-overshoot-settle keyframes)
