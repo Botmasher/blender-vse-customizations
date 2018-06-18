@@ -3,7 +3,7 @@ import bpy
 ## Untransparent Alpha Tex
 ##
 ## a Blender Python script by Joshua R (GitHub user Botmasher)
-## 
+##
 ## Configure material+texture with transparent image to have a custom background color
 ##
 
@@ -15,7 +15,7 @@ def set_untransparent(texture_slot, is_transparent=False):
 
 def untransparent_texture(material=bpy.context.active_object.active_material, toggle=False, color=None, set_all=True):
 	"""Configure a material and its image textures to show a diffuse background behind transparent images"""
-	
+
 	# verify reference to material and texture (including slot)
 	if not material: return
 
@@ -42,4 +42,5 @@ def untransparent_texture(material=bpy.context.active_object.active_material, to
 
 	return (material, texture)
 
+# test call
 untransparent_texture(color=(1.0, 1.0, 1.0))
