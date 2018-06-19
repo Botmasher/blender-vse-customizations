@@ -3,16 +3,16 @@ import bpy
 
 ## Custom Blender Nodes Setup
 ## by GitHub user Botmasher (Joshua R)
-## 
+##
 ## Implement a custom node configuration for my Blender anim.blend files
 
 # TODO error handling
 
 class Custom_Nodes:
-	
+
 	setup_ran_once = False
 
-	__init__(self, vec_blur=False, dof=False, node_tree=bpy.context.scene.node_tree):
+	def __init__(self, vec_blur=False, dof=False, node_tree=bpy.context.scene.node_tree):
 		self.vec_blur = vec_blur
 		self.dof = dof
 		self.node_tree = node_tree
@@ -32,7 +32,7 @@ class Custom_Nodes:
 		o_sockets		list of socket names to connect from
 		i_sockets 	same-length list of socket names to connect to (if different from o_sockets)
 		"""
-		
+
 		# do not require duplicate arguments when sockets have same name
 		if i_sockets is None: i_sockets = o_sockets
 
@@ -43,7 +43,7 @@ class Custom_Nodes:
 		# mismatch between io sockets
 		if len(o_sockets) != len(i_sockets):
 			raise Exception("Linking nodes - the count of input socket types does not match the number of outputs")
-		
+
 		# identify list vs fixed node and direction for iteration
 		from_fixed = None
 		fixed_node = None
@@ -65,25 +65,27 @@ class Custom_Nodes:
 			o_node = fixed_node if from_fixed else iter_node
 			i_node = iter_node if from_fixed else fixed_node
 			for n in range(len(o_sockets)):
-				o_socket = o_socket[n]
-				i_socket = i_socket[n]
+				o_socket = o_sockets[n]
+				i_socket = i_sockets[n]
 				link = self.link_socket(o_node, i_node, o_socket, i_socket)
 				links.append(link)
 
 		return links
 
-	def create_node(self, node_types=[]):
+	def create_nodes(self, node_types=[]):
 		"""Create nodes on the node tree, one new node per listed node type"""
 		new_nodes = []
 		for node_type in node_types:
+			print(node_type)
 			node = self.node_tree.nodes.new(type=node_type)
 			new_nodes.append(node)
 		return new_nodes
 
 	def clear_nodes(self):
 		"""Remove all nodes from the node tree"""
-		for i in range(len(self.node_tree.nodes)):
-			self.node_tree.nodes.remove(i)
+		if len(self.node_tree.nodes) < 1: return
+		for i in range(len(self.node_tree.nodes)-1):
+			self.node_tree.nodes.remove(self.node_tree.nodes[i])
 		return self.node_tree.nodes
 
 	def setup_ui(self, window=0):
@@ -95,15 +97,15 @@ class Custom_Nodes:
 				area.spaces.active.use_auto_render = True
 		return area
 
-	def setup_nodes(self, run_again=False):
+	def setup_nodes(self, run_again=False, vec_blur=True):
 		"""Create, link and set values for nodes"""
-		
+
 		if self.setup_ran_once:
 			print("Nodes already customized. To force a rerun, call setup_nodes with run_again=True.")
 			return None
-		
+
 		bpy.context.scene.use_nodes = True
-		
+
 		# remove any default nodes
 		self.clear_nodes()
 
@@ -122,7 +124,7 @@ class Custom_Nodes:
 
 		# motion blur
 		if vec_blur:
-			vector_node = self.create_nodes("CompositorNodeVecBlur")
+			vector_node = self.create_nodes(["CompositorNodeVecBlur"])[0]
 			vector_node.location = (0, 0)
 			vector_node.samples = 10
 			vector_node.factor = 0.55
@@ -135,7 +137,7 @@ class Custom_Nodes:
 
 		# depth of field
 		if dof:
-			defocus_node = self.create_nodes("CompositorNodeDefocus")
+			defocus_node = self.create_nodes(["CompositorNodeDefocus"])[0]
 			defocus_node.use_zbuffer = True
 			defocus_node.f_stop = 20.0
 			defocus_node.blur_max = 15.0
