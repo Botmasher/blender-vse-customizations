@@ -28,7 +28,7 @@ def get_mattex(obj):
         return (None, None)
     return (material, texture_slot)
 
-def configure_blend(material, texture_slot, colors):
+def configure_blend(material, texture_slot, colors, blend_type):
     """Adjust material and texture settings for gradient"""
     material.diffuse_color = colors.first()
     material.diffuse_intensity = 1.0
@@ -38,9 +38,10 @@ def configure_blend(material, texture_slot, colors):
     texture_slot.use_map_color_diffuse = True
     texture_slot.color = colors.last()
     texture_slot.texture_coords = 'ORCO'
+    texture_slot.texture.progression = blend_type
     return (material, texture_slot)
 
-def create_blend(obj=bpy.context.scene.objects.active, colors=Grab([]), only_active=False):
+def create_blend(obj=bpy.context.scene.objects.active, colors=Grab([]), blend_type='EASING', only_active=False):
     """Create and assign gradient material-texture to object"""
     if not obj or not obj.data: return
 
@@ -64,15 +65,14 @@ def create_blend(obj=bpy.context.scene.objects.active, colors=Grab([]), only_act
             raise
         continue
 
-    # configure blend
     if len(colors) >= 2 and texture_slot:
         configure_blend(material, texture_slot, colors)
 
-    # TODO deactivate all but blend
+    # deactivate all but blend
     if only_active:
-        slots = [slot for slot in obj.material_slots if slot.material == material]
-        if len(slots) < 1: return
-
+        for slot in material.texture_slots:
+            if slot: slot.use = False
+        texture_slot.use = True
     return
 
 def update_blend(obj=bpy.context.scene.objects.active, colors=Grab([])):
@@ -83,8 +83,7 @@ def update_blend(obj=bpy.context.scene.objects.active, colors=Grab([])):
         configure_blend(material, texture_slot, colors)
     return
 
-# create new gradient object
-def create_blend_plane(colors, shape='PLANE'):
+def create_blend_plane(colors, blend_type, shape='PLANE'):
     """Create a new object with a mesh and a blend gradient"""
     mesh_info = bmesh.new()
     points = {
@@ -100,7 +99,7 @@ def create_blend_plane(colors, shape='PLANE'):
     obj = bpy.data.objects.new(gradient_name, mesh)
     bpy.context.scene.objects.link(obj)
     bpy.context.scene.update()
-    create_blend(obj=obj, colors=colors)
+    create_blend(obj=obj, colors=colors, blend_type=blend_type)
     return obj
 
 # test calls
