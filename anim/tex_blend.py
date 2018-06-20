@@ -18,9 +18,30 @@ class Grab(list):
 # base name for blends
 gradient_name = 'gradient'
 
+def get_mattex(obj):
+    """Get an object's active material and texture slot"""
+    if obj is None: return
+    try:
+        material = obj.active_material
+        texture_slot = material.texture_slots[material.active_texture_index]
+    except:
+        return (None, None)
+    return (material, texture_slot)
+
+def configure_blend(material, texture_slot, colors):
+    """Adjust material and texture settings for gradient"""
+    material.diffuse_color = colors.first()
+    material.diffuse_intensity = 1.0
+    material.specular_intensity = 0.0
+    material.use_transparent_shadows = True
+    texture_slot.use_map_alpha = True
+    texture_slot.use_map_color_diffuse = True
+    texture_slot.color = colors.last()
+    texture_slot.texture_coords = 'ORCO'
+    return (material, texture_slot)
+
 def create_blend(obj=bpy.context.scene.objects.active, colors=Grab([]), only_active=False):
     """Create and assign gradient material-texture to object"""
-
     if not obj or not obj.data: return
 
     # create and slot in blend material-texture
@@ -30,7 +51,7 @@ def create_blend(obj=bpy.context.scene.objects.active, colors=Grab([]), only_act
     texture = bpy.data.textures.new(name=gradient_name, type='BLEND')
     material.texture_slots.add()
 
-    #
+    # add blend texture
     texture_slot = None
     for i in range(len(material.texture_slots)):
         if not material.texture_slots[i].texture:
@@ -45,14 +66,7 @@ def create_blend(obj=bpy.context.scene.objects.active, colors=Grab([]), only_act
 
     # configure blend
     if len(colors) >= 2 and texture_slot:
-        material.diffuse_color = colors.first()
-        material.diffuse_intensity = 1.0
-        material.specular_intensity = 0.0
-        material.use_transparent_shadows = True
-        texture_slot.use_map_alpha = True
-        texture_slot.use_map_color_diffuse = True
-        texture_slot.color = colors.last()
-        texture_slot.texture_coords = 'ORCO'
+        configure_blend(material, texture_slot, colors)
 
     # TODO deactivate all but blend
     if only_active:
@@ -61,12 +75,24 @@ def create_blend(obj=bpy.context.scene.objects.active, colors=Grab([]), only_act
 
     return
 
+def update_blend(obj=bpy.context.scene.objects.active, colors=Grab([])):
+    """Update existing texture and material to blend gradient"""
+    if not obj or not colors: return
+    material, texture_slot = get_mattex(obj)
+    if material and texture_slot:
+        configure_blend(material, texture_slot, colors)
+    return
+
 # create new gradient object
-def create_blend_plane(colors):
+def create_blend_plane(colors, shape='PLANE'):
+    """Create a new object with a mesh and a blend gradient"""
     mesh_info = bmesh.new()
-    points = ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
-    for x,y in points:
-        mesh_info.verts.new((x, y, 0.0))
+    points = {
+        'PLANE': ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 0.0)),
+        'CUBE': ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0), (0.0, 1.0, 1.0), (1.0, 1.0, 1.0))
+    }
+    for point in points[shape]:
+        mesh_info.verts.new(point)
     mesh_info.faces.new(mesh_info.verts)
     mesh_info.normal_update()
     mesh = bpy.data.meshes.new(gradient_name)
@@ -81,5 +107,3 @@ def create_blend_plane(colors):
 colors = Grab([(1,1,1), (0,0,0)])
 #create_blend(colors=colors)
 create_blend_plane(colors)
-
-# TODO update existing texture to blend
