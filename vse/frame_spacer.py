@@ -26,11 +26,19 @@ def extend_strip(sequence, x_dir):
 
 def order_strips(strips):
 	"""Reorder a list of sequences by final frame from latest to earliest"""
-	strips_by_final_frame = {}
+	strips_by_start_frame = {}
+	# map start frames to sequences
 	for strip in strips:
-		strips_by_final_frame[] = strip
-	# TODO reorder based on sorted keys
-	return strips
+		if strip.frame_start not in strips_by_start_frame:
+			strips_by_start_frame[strip.frame_start] = []
+		strips_by_start_frame[strip.frame_start].append(strip)
+	# reorder strips
+	reordered_frames = reversed(sorted(strips_by_start_frame.keys()))
+	reordered_strips = []
+	for frame in reordered_frames:
+		for strip in strips_by_start_frame[frame]:
+			reordered_strips.append(strip)
+	return reordered_strips
 
 def space_strips(strips, extension=0, gap=0):
 	"""Cut a sequencer strip into uniformly stepped and spaced substrips.
@@ -45,9 +53,9 @@ def space_strips(strips, extension=0, gap=0):
 		strip.select = True
 		if strip != strips[0]:
 			move_strip(strip, gap=bpy.context.scene.frame_current + (extension + gap))
-		extend_strip(strip, gap=extension)
+		extend_strip(strip, extension)
 		strip.select = False
 	return strips
 
 strips = [strip for strip in bpy.context.scene.sequence_editor.sequences if strip.select]
-space_strips(strips extension=20, gap=10)
+space_strips(strips, extension=20, gap=10)
