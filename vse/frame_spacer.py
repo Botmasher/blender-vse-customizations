@@ -16,12 +16,14 @@ def gap_push_strip(sequence, gap=0):
 
 def move_strip(sequence, offset=0):
 	"""Move the strip to a new origin along the x axis"""
-	sequence.frame_start = offset
+	if sequence and offset:
+		sequence.frame_start += offset
 	return sequence
 
 def extend_strip(sequence, x_dir):
 	"""Linearly lengthen or shrink a single sequence along the x axis"""
-	sequence.frame_offset_end -= x_dir
+	if sequence and x_dir:
+		sequence.frame_offset_end -= x_dir
 	return sequence
 
 def order_strips(strips):
@@ -47,15 +49,19 @@ def space_strips(strips, extension=0, gap=0):
 	extension -- the left or right hand lengthening in frames applied to each strip
 	gap -- the empty space in frames to leave between each strip
 	"""
+	if not strips or len(strips) < 1: return strips
 	strips = order_strips(strips)
 	for strip in strips:
-		bpy.context.scene.frame_current = strip.frame_start
+	# TODO move each strip accounting for how many future strips will have to move
 		strip.select = True
-		if strip != strips[0]:
-			move_strip(strip, gap=bpy.context.scene.frame_current + (extension + gap))
+		if strip != strips[len(strips)-1]:
+			print("moving strip %s" % strip.name)
+			move_strip(strip, offset=(gap+extension))
 		extend_strip(strip, extension)
 		strip.select = False
 	return strips
 
 strips = [strip for strip in bpy.context.scene.sequence_editor.sequences if strip.select]
+for strip in strips:
+	print(strip.name)
 space_strips(strips, extension=20, gap=10)
