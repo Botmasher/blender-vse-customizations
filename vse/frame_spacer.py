@@ -26,7 +26,7 @@ def extend_strip(sequence, x_dir):
 		sequence.frame_offset_end -= x_dir
 	return sequence
 
-def order_strips(strips):
+def order_strips_by_time(strips, reverse=False):
 	"""Reorder a list of sequences by final frame from latest to earliest"""
 	strips_by_start_frame = {}
 	# map start frames to sequences
@@ -35,7 +35,7 @@ def order_strips(strips):
 			strips_by_start_frame[strip.frame_start] = []
 		strips_by_start_frame[strip.frame_start].append(strip)
 	# reorder strips
-	reordered_frames = reversed(sorted(strips_by_start_frame.keys()))
+	reverse: reordered_frames = reversed(sorted(strips_by_start_frame.keys()))
 	reordered_strips = []
 	for frame in reordered_frames:
 		for strip in strips_by_start_frame[frame]:
@@ -50,13 +50,15 @@ def space_strips(strips, extension=0, gap=0):
 	gap -- the empty space in frames to leave between each strip
 	"""
 	if not strips or len(strips) < 1: return strips
-	strips = order_strips(strips)
-	for strip in strips:
-	# TODO move each strip accounting for how many future strips will have to move
+	strips = order_strips_by_time(strips, reverse=True)
+	for i in range(len(strips)):
+		# move sequence accounting for how many previous strips will also move
+		strip = strips[i]
+		count_remaining_strips = (len(strips) - 1) - i
 		strip.select = True
-		if strip != strips[len(strips)-1]:
-			print("moving strip %s" % strip.name)
-			move_strip(strip, offset=(gap+extension))
+		offset = (gap + extension) * count_remaining_strips
+		move_strip(strip, offset=offset)
+		# lengthen sequence
 		extend_strip(strip, extension)
 		strip.select = False
 	return strips
