@@ -10,7 +10,7 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
-- [ ] pull out extend and separate already cut substrips from subcutter (useful for manually cut ones)
+- [X] pull out extend and separate already cut substrips from subcutter (useful for manually cut ones)
 - [ ] center object in viewport (frustum)
 - [ ] make text editor keypress <kbd>OPT + A</kbd> default to animate instead of "å" unless held
 - [X] auto set alpha tex img to have nontransparent solid color bg

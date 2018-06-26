@@ -8,12 +8,6 @@ import bpy
 ## Lengthen and separate sequences. Ideal for short strips during manual editing.
 ## NOTE script logic is derived from framesplitter.py.
 
-def gap_push_strip(sequence, gap=0):
-	"""Insert a gap after the strip and push all subsequent strips ahead"""
-	bpy.context.scene.frame_current = sequence.frame_start + 1
-	bpy.ops.sequencer.gap_insert(frames=gap)
-	return sequence
-
 def move_strip(sequence, offset=0):
 	"""Move the strip to a new origin along the x axis"""
 	if sequence and offset:
