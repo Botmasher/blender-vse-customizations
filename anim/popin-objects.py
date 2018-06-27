@@ -10,13 +10,16 @@ import bpy
 ## 3) rebound to final size
 ##
 
-def keyframe(frame, obj, prop):
+def keyframe_prop(frame, obj, prop_name, prop_val):
     """Keyframe a property on an object at this frame"""
-    if not obj.animation_data: obj.animation_data_create()
-    # grab fcurve for this prop
-    fcurve = None
-    obj.animation_data.keyframe_insert(fcurve, frame)
-    return obj
+    bpy.context.scene.frame_current = frame
+    try:
+        setattr(obj, prop_name, prop_val)
+    except:
+        raise Exception("Unable not set {0} on object {1} to value {2}".format(obj, prop_name, prop_val))
+    obj.keyframe_insert(data_path=prop_name)
+    fc = obj.animation_data.action.fcurves.find(prop_name)  # actually returns fc with all points for prop_name
+    return fc
 
 def popin(obj=bpy.context.scene.objects.active, start_frame=bpy.context.scene.frame_current, hide_vec=(0,0,-1), scale_frames=0, rebound_frames=0):
     end_loc = obj.location
