@@ -1,4 +1,5 @@
 import bpy
+from bpy.props import *
 
 ## Object Pop-in Effect
 ##
@@ -49,4 +50,17 @@ def popin_handler(hide_vec=[0,0,0], hide_dir=2, hide_magnitude=0, scale_frames=0
 
 popin_handler(hide_magnitude=-5, scale_frames=7, rebound_frames=3)
 
-# TODO add interface with props
+def setup_ui_props():
+	Obj = bpy.types.Object
+	Obj.hide_vec = CollectionProperty(name="Hide Vector", description="Offscreen location to hide the popin object", default=[0, 0, 0])
+    Obj.hide_dir = IntProperty(name="Hide Direction", description="Index of X, Y or Z (0, 1 or 2) to set popin object hiding direction", min=0, max=2)
+    # TODO revamp hiding params (is scale enough?)
+    Obj.hide_magnitude = FloatProperty(name="Hide Magnitude", description="How far to move the popin object when hiding - used with hide direction", default=0)
+    Obj.scale_frames = IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=0)
+    Obj.rebound_frames = IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=0)
+    Obj.popin_strength = FloatProperty(name="Popin Strength", description="How much to overshoot object scale on popin", default=1)
+	return
+
+# TODO add operator and panel
+
+# TODO reverse popout effect
