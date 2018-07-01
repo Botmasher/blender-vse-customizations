@@ -1,5 +1,5 @@
 import bpy
-from bpy.props import *
+import bpy.props
 
 ## Object Pop-in Effect
 ##
@@ -47,41 +47,39 @@ def popin(obj=bpy.context.scene.objects.active, start_frame=bpy.context.scene.fr
     return obj
 
 def popin_handler(hide_vec=[0,0,0], hide_dir=2, hide_magnitude=0, scale_frames=0, rebound_frames=0):
+    print(hide_vec)
+    return
+    hide_vec = list(hide_vec)
     hide_vec[hide_dir] = hide_magnitude
     return popin(hide_vec=hide_vec, scale_frames=scale_frames, rebound_frames=rebound_frames)
 
-popin_handler(hide_magnitude=-5, scale_frames=7, rebound_frames=3)
-
+# Test call
+#popin_handler(hide_magnitude=-5, scale_frames=7, rebound_frames=3)
 
 # UI menu properties
-# def setup_ui_props():
-# 	Obj = bpy.types.Object
-# 	Obj.hide_vec = CollectionProperty(name="Hide Vector", description="Offscreen location to hide the popin object", default=[0, 0, 0])
-#     Obj.hide_dir = IntProperty(name="Hide Direction", description="Index of X, Y or Z (0, 1 or 2) to set popin object hiding direction", min=0, max=2)
-#     Obj.hide_magnitude = FloatProperty(name="Hide Magnitude", description="How far to move the popin object when hiding - used with hide direction", default=0)
-#     Obj.scale_frames = IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=0)
-#     Obj.rebound_frames = IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=0)
-#     Obj.popin_strength = FloatProperty(name="Popin Strength", description="How much to overshoot object scale on popin", default=1)
-# 	return
+def setup_ui_props():
+    Obj = bpy.types.Object
+    #Obj.hide_vec = bpy.props.CollectionProperty(name="Hide Vector", description="Offscreen location to hide the popin object", default=[0, 0, 0])
+    Obj.hide_dir = bpy.props.IntProperty(name="Hide Direction", description="Index of X, Y or Z (0, 1 or 2) to set popin object hiding direction", default=2, min=0, max=2)
+    Obj.hide_magnitude = bpy.props.FloatProperty(name="Hide Magnitude", description="How far to move the popin object when hiding - used with hide direction", default=0)
+    Obj.scale_frames = bpy.props.IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=0)
+    Obj.rebound_frames = bpy.props.IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=0)
+    Obj.popin_strength = bpy.props.FloatProperty(name="Popin Strength", description="How much to overshoot object scale on popin", default=1)
+    return
 
 ## TODO revamp hiding params (is scale enough?)
 
-popin_params = {
-    'hide_vec' : CollectionProperty(name="Hide Vector", description="Offscreen location to hide the popin object", default=[0, 0, 0])
-    'hide_dir' : IntProperty(name="Hide Direction", description="Index of X, Y or Z (0, 1 or 2) to set popin object hiding direction", min=0, max=2)
-    'hide_magnitude' : FloatProperty(name="Hide Magnitude", description="How far to move the popin object when hiding - used with hide direction", default=0)
-    'scale_frames' : IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=0)
-    'rebound_frames' : IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=0)
-    'popin_strength' : FloatProperty(name="Popin Strength", description="How much to overshoot object scale on popin", default=1)
-}
+setup_ui_props()
 
 # UI
 
 class PopinPanel (bpy.types.Panel):
-    bl_label = "Popin Panel"
-    bl_idname = 'object.popin_panel'
-    bl_space_type = '3D_VIEW'
-    bl_region_type = 'UI'
+    bl_label = "Popin Effect"
+    bl_category = "Popin"
+    bl_context = "objectmode"
+    bl_idname = "object.popin_panel"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
     def draw (self, context):
         row = self.layout.row()
         row.operator("object.popin_effect", text="Popin Object")
@@ -89,10 +87,11 @@ class PopinPanel (bpy.types.Panel):
 
 class PopinOperator (bpy.types.Operator):
     bl_label = "Popin Operator"
-    bl_idname = 'object.popin_effect'
+    bl_idname = "object.popin_effect"
     bl_description = "Add a customized scale pop-in animation to the 3D object"
     def execute (self, context):
-        popin_handler(hide_vec=popin_params['hide_vec'], hide_dir=popin_params['hide_dir'], hide_magnitude=popin_params['hide_magnitude'], scale_frames=popin_params['scale_frames'], rebound_frames=popin_params['rebound_frames'])
+        obj = bpy.context.scene.objects.active
+        popin_handler(hide_vec=[0,0,0], hide_dir=obj.hide_dir, hide_magnitude=obj.hide_magnitude, scale_frames=obj.scale_frames, rebound_frames=obj.rebound_frames)
         return {'FINISHED'}
 
 def register():
