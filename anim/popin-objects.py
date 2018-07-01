@@ -25,49 +25,33 @@ def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     fc = obj.animation_data.action.fcurves.find(prop_name)  # actually returns fc with all points for prop_name
     return fc
 
-def popin(obj=bpy.context.scene.objects.active, start_frame=bpy.context.scene.frame_current, hide_vec=(0,0,-1), scale_frames=0, rebound_frames=0, overshoot_factor=1.0):
+def popin(obj=bpy.context.scene.objects.active, start_frame=bpy.context.scene.frame_current, scale_frames=0, rebound_frames=0, overshoot_factor=1.0):
     end_loc = obj.location.to_tuple()
     end_size = obj.scale.to_tuple()
     bpy.context.scene.frame_current = start_frame
     # keyframe initial state
     keyframe_prop(obj, prop_name='location', prop_val=end_loc, frame=bpy.context.scene.frame_current)
     keyframe_prop(obj, prop_name='scale', prop_val=(0, 0, 0), frame=bpy.context.scene.frame_current)
-    # keyframe hidden state
-    bpy.context.scene.frame_current -= 1
-    keyframe_prop(obj, prop_name='location', prop_val=hide_vec, frame=bpy.context.scene.frame_current)
-    keyframe_prop(obj, prop_name='scale', prop_val=(0, 0, 0), frame=bpy.context.scene.frame_current)
     # keyframe overshoot state
-    bpy.context.scene.frame_current += (scale_frames + 1)
+    bpy.context.scene.frame_current += scale_frames
     keyframe_prop(obj, prop_name='location', prop_val=end_loc, frame=bpy.context.scene.frame_current)
     keyframe_prop(obj, prop_name='scale', prop_val=[x * overshoot_factor for x in end_size], frame=bpy.context.scene.frame_current)
     # keyframe final state
-    bpy.context.scene.frame_current += (rebound_frames)
+    bpy.context.scene.frame_current += rebound_frames
     keyframe_prop(obj, prop_name='location', prop_val=end_loc, frame=bpy.context.scene.frame_current)
     keyframe_prop(obj, prop_name='scale', prop_val=end_size, frame=bpy.context.scene.frame_current)
     return obj
 
-def popin_handler(hide_vec=[0,0,0], hide_dir=2, hide_magnitude=0, scale_frames=0, rebound_frames=0):
-    print(hide_vec)
-    return
-    hide_vec = list(hide_vec)
-    hide_vec[hide_dir] = hide_magnitude
-    return popin(hide_vec=hide_vec, scale_frames=scale_frames, rebound_frames=rebound_frames)
-
 # Test call
-#popin_handler(hide_magnitude=-5, scale_frames=7, rebound_frames=3)
+#popin(scale_frames=7, rebound_frames=3, overshoot_factor=1.1)
 
 # UI menu properties
 def setup_ui_props():
     Obj = bpy.types.Object
-    #Obj.hide_vec = bpy.props.CollectionProperty(name="Hide Vector", description="Offscreen location to hide the popin object", default=[0, 0, 0])
-    Obj.hide_dir = bpy.props.IntProperty(name="Hide Direction", description="Index of X, Y or Z (0, 1 or 2) to set popin object hiding direction", default=2, min=0, max=2)
-    Obj.hide_magnitude = bpy.props.FloatProperty(name="Hide Magnitude", description="How far to move the popin object when hiding - used with hide direction", default=0)
-    Obj.scale_frames = bpy.props.IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=0)
-    Obj.rebound_frames = bpy.props.IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=0)
-    Obj.popin_strength = bpy.props.FloatProperty(name="Popin Strength", description="How much to overshoot object scale on popin", default=1)
+    Obj.popin_frames_scale = bpy.props.IntProperty(name="Popin Scale Frames", description="How long it takes object to scale up to popin", default=0)
+    Obj.popin_frames_rebound = bpy.props.IntProperty(name="Popin Rebound Frames", description="How long it takes object to settle after popin", default=0)
+    Obj.popin_strength = bpy.props.FloatProperty(name="Popin Strength", description="How much to overshoot object scale on popin", default=1.1)
     return
-
-## TODO revamp hiding params (is scale enough?)
 
 setup_ui_props()
 
@@ -83,6 +67,7 @@ class PopinPanel (bpy.types.Panel):
     def draw (self, context):
         row = self.layout.row()
         row.operator("object.popin_effect", text="Popin Object")
+        # TODO add config interface
         return
 
 class PopinOperator (bpy.types.Operator):
@@ -91,7 +76,7 @@ class PopinOperator (bpy.types.Operator):
     bl_description = "Add a customized scale pop-in animation to the 3D object"
     def execute (self, context):
         obj = bpy.context.scene.objects.active
-        popin_handler(hide_vec=[0,0,0], hide_dir=obj.hide_dir, hide_magnitude=obj.hide_magnitude, scale_frames=obj.scale_frames, rebound_frames=obj.rebound_frames)
+        popin(scale_frames=obj.popin_frames_scale, rebound_frames=obj.popin_frames_rebound, overshoot_factor=obj.popin_strength)
         return {'FINISHED'}
 
 def register():
