@@ -25,7 +25,7 @@ def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     fc = obj.animation_data.action.fcurves.find(prop_name)  # actually returns fc with all points for prop_name
     return fc
 
-def popin(obj=bpy.context.scene.objects.active, start_frame=bpy.context.scene.frame_current, scale_frames=0, rebound_frames=0, overshoot_factor=1.0):
+def popin(obj, start_frame=1, scale_frames=0, rebound_frames=0, overshoot_factor=1.0):
     end_loc = obj.location.to_tuple()
     end_size = obj.scale.to_tuple()
     bpy.context.scene.frame_current = start_frame
@@ -41,9 +41,6 @@ def popin(obj=bpy.context.scene.objects.active, start_frame=bpy.context.scene.fr
     keyframe_prop(obj, prop_name='location', prop_val=end_loc, frame=bpy.context.scene.frame_current)
     keyframe_prop(obj, prop_name='scale', prop_val=end_size, frame=bpy.context.scene.frame_current)
     return obj
-
-# Test call
-#popin(scale_frames=7, rebound_frames=3, overshoot_factor=1.1)
 
 # UI menu properties
 def setup_ui_props():
@@ -66,15 +63,12 @@ class PopinPanel (bpy.types.Panel):
     bl_region_type = "TOOLS"
     def draw (self, context):
         obj = bpy.context.scene.objects.active
-        rows = [self.layout.row() for i in range(3)]
+        rows = [self.layout.row() for i in range(4)]
         # config interface
         rows[0].prop(obj, "popin_frames_scale")
-        rows[0].prop(obj, "popin_frames_rebound")
-        rows[1].prop(obj, "popin_strength")
-        props = rows[2].operator("object.popin_effect", text="Popin Object")
-        # props.frames_scale = obj.popin_frames_scale
-        # props.frames_rebound = obj.popin_frames_rebound
-        # props.strength = obj.popin_strength
+        rows[1].prop(obj, "popin_frames_rebound")
+        rows[2].prop(obj, "popin_strength")
+        props = rows[3].operator("object.popin_effect", text="Popin Object")
         return
 
 class PopinOperator (bpy.types.Operator):
@@ -82,13 +76,14 @@ class PopinOperator (bpy.types.Operator):
     bl_idname = "object.popin_effect"
     bl_description = "Add a customized scale pop-in animation to the 3D object"
 
-    # frames_scale = 0
-    # frames_rebound = 0
-    # strength = 1.0
-
     def execute (self, context):
         obj = bpy.context.scene.objects.active
-        popin(scale_frames=obj.popin_frames_scale, rebound_frames=obj.popin_frames_rebound, overshoot_factor=obj.popin_strength)
+        frame = bpy.context.scene.frame_current
+        if obj.type == 'MESH':
+            popin(obj, start_frame=frame, scale_frames=obj.popin_frames_scale, rebound_frames=obj.popin_frames_rebound, overshoot_factor=obj.popin_strength)
+            bpy.context.scene.frame_current = frame
+        else:
+            print("Current object does not support Popin-Popout animations")
         return {'FINISHED'}
 
 def register():
