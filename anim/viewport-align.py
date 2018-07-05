@@ -26,8 +26,30 @@ def find_edges(cam):
 def center_obj(obj):
     if not obj or not obj.location: return
     cam = bpy.context.scene.camera
-    obj.location = find_center(cam)
+
+    # method - create empty and scale
+    # https://blender.stackexchange.com/questions/95370/positioning-object-to-the-center-of-camera-view-in-3d-scene
+    empty = bpy.data.objects.new("empty-cam-center", None)
+    bpy.context.scene.objects.link(empty)
+    for o in bpy.context.scene.objects: o.select = False
+    bpy.context.scene.objects.active = empty
+    empty.location = obj.location
+    empty.empty_draw_type = 'ARROWS'
+    copy_rot = empty.constraints.new('COPY_ROTATION')
+    copy_rot.target = cam
+    bpy.context.scene.cursor_location = cam.location
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            area.spaces[0].pivot_point = 'CURSOR'
+    empty.scale = (0, 0, 0)     # constrain along Camera Z
+    obj.location = empty.location
+    obj.rotation_euler = empty.rotation_euler
+
+    #obj.location = find_center(cam)
     return obj
+
+## test call
+center_obj(bpy.context.scene.objects.active)
 
 # /!\ After small trials - any way to avoid detecting points and just use camera data? /!\
 
