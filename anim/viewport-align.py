@@ -23,21 +23,49 @@ def find_edges(cam):
     trbl = [0, r, b, 0]
     return trbl
 
-def is_translatable(obj):
-    if not obj or not obj.location:
-        return False
+def translatable(*objs):
+    """Determine if the object exists and is movable"""
+    for obj in objs:
+        if not obj or not obj.location:
+            return False
     return True
 
 # simplified - imagine camera angle perpendicular to x-y plane
 def center_obj_in_straighton_cam(obj, cam, scale):
-    if not is_translatable(obj) or not is_translatable(cam): return
+    if not translatable(obj, cam): return
     obj.location = cam.location
     obj.scale = scale
     return obj
 
-def center_obj(obj, cam=bpy.context.scene.camera):
-    if not is_translatable(obj) or not cam: return
+## TODO:
+##  iterate on center_obj() to work this way:
+##  1. locate object on camera
+##  2. add object constraint to rotate with camera
+##  3. determine line of sight (LOS) from camera
+##  4. constrain object along that LOS
+##  5. scale object along LOS
+##  6. remove constraints and LOS
+##  FUTURE: determine when object scaled to fit within frustum
+##      - requires point detection?
+##      - only works with
 
+# Override for object resize to pivot point
+# https://blenderartists.org/t/how-to-bpy-ops-transform-resize-in-edit-mode-using-pivot/560381/2
+def override(area_type, region_type):
+    for area in bpy.context.screen.areas:
+        if area.type == area_type:
+            for region in area.regions:
+                if region.type == region_type:
+                    override = {'area': area, 'region': region}
+                    return override
+    #error message if the area or region wasn't found
+    raise RuntimeError("Wasn't able to find " + region_type + " in area " + area_type + ". Make sure it's open while executing script.")
+
+#we need to override the context of our operator
+override = override('VIEW_3D', 'WINDOW')
+
+def center_obj(obj=bpy.context.scene.objects.active, cam=bpy.context.scene.camera):
+    if not translatable(obj, cam): return
     # method - create empty and scale
     # https://blender.stackexchange.com/questions/95370/positioning-object-to-the-center-of-camera-view-in-3d-scene
     empty = bpy.data.objects.new("empty-cam-center", None)
@@ -52,7 +80,8 @@ def center_obj(obj, cam=bpy.context.scene.camera):
     for area in bpy.context.screen.areas:
         if area.type == 'VIEW_3D':
             area.spaces[0].pivot_point = 'CURSOR'
-    empty.scale = (0, 0, 0)     # constrain along Camera Z
+    empty.select = True
+    bpy.ops.transform.resize(override, value=(0.0, 0.0, 0.0), constraint_axis=(False, False, False), constraint_orientation='GLOBAL')
     obj.location = empty.location
     obj.rotation_euler = empty.rotation_euler
 
@@ -60,7 +89,7 @@ def center_obj(obj, cam=bpy.context.scene.camera):
     return obj
 
 ## test call
-center_obj(bpy.context.scene.objects.active)
+center_obj()
 
 # /!\ After small trials - any way to avoid detecting points and just use camera data? /!\
 
