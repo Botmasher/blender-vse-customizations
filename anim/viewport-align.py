@@ -23,9 +23,20 @@ def find_edges(cam):
     trbl = [0, r, b, 0]
     return trbl
 
-def center_obj(obj):
-    if not obj or not obj.location: return
-    cam = bpy.context.scene.camera
+def is_translatable(obj):
+    if not obj or not obj.location:
+        return False
+    return True
+
+# simplified - imagine camera angle perpendicular to x-y plane
+def center_obj_in_straighton_cam(obj, cam, scale):
+    if not is_translatable(obj) or not is_translatable(cam): return
+    obj.location = cam.location
+    obj.scale = scale
+    return obj
+
+def center_obj(obj, cam=bpy.context.scene.camera):
+    if not is_translatable(obj) or not cam: return
 
     # method - create empty and scale
     # https://blender.stackexchange.com/questions/95370/positioning-object-to-the-center-of-camera-view-in-3d-scene
