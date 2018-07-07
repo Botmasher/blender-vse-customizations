@@ -1,4 +1,5 @@
 import bpy
+import mathutils
 
 #3 Align Object in Camera Viewport
 ##
@@ -31,10 +32,10 @@ def translatable(*objs):
     return True
 
 # simplified - imagine camera angle perpendicular to x-y plane
-def center_obj_in_straighton_cam(obj, cam, scale):
+def center_obj_in_straighton_cam(obj, cam, scale=None):
     if not translatable(obj, cam): return
     obj.location = cam.location
-    obj.scale = scale
+    if scale: obj.scale = scale
     return obj
 
 ## TODO:
@@ -45,9 +46,9 @@ def center_obj_in_straighton_cam(obj, cam, scale):
 ##  4. constrain object along that LOS
 ##  5. scale object along LOS
 ##  6. remove constraints and LOS
-##  FUTURE: determine when object scaled to fit within frustum
+##  FUTURE: determine when object scaled to fit within view
 ##      - requires point detection?
-##      - only works with
+##      - allow adjusting scale within view (like calculate view size * 0.5)
 
 # Override for object resize to pivot point
 # https://blenderartists.org/t/how-to-bpy-ops-transform-resize-in-edit-mode-using-pivot/560381/2
@@ -88,8 +89,39 @@ def center_obj(obj=bpy.context.scene.objects.active, cam=bpy.context.scene.camer
     #obj.location = find_center(cam)
     return obj
 
+## newer iteration on center align
+def center_align_obj_using_local(obj=bpy.context.scene.objects.active, cam=bpy.context.scene.camera, distance=0.0):
+    # move and rotate obj to cam
+    obj.location = cam.location
+    obj.rotation_euler = cam.rotation_euler
+    # # move object away from cam along its local Z
+
+    # using vector matrix inversion
+    v = mathutils.Vector((0.0, 0.0, distance))
+    # matrix_inv = obj.matrix_world.copy()
+    # matrix_inv.invert()
+    # # align to local axis
+    # obj.location += v * matrix_inv
+
+    # perform local transform like a typical operation
+    view_3d = None
+    editor = bpy.context.area.type
+    bpy.context.area.type = 'VIEW_3D'
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            try:
+                view_3d = area.spaces[0]
+                view_3d.transform_orientation = 'LOCAL'
+            except:
+                raise Exception("Attempting to align {0} to camera - unable to move object along LOCAL axis in {1}".format(obj , view_3d))
+    view_3d.transform_orientation = 'GLOBAL'
+    bpy.context.scene.objects.active = obj
+    bpy.ops.transform.translate(value=v, constraint_axis=(False, True, False), constraint_orientation='LOCAL')
+    bpy.context.area.type = editor
+    return obj
+
 ## test call
-center_obj()
+center_align_obj_using_local(distance=5.0)
 
 # /!\ After small trials - any way to avoid detecting points and just use camera data? /!\
 
