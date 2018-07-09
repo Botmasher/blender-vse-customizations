@@ -1,5 +1,6 @@
 import bpy
 from mathutils import Matrix
+import bpy_extras
 
 #3 Align Object in Camera Viewport
 ##
@@ -37,7 +38,7 @@ def translatable(*objs):
 ##      - allow adjusting scale within view (like calculate view size * 0.5)
 
 ## newer iteration on center align
-def center_in_cam_view(obj=bpy.context.scene.objects.active, cam=bpy.context.scene.camera, distance=0.0, snap=False):
+def center_in_cam_view(obj=bpy.context.object, cam=bpy.context.scene.camera, distance=0.0, snap=False):
     if not translatable(obj, cam): return
 
     # move and rotate obj to cam
@@ -57,7 +58,54 @@ def center_in_cam_view(obj=bpy.context.scene.objects.active, cam=bpy.context.sce
     return obj
 
 ## test call
-center_in_cam_view(distance=5.0)
+#center_in_cam_view(distance=5.0)
+
+# Find object edges vs camera view edges
+
+def get_frustum_loc(point, cam, scene):
+    """Determine location of a point within camera's rendered frame"""
+    if not point or not cam or not scene: return
+    # scene to use for frame size
+    # Camera object
+    # World space location (mathutils.Vector)
+    uv_loc = bpy_extras.object_utils.world_to_camera_view(scene, cam, point)
+    # returns a Vector magnitude 3 with valid cam positions between 0<=uv_loc<=1
+    #   - values for index 0,1 greater than 1 are above top-right of frame
+    #   - values at index 2 less than 0 are behind camera
+    print(uv_loc)
+    return uv_loc
+
+def is_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene):
+    """Check if a point falls within camera's rendered frame"""
+    if not point or not cam or not scene: return
+    uv_loc = bpy_extras.object_utils.world_to_camera_view(scene, cam, point)
+    return (0.0 <= uv_loc[0] <= 1.0 and 0.0 <= uv_loc[1] <= 1.0 and uv_loc[2] >= 0.0)
+
+def fit_to_frustum(obj, cam=bpy.context.scene.camera):
+    vertex_extremes = [0.0, 0.0, 0.0]
+    for vertex in obj.data.vertices:
+        uv = get_frustum_loc(vertex.co)
+        if 0 > uv[0] > 1 and abs(uv[0]) > abs(vertex_extremes[0]):
+            vertex_extremes[0] = uv[0]
+        if 0 > uv[1] > 1 and abs(uv[1]) > abs(vertex_extremes[1]):
+            vertex_extremes[1] = uv[1]
+        if uv[2] < 0 and abs(uv[2]) > abs(vertex_extremes[2]):
+            vertex_extremes[2] = uv[2]
+    for extreme in vertex_extremes:
+        # TODO use u,v,w extremes to size or move obj
+        # - calculate percent uv outside frustum
+        # - use high u,v diff to size obj down along X, Y
+        # - use high negative w to move obj in front of cam and recurse for u,w
+        if vertex_extremes[2] < 0.0:
+            # move along Z
+            pass
+        elif abs(vertex_extremes[0]) > 1.0:
+            if abs(vertex_extremes[1]) > 1.0 and abs(vertex_extremes[1] > vertex_extremes[0]):
+                # scale along y
+                pass
+            # scale along x
+            pass
+    return vertex_extremes
 
 # Work through detecting object in camera again:
 # https://blender.stackexchange.com/questions/45146/how-to-find-all-objects-in-the-cameras-view-with-python/45324
