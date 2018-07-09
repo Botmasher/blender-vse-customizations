@@ -81,7 +81,7 @@ def is_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene)
     uv_loc = bpy_extras.object_utils.world_to_camera_view(scene, cam, point)
     return (0.0 <= uv_loc[0] <= 1.0 and 0.0 <= uv_loc[1] <= 1.0 and uv_loc[2] >= 0.0)
 
-def fit_to_frustum(obj, cam=bpy.context.scene.camera, distance=5.0, distort=False):
+def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, distance=5.0, distort=False):
     if not hasattr(obj.data, 'vertices'): return    # no mesh to check
     vertex_extremes = [0.0, 0.0, 0.0]
     for vertex in obj.data.vertices:
@@ -95,19 +95,21 @@ def fit_to_frustum(obj, cam=bpy.context.scene.camera, distance=5.0, distort=Fals
                 vertex_extremes[1] = uv[1]
         if uv[2] < 0 and abs(uv[2]) > abs(vertex_extremes[2]):
             vertex_extremes[2] = uv[2]
-    for extreme in vertex_extremes:
-        # TODO use highest negative w to move object in front of cam and recurse for u,w
-        # /!\ currently just trusts that object is in front of cam /!\
-        if vertex_extremes[2] < 0.0 :
-           # move along Z
-           # obj.location += (uv[2] - 1.0 - distance)
-           pass
-        if abs(vertex_extremes[0]) > 1.0:
-            if abs(vertex_extremes[1]) > 1.0 and abs(vertex_extremes[1] > vertex_extremes[0]):
-                # scale along y
-                pass
-            # scale along x
-            pass
+    # use high negative w to move object in front of cam and recurse for u,v
+    if vertex_extremes[2] < 0.0:
+       # move into cam view and retry
+       center_in_cam_view(obj=obj, cam=cam, distance=distance)
+       fit_to_frustum(obj, cam=cam, move_into_view=False, distance=distance, distort=distort)
+    # use high u or v to rescale object
+    # TODO allow stretch (non-uniform scale)
+    # TODO move instead of scale if object could fit
+    if abs(vertex_extremes[0]) > 1.0 or abs(vertex_extremes[1]) > 1.0:
+        if abs(vertex_extremes[1]) > abs(vertex_extremes[0]):
+            # scale down from high y
+            obj.scale /= vertex_extremes[1]
+        else:
+            # scale down from high x
+            obj.scale /= vertex_extremes[0]
     print (vertex_extremes)
     return vertex_extremes
 
