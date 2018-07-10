@@ -39,7 +39,8 @@ def translatable(*objs):
 
 ## newer iteration on center align
 def center_in_cam_view(obj=bpy.context.object, cam=bpy.context.scene.camera, distance=0.0, snap=False):
-    if not translatable(obj, cam): return
+    if not translatable(obj, cam):
+        return
 
     # move and rotate obj to cam
     obj.location = cam.location
@@ -64,7 +65,8 @@ def center_in_cam_view(obj=bpy.context.object, cam=bpy.context.scene.camera, dis
 
 def get_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene):
     """Determine location of a point within camera's rendered frame"""
-    if not point or not cam or not scene: return
+    if not point or not cam or not scene:
+        return
     # scene to use for frame size
     # Camera object
     # World space location (mathutils.Vector)
@@ -81,12 +83,18 @@ def is_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene)
     uv_loc = bpy_extras.object_utils.world_to_camera_view(scene, cam, point)
     return (0.0 <= uv_loc[0] <= 1.0 and 0.0 <= uv_loc[1] <= 1.0 and uv_loc[2] >= 0.0)
 
+def has_mesh(obj):
+    """Check if the object contains mesh data"""
+    if hasattr(obj.data, 'vertices'):
+        return True
+    return False
+
 def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, distance=5.0, distort=False):
-    if not hasattr(obj.data, 'vertices'): return    # no mesh to check
+    if not has_mesh(obj):
+        return
     vertex_extremes = [0.0, 0.0, 0.0]
     for vertex in obj.data.vertices:
         uv = get_frustum_loc(obj.matrix_world * vertex.co, cam=cam)
-        print(uv)
         if uv[0] > 1 or uv[0] < 0:
             if abs(uv[0]) > abs(vertex_extremes[0]):
                 vertex_extremes[0] = uv[0]
@@ -103,17 +111,25 @@ def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, dista
     # use high u or v to rescale object
     # TODO allow stretch (non-uniform scale)
     # TODO move instead of scale if object could fit
-    if abs(vertex_extremes[0]) > 1.0 or abs(vertex_extremes[1]) > 1.0:
-        if abs(vertex_extremes[1]) > abs(vertex_extremes[0]):
-            # scale down from high y
-            obj.scale /= vertex_extremes[1]
+    overflow = 0.0
+    for i in range(len(vertex_extremes)):
+        if vertex_extremes[i] < 0.0 and abs(vertex_extremes[i]) > overflow:
+            overflow = abs(vertex_extremes[i])
+        elif vertex_extremes[i] > 1.0 and vertex_extremes[i] - 1 > overflow:
+            overflow = vertex_extremes[i] - 1
         else:
-            # scale down from high x
-            obj.scale /= vertex_extremes[0]
-    print (vertex_extremes)
+            continue
+    # TODO adjust calc so mesh ends up fully inside
+    #if not 0 <= vertex_extremes[0] <= 1 or not 0 <= vertex_extremes[1] <= 1.0:
+        # scale down from highest of x or y
+        #extreme = vertex_extremes[0] if abs(vertex_extremes[0]) > abs(vertex_extremes[1]) else vertex_extremes[1]
+    overflow_adjust = (1 + overflow)
+    obj.scale /= overflow_adjust
+    print("Obj vertices in render space: {0}".format(vertex_extremes))
+    print("Attempting to adjust by {0}".format(overflow))
     return vertex_extremes
 
-fit_to_frustum(bpy.context.scene.objects.active)
+fit_to_frustum(bpy.context.object)
 
 # Work through detecting object in camera again:
 # https://blender.stackexchange.com/questions/45146/how-to-find-all-objects-in-the-cameras-view-with-python/45324
