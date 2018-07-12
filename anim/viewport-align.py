@@ -93,14 +93,18 @@ def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, margi
     if not has_mesh(obj):
         return
     vertex_extremes = [0.0, 0.0, 0.0]
+    # calculate mesh vertices far outside of viewport
+    # TODO rework calculations here to store XY excess only at this step
     for vertex in obj.data.vertices:
         uv = get_frustum_loc(obj.matrix_world * vertex.co, cam=cam)
+        # farthest XY locations outside UV render frame
         if uv[0] > 1 or uv[0] < 0:
             if abs(uv[0]) > abs(vertex_extremes[0]):
                 vertex_extremes[0] = uv[0]
-        if uv[1] > 1 or uv[0] < 0:
+        if uv[1] > 1 or uv[1] < 0:
             if abs(uv[1]) > abs(vertex_extremes[1]):
                 vertex_extremes[1] = uv[1]
+        # shallow Z location closest to camera (negative is behind)
         if uv[2] < 0 and abs(uv[2]) > abs(vertex_extremes[2]):
             vertex_extremes[2] = uv[2]
     # use high negative w to move object in front of cam and recurse for u,v
@@ -111,32 +115,23 @@ def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, margi
     # use high u or v to rescale object
     # TODO allow stretch (non-uniform scale)
     # TODO move instead of scale if object could fit
-    overflow = 0.0
-    change_axes = []
+    #   - may want to move if object center is outside frustum
+    #   - alternatively guard check if obj inside frustum in the first place
+    # TODO check meshes entirely out of viewport (move into view?)
+    high_overflow = 0.0
+    move_loc = obj.location
     for i in range(len(vertex_extremes)):
-        if vertex_extremes[i] < 0.0 and abs(vertex_extremes[i]) > overflow:
-            overflow = abs(vertex_extremes[i])
-            change_axes = i
-        elif vertex_extremes[i] > 1.0 and vertex_extremes[i] - 1 > overflow:
-            overflow = vertex_extremes[i] - 1
-            change_axes = i
+        # TODO adjust calc so mesh ends up fully inside (see vertex loop at top of method)
+        # EITHER    double change to account for both sides (e.g. top AND bottom)
+        # OR        move in opposite direction
+        overflow = (vertex_extremes[i] - 1.0) if vertex_extremes[i] > 0.0 else abs(vertex_extremes[i])
+        if not 0.0 <= vertex_extremes[i] <= 1.0 and overflow > high_overflow:
+            high_overflow = abs(vertex_extremes[i])
+            #move_loc[i] *= abs(vertex_extremes[i])
         else:
             continue
-    # TODO adjust calc so mesh ends up fully inside
-    # EITHER    double change to account for both sides (e.g. top AND bottom)
-    # OR        move in opposite direction
-    if overflow > 0:
-        overflow_adjust = (1 + overflow) # * 2
-        obj.scale /= overflow_adjust
-        new_loc = [0, 0, 0]
-        for loc in range(len(obj.location)):
-            # grab and factor in value accounting for extremes
-            new_loc[loc] *= abs(change_axes[loc]) if len(change_axes)-1 <= loc else 1
-        # for axis in change_axes:
-            #try:
-            #    setattr(obj.location, axis, overflow_adjust * obj.location)
-            #except:
-            #    raise Exception("Aligning to Viewport - unable to set {0} location")
+    obj.scale /= (1 + high_overflow) * 2    # calc for both sides
+    #obj.location = move_loc                 # move for both sides
     print("\nObj vertices in render space: {0}".format(vertex_extremes))
     print("Attempting to adjust by {0}".format(overflow))
     return vertex_extremes
