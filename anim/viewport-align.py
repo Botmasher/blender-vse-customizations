@@ -95,45 +95,43 @@ def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, margi
     vertex_extremes = [0.0, 0.0, 0.0]
     # calculate mesh vertices far outside of viewport
     # TODO rework calculations here to store XY excess only at this step
+    overflow_high = 0.0
+    move_loc = obj.location
     for vertex in obj.data.vertices:
-        uv = get_frustum_loc(obj.matrix_world * vertex.co, cam=cam)
-        # farthest XY locations outside UV render frame
-        if uv[0] > 1 or uv[0] < 0:
-            if abs(uv[0]) > abs(vertex_extremes[0]):
-                vertex_extremes[0] = uv[0]
-        if uv[1] > 1 or uv[1] < 0:
-            if abs(uv[1]) > abs(vertex_extremes[1]):
-                vertex_extremes[1] = uv[1]
+        uvz = get_frustum_loc(obj.matrix_world * vertex.co, cam=cam)
         # shallow Z location closest to camera (negative is behind)
-        if uv[2] < 0 and abs(uv[2]) > abs(vertex_extremes[2]):
-            vertex_extremes[2] = uv[2]
-    # use high negative w to move object in front of cam and recurse for u,v
-    if vertex_extremes[2] < 0.0:
-       # move into cam view and retry
-       center_in_cam_view(obj=obj, cam=cam, distance=distance)
-       fit_to_frustum(obj, cam=cam, move_into_view=False, margin=margin, distance=distance, distort=distort)
-    # use high u or v to rescale object
+        if uvz[2] < 0 and abs(uvz[2]) > abs(vertex_extremes[2]):
+            # TODO handle Z index behind cam right here
+            # use high negative w to move object in front of cam and recurse for u,v
+            # move into cam view and retry
+            center_in_cam_view(obj=obj, cam=cam, distance=distance)
+            fit_to_frustum(obj, cam=cam, move_into_view=False, margin=margin, distance=distance, distort=distort)
+            continue
+        # cut off and store excess (outside range 0-1)
+        overflows = [d - 1.0 if d > 0.0 else d for d in uvz]
+        # farthest XY locations outside UV render frame
+        overflow_high = max(abs(overflows[0]), abs(overflows[1]))
+
+        # movement
+        # TODO adjust calc so mesh ends up fully inside (see vertex loop at top of method)
+        # EITHER    double change to account for both sides (e.g. top AND bottom)
+        # OR        move in opposite direction
+        for i in range(len(overflows)):
+            move_loc[i] *= overflows[i]
+
+    # use high UV to rescale object
     # TODO allow stretch (non-uniform scale)
     # TODO move instead of scale if object could fit
     #   - may want to move if object center is outside frustum
     #   - alternatively guard check if obj inside frustum in the first place
     # TODO check meshes entirely out of viewport (move into view?)
-    high_overflow = 0.0
-    move_loc = obj.location
-    for i in range(len(vertex_extremes)):
-        # TODO adjust calc so mesh ends up fully inside (see vertex loop at top of method)
-        # EITHER    double change to account for both sides (e.g. top AND bottom)
-        # OR        move in opposite direction
-        overflow = (vertex_extremes[i] - 1.0) if vertex_extremes[i] > 0.0 else abs(vertex_extremes[i])
-        if not 0.0 <= vertex_extremes[i] <= 1.0 and overflow > high_overflow:
-            high_overflow = abs(vertex_extremes[i])
-            #move_loc[i] *= abs(vertex_extremes[i])
-        else:
-            continue
-    obj.scale /= (1 + high_overflow) * 2    # calc for both sides
+
+    obj.scale /= (1 + overflow_high) * 2    # calc for both sides
     #obj.location = move_loc                 # move for both sides
+
     print("\nObj vertices in render space: {0}".format(vertex_extremes))
     print("Attempting to adjust by {0}".format(overflow))
+
     return vertex_extremes
 
 fit_to_frustum(bpy.context.object, margin=1.0)
