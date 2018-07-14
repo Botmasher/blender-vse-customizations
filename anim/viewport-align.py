@@ -74,7 +74,6 @@ def get_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene
     # returns a Vector magnitude 3 with valid cam positions between 0<=uv_loc<=1
     #   - values for index 0,1 greater than 1 are above top-right of frame
     #   - values at index 2 less than 0 are behind camera
-    #print(uv_loc)
     return uv_loc
 
 def is_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene):
@@ -89,8 +88,18 @@ def has_mesh(obj):
         return True
     return False
 
+def is_camera(obj):
+    """Check if the object is a Camera"""
+    if obj and hasattr(obj, 'type') and obj.type == 'CAMERA':
+        return True
+    return False
+
+# TODO allow stretch (non-uniform scale)
+# TODO move instead of scale if object could fit
+#   - may want to move if object center is outside frustum
+#   - alternatively guard check if obj inside frustum in the first place
 def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, margin=0.0, distance=5.0, distort=False):
-    if not has_mesh(obj):
+    if not has_mesh(obj) or not is_camera(cam):
         return
     vertex_extremes = [0.0, 0.0, 0.0]
     # calculate mesh vertices far outside of viewport
@@ -101,36 +110,35 @@ def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, margi
         uvz = get_frustum_loc(obj.matrix_world * vertex.co, cam=cam)
         # shallow Z location closest to camera (negative is behind)
         if uvz[2] < 0 and abs(uvz[2]) > abs(vertex_extremes[2]):
-            # TODO handle Z index behind cam right here
+            # TODO handle Z index behind cam
             # use high negative w to move object in front of cam and recurse for u,v
             # move into cam view and retry
             center_in_cam_view(obj=obj, cam=cam, distance=distance)
-            fit_to_frustum(obj, cam=cam, move_into_view=False, margin=margin, distance=distance, distort=distort)
-            continue
+            return fit_to_frustum(obj, cam=cam, move_into_view=False, margin=margin, distance=distance, distort=distort)
         # cut off and store excess (outside range 0-1)
-        overflows = [d - 1.0 if d > 0.0 else d for d in uvz]
-        # farthest XY locations outside UV render frame
-        overflow_high = max(abs(overflows[0]), abs(overflows[1]))
-
-        # movement
-        # TODO adjust calc so mesh ends up fully inside (see vertex loop at top of method)
-        # EITHER    double change to account for both sides (e.g. top AND bottom)
-        # OR        move in opposite direction
-        for i in range(len(overflows)):
-            move_loc[i] *= overflows[i]
+        overflows = [max(0, d - 1.0) if d > 0 else d for d in uvz]
+        # keep track of highest excess found so far
+        vertex_extremes = [overflows[i] if abs(overflows[i]) > abs(vertex_extremes[i]) else vertex_extremes[i] for i in range(len(vertex_extremes))]
+    # farthest XY locations outside UV render frame
+    overflow_high = max(abs(overflows[0]), abs(overflows[1]))
 
     # use high UV to rescale object
-    # TODO allow stretch (non-uniform scale)
-    # TODO move instead of scale if object could fit
-    #   - may want to move if object center is outside frustum
-    #   - alternatively guard check if obj inside frustum in the first place
     # TODO check meshes entirely out of viewport (move into view?)
-
-    obj.scale /= (1 + overflow_high) * 2    # calc for both sides
-    #obj.location = move_loc                 # move for both sides
+    # adjust calc so mesh ends up fully inside (see vertex loop at top of method)
+    # EITHER    double change to account for both sides (e.g. top AND bottom)
+    # OR        move in opposite direction
+    overflow_high *= 2              # account for excess on both sides
+    obj.scale /= 1 + overflow_high
+    #obj.location = move_loc        # move for both sides
 
     print("\nObj vertices in render space: {0}".format(vertex_extremes))
-    print("Attempting to adjust by {0}".format(overflow))
+    print("Attempting to adjust by {0}".format(overflow_high))
+
+    ## TODO move realign
+    ##  - center first, check again then move
+    ##  - centering first above avoids dealing with outside values
+    #for i in range(len(vertex_extremes)):
+    #    move_loc[i] *= vertex_extremes[i]
 
     return vertex_extremes
 
