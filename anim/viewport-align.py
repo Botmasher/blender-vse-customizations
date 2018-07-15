@@ -94,6 +94,22 @@ def is_camera(obj):
         return True
     return False
 
+# Fit based on vertex extremes NOT object center
+# - calculate obj vertex X-Y extremes
+# - figure out their center and distance
+# - use the VERTEX center to align object in cam
+def fit_vertices_to_frustum(obj, cam):
+    if not has_mesh(obj) or not is_camera(cam): return
+    edges = [[0.0, 1.0], [0.0, 1.0]]
+    for v in obj.data.vertices:
+        uv = get_frustum_loc(obj.matrix_world * v.co, cam=cam)
+        # TODO add vertex to edges if it is more positive or negative than stored extreme edges
+        # zeroth value for L/bottom of render screen, first value for R/top render screen
+    # TODO then calculate this as a ratio of units needed to move
+    # - how much must this object scale to fit within frustum?
+    # - then, how much would it need to move for that scaled object to be entirely visible to current cam?
+    return
+
 # TODO allow stretch (non-uniform scale)
 # TODO move instead of scale if object could fit
 #   - may want to move if object center is outside frustum
