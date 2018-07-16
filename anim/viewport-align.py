@@ -99,16 +99,41 @@ def is_camera(obj):
 # - figure out their center and distance
 # - use the VERTEX center to align object in cam
 def fit_vertices_to_frustum(obj, cam):
-    if not has_mesh(obj) or not is_camera(cam): return
-    edges = [[0.0, 1.0], [0.0, 1.0]]
+    if not has_mesh(obj) or not is_camera(cam) or len(obj.data.vertices) < 1:
+        return
+    edges = {'x': [None, None], 'y': [None, None]}
     for v in obj.data.vertices:
         uv = get_frustum_loc(obj.matrix_world * v.co, cam=cam)
         # TODO add vertex to edges if it is more positive or negative than stored extreme edges
         # zeroth value for L/bottom of render screen, first value for R/top render screen
+        if edges['x'][0] is None or uv[0] < edges['x'][0]:
+            edges['x'][0] = uv[0]
+        if edges['x'][1] is None or uv[0] > edges['x'][1]:
+            edges['x'][1] = uv[0]
+        if edges['y'][0] is None or uv[1] < edges['y'][0]:
+            edges['y'][0] = uv[1]
+        if edges['y'][1] is None or uv[1] > edges['y'][1]:
+            edges['y'][1] = uv[1]
     # TODO then calculate this as a ratio of units needed to move
     # - how much must this object scale to fit within frustum?
     # - then, how much would it need to move for that scaled object to be entirely visible to current cam?
-    return
+    width = edges['x'][1] - edges['x'][0]
+    height = edges['y'][1] - edges['y'][0]
+    overscale_x = width - 1.0
+    overscale_y = height - 1.0
+    # needs scaled
+    overscale = 0
+    if overscale_x > 0 or overscale_y > 0:
+        # use highest x or y to scale down uniformly
+        overscale = overscale_y if overscale_y > overscale_x else overscale_x
+        obj.scale /= 1 + (overscale * 2)    # double to account for both sides
+    # needs moved
+    if width > 0 or height > 0:
+        new_width = width * (1 + overscale)
+        new_height = height * (1 + overscale)
+        # Calculate the distance of mesh vs object center
+        # - how far does object need to move until all vertices fit?
+    return obj
 
 # TODO allow stretch (non-uniform scale)
 # TODO move instead of scale if object could fit
