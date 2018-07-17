@@ -101,24 +101,29 @@ def is_camera(obj):
 def fit_vertices_to_frustum(obj, cam):
     if not has_mesh(obj) or not is_camera(cam) or len(obj.data.vertices) < 1:
         return
-    edges = {'x': [None, None], 'y': [None, None]}
+    edges_uv = {'u': [None, None], 'v': [None, None]}
+    edges_xy = {'x': [None, None], 'y': [None, None]}
     for v in obj.data.vertices:
         uv = get_frustum_loc(obj.matrix_world * v.co, cam=cam)
         # TODO add vertex to edges if it is more positive or negative than stored extreme edges
         # zeroth value for L/bottom of render screen, first value for R/top render screen
-        if edges['x'][0] is None or uv[0] < edges['x'][0]:
-            edges['x'][0] = uv[0]
-        if edges['x'][1] is None or uv[0] > edges['x'][1]:
-            edges['x'][1] = uv[0]
-        if edges['y'][0] is None or uv[1] < edges['y'][0]:
-            edges['y'][0] = uv[1]
-        if edges['y'][1] is None or uv[1] > edges['y'][1]:
-            edges['y'][1] = uv[1]
+        if edges_uv['u'][0] is None or uv[0] < edges_uv['u'][0]:
+            edges_uv['u'][0] = uv[0]
+            edges_xy['x'][0] = obj.matrix_world * v.co[0]
+        if edges_uv['u'][1] is None or uv[0] > edges_uv['u'][1]:
+            edges_uv['u'][1] = uv[0]
+            edges_xy['x'][1] = obj.matrix_world * v.co[0]
+        if edges_uv['v'][0] is None or uv[1] < edges_uv['v'][0]:
+            edges_uv['v'][0] = uv[1]
+            edges_xy['y'][0] = obj.matrix_world * v.co[1]
+        if edges_uv['v'][1] is None or uv[1] > edges_uv['v'][1]:
+            edges_uv['v'][1] = uv[1]
+            edges_xy['y'][1] = obj.matrix_world * v.co[1]
     # TODO then calculate this as a ratio of units needed to move
     # - how much must this object scale to fit within frustum?
     # - then, how much would it need to move for that scaled object to be entirely visible to current cam?
-    width = edges['x'][1] - edges['x'][0]
-    height = edges['y'][1] - edges['y'][0]
+    width = edges_uv['u'][1] - edges_uv['u'][0]
+    height = edges_uv['v'][1] - edges_uv['v'][0]
     overscale_x = width - 1.0
     overscale_y = height - 1.0
     # needs scaled
@@ -128,11 +133,18 @@ def fit_vertices_to_frustum(obj, cam):
         overscale = overscale_y if overscale_y > overscale_x else overscale_x
         obj.scale /= 1 + (overscale * 2)    # double to account for both sides
     # needs moved
+    # TODO figure out object position vs vertices positions
+    #   - move vs obj position
+    move_highest_x = * edges_xy['x'][1]
+    move_lowest_x = * edges_xy['x'][0]
+    move_highest_y = * edges_xy['y'][1]
+    move_lowest_y = * edges_xy['y'][0]
+    obj.location.x - (move_highest_x * overscale_x)
     if width > 0 or height > 0:
         new_width = width * (1 + overscale)
         new_height = height * (1 + overscale)
         # Calculate the distance of mesh vs object center
-        # - how far does object need to move until all vertices fit?
+        # - how far does object need to move until all vertices fit?r
     return obj
 
 # TODO allow stretch (non-uniform scale)
