@@ -16,33 +16,23 @@ import bpy_extras
 # - scale object to fit within frustum
 #   - account for all points (or just normals) in mesh
 
-def find_center(cam, offset=[0,0,0]):
-    if cam.type != 'CAMERA': return
-    point = [cam.location[x] + offset[x] for x in range(cam.location)]
-    return point
+# TODO align non-mesh objects like text (or separate?)
 
-def find_edges(cam):
-    r = bpy.context.scene.render.resolution_x
-    b = bpy.context.scene.render.resolution_y
-    trbl = [0, r, b, 0]
-    return trbl
-
-def translatable(*objs):
+def is_translatable(*objs):
     """Determine if the object exists and is movable"""
     for obj in objs:
         if not obj or not obj.location:
             return False
     return True
 
-## TODO:
-##  iterate on center_obj() to work this way:
+## TODO iterate on center_obj() for better alignment
 ##  FUTURE: determine when object scaled to fit within view
 ##      - requires point detection?
 ##      - allow adjusting scale within view (like calculate view size * 0.5)
 
 ## newer iteration on center align
 def center_in_cam_view(obj=bpy.context.object, cam=bpy.context.scene.camera, distance=0.0, snap=False):
-    if not translatable(obj, cam):
+    if not is_translatable(obj, cam):
         return
 
     # move and rotate obj to cam
@@ -97,13 +87,11 @@ def is_camera(obj):
         return True
     return False
 
-# Fit based on vertex extremes NOT object center
-# - calculate obj vertex X-Y extremes
-# - figure out their center and distance
-# - use the VERTEX center to align object in cam
-def fit_vertices_to_frustum(obj, cam, calls_remaining=10):
-    if not has_mesh(obj) or not is_camera(cam) or len(obj.data.vertices) < 1:
-        return
+def get_edge_vertices_uv_xy(obj, cam):
+    """Find the rightmost, leftmost, topmost and bottommost vertex in camera view
+    Return render UV and the world XY coordinates for these extremes
+    """
+    if not has_mesh(obj) or not is_camera(cam): return
     edges = {'u': [None, None], 'v': [None, None], 'x': [None, None], 'y': [None, None]}
     for v in obj.data.vertices:
         v_uv = get_frustum_loc(obj.matrix_world * v.co, cam=cam)
@@ -118,12 +106,10 @@ def fit_vertices_to_frustum(obj, cam, calls_remaining=10):
             if edges[uv][1] is None or v_uv[i] > edges[uv][1]:
                 edges[uv][1] = v_uv[i]
                 edges[xy][1] = obj.matrix_world * v.co[i]
+    return edges
 
-    # TODO then calculate this as a ratio of units needed to move
-    # - how much must this object scale to fit within frustum?
-    # - then, how much would it need to move for that scaled object to be entirely visible to current cam?
-    width = edges['u'][1] - edges['u'][0]
-    height = edges['v'][1] - edges['v'][0]
+def scale_vertices_to_uv(obj, width_u, height_v):
+    """Rescale object of known UV width and height to fit within render UV"""
     overscale_x = width - 1.0
     overscale_y = height - 1.0
     # needs scaled
@@ -132,13 +118,39 @@ def fit_vertices_to_frustum(obj, cam, calls_remaining=10):
         # use highest x or y to scale down uniformly
         overscale = overscale_y if overscale_y > overscale_x else overscale_x
         obj.scale /= 1 + (overscale * 2)    # double to account for both sides
-        # call again to verify scaledown then move instead
-        if calls_remaining > 0:
-            fit_vertices_to_frustum(obj, cam, calls_remaining=calls_remaining-1)
-        else:
-            print("Failed to correctly size and position object to viewport - method exceeded expected number of recursive calls")
-            return obj
-    else:
+    return (overscale_x, overscale_y)
+
+# Fit based on vertex extremes NOT object center
+# - calculate obj vertex X-Y extremes
+# - figure out their center and distance
+# - use the VERTEX center to align object in cam
+def fit_vertices_to_frustum(obj, cam, move=True, calls_remaining=10):
+    if not has_mesh(obj) or not is_camera(cam) or len(obj.data.vertices) < 1:
+        return
+
+    # NOTE edges dict stores uv/xy keys with two-element array values storing low and high extremes
+    #      { 'u': [], 'v': [], 'x': [], 'y': [] }
+    edges = get_edge_vertices_uv_xy(obj, cam)
+    if not edges: return
+
+    # TODO then calculate this as a ratio of units needed to move
+    # - how much must this object scale to fit within frustum?
+    # - then, how much would it need to move for that scaled object to be entirely visible to current cam?
+    width = edges['u'][1] - edges['u'][0]
+    height = edges['v'][1] - edges['v'][0]
+
+    scale_vertices_to_uv(obj, width, height)
+
+    # call again to verify scaledown - double check scaled object fit
+    #if move and calls_remaining > 0:
+    #    # TODO instead of recursing calculate expected loc of scaledown points then update move dimensions
+    #    # see correctly scaled move else branch below
+    #    fit_vertices_to_frustum(obj, cam, calls_remaining=calls_remaining-1)
+    #else:
+    #    print("Failed to correctly size and position object to viewport - method exceeded expected number of recursive calls")
+    #    return obj
+
+    if move:
         uv_edges_flat = edges['u'] + edges['v']
         dimensions_uv = {'w': width, 'h': height}
         dimensions_xy = {'w': edges['x'][1] - edges['x'][0], 'h': edges['y'][1] - edges['y'][1]}
