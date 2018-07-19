@@ -13,13 +13,13 @@ import bpy.props
 ##
 
 # TODO fix runtime / sem bugs
-#   - 'MESH' check prevents popping other scalables like 'FONT'
-#   - initial scaledown keyframe not set when executing on current frame 0
-#   - props stored locally per object (ux feel: forgot/ignored user settings)
+# -[X] 'MESH' check prevents popping other scalables like 'FONT'
+# -[X] initial scaledown keyframe not set when executing on current frame 0
+# -[X] props stored locally per object (ux feel: forgot/ignored user settings)
 
 def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     """Keyframe a property on object at this frame"""
-    if not obj or not prop_name or not prop_val or not frame: return
+    if not obj or not prop_name or not prop_val or frame is None: return
     bpy.context.scene.frame_current = frame
     try:
         setattr(obj, prop_name, prop_val)
@@ -47,11 +47,11 @@ def popin(obj, start_frame=1, scale_frames=0, rebound_frames=0, overshoot_factor
 
 # UI menu properties
 def setup_ui_props():
-    Obj = bpy.types.Object
-    Obj.popin_frames_scale = bpy.props.IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=6)
-    Obj.popin_frames_rebound = bpy.props.IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=2)
-    Obj.popin_strength = bpy.props.FloatProperty(name="Strength", description="How much to overshoot object scale on popin", default=1.1)
-    Obj.popin_reverse = bpy.props.BoolProperty(name="Reverse", description="Keyframe as scale-down popout instead", default=0)
+    S = bpy.types.Scene
+    S.popin_frames_scale = bpy.props.IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=6)
+    S.popin_frames_rebound = bpy.props.IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=2)
+    S.popin_strength = bpy.props.FloatProperty(name="Strength", description="How much to overshoot object scale on popin", default=1.1)
+    S.popin_reverse = bpy.props.BoolProperty(name="Reverse", description="Keyframe as scale-down popout instead", default=0)
     return
 
 setup_ui_props()
@@ -84,11 +84,11 @@ class PopinOperator (bpy.types.Operator):
     def execute (self, context):
         obj = bpy.context.scene.objects.active
         frame = bpy.context.scene.frame_current
-        if obj.type == 'MESH':
+        if hasattr(obj, 'scale') and hasattr(obj, 'animation_data'):
             popin(obj, start_frame=frame, scale_frames=obj.popin_frames_scale, rebound_frames=obj.popin_frames_rebound, overshoot_factor=obj.popin_strength, reverse=obj.popin_reverse)
             bpy.context.scene.frame_current = frame
-        else:
-            print("Current object does not support Popin-Popout animations")
+        #else:
+        #    print("Current object does not support Popin-Popout animations")
         return {'FINISHED'}
 
 def register():
