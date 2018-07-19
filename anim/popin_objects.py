@@ -12,6 +12,11 @@ import bpy.props
 ## An option for reversing this sequence allows you to make a popout animation.
 ##
 
+# TODO fix runtime / sem bugs
+#   - 'MESH' check prevents popping other scalables like 'FONT'
+#   - initial scaledown keyframe not set when executing on current frame 0
+#   - props stored locally per object (ux feel: forgot/ignored user settings)
+
 def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     """Keyframe a property on object at this frame"""
     if not obj or not prop_name or not prop_val or not frame: return
