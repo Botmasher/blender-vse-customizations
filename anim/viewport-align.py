@@ -6,6 +6,9 @@ import bpy_extras
 ##
 ## Blender Python script by Josh R (GitHub user Botmasher)
 
+# /!\ Caution - current implementation slows with vertex count
+# /!\ (may loop over vertices multiple times)
+
 # Base implementation
 # - determine point at center of camera x,y
 # - determine focal point for camera z
@@ -101,29 +104,26 @@ def is_camera(obj):
 def fit_vertices_to_frustum(obj, cam, calls_remaining=10):
     if not has_mesh(obj) or not is_camera(cam) or len(obj.data.vertices) < 1:
         return
-    edges_uv = {'u': [None, None], 'v': [None, None]}
-    edges_xy = {'x': [None, None], 'y': [None, None]}
+    edges = {'u': [None, None], 'v': [None, None], 'x': [None, None], 'y': [None, None]}
     for v in obj.data.vertices:
-        uv = get_frustum_loc(obj.matrix_world * v.co, cam=cam)
+        v_uv = get_frustum_loc(obj.matrix_world * v.co, cam=cam)
         # TODO add vertex to edges if it is more positive or negative than stored extreme edges
         # zeroth value for L/bottom of render screen, first value for R/top render screen
-        if edges_uv['u'][0] is None or uv[0] < edges_uv['u'][0]:
-            edges_uv['u'][0] = uv[0]
-            edges_xy['x'][0] = obj.matrix_world * v.co[0]
-        if edges_uv['u'][1] is None or uv[0] > edges_uv['u'][1]:
-            edges_uv['u'][1] = uv[0]
-            edges_xy['x'][1] = obj.matrix_world * v.co[0]
-        if edges_uv['v'][0] is None or uv[1] < edges_uv['v'][0]:
-            edges_uv['v'][0] = uv[1]
-            edges_xy['y'][0] = obj.matrix_world * v.co[1]
-        if edges_uv['v'][1] is None or uv[1] > edges_uv['v'][1]:
-            edges_uv['v'][1] = uv[1]
-            edges_xy['y'][1] = obj.matrix_world * v.co[1]
+        edge_units = [{'uv': 'u', 'xy': 'x'}, {'uv': 'v', 'xy': 'y'}]
+        for i in range(len(edge_units)):
+            uv, xy = *(edge_units[i]['uv'] + edge_units[i]['xy'])
+            if edges[uv][0] is None or v_uv[i] < edges[uv][0]:
+                edges[uv][0] = v_uv[i]
+                edges[xy][0] = obj.matrix_world * v.co[i]
+            if edges[uv][1] is None or v_uv[i] > edges[uv][1]:
+                edges[uv][1] = v_uv[i]
+                edges[xy][1] = obj.matrix_world * v.co[i]
+
     # TODO then calculate this as a ratio of units needed to move
     # - how much must this object scale to fit within frustum?
     # - then, how much would it need to move for that scaled object to be entirely visible to current cam?
-    width = edges_uv['u'][1] - edges_uv['u'][0]
-    height = edges_uv['v'][1] - edges_uv['v'][0]
+    width = edges['u'][1] - edges['u'][0]
+    height = edges['v'][1] - edges['v'][0]
     overscale_x = width - 1.0
     overscale_y = height - 1.0
     # needs scaled
@@ -139,9 +139,9 @@ def fit_vertices_to_frustum(obj, cam, calls_remaining=10):
             print("Failed to correctly size and position object to viewport - method exceeded expected number of recursive calls")
             return obj
     else:
-        uv_edges_flat = [val for pos in edges_uv.values() for val in pos]
+        uv_edges_flat = edges['u'] + edges['v']
         dimensions_uv = {'w': width, 'h': height}
-        dimensions_xy = {'w': edges_xy['x'][1] - edges_xy['x'][0], 'h': edges_xy['y'][1] - edges_xy['y'][1]}
+        dimensions_xy = {'w': edges['x'][1] - edges['x'][0], 'h': edges['y'][1] - edges['y'][1]}
         if max(uv_edges_flat, 1.0) > 1 or min(uv_edges_flat, 0.0) < 0:
 
             # obj needs moved
@@ -154,19 +154,22 @@ def fit_vertices_to_frustum(obj, cam, calls_remaining=10):
             target_low_u = target_pos_u
             target_high_v = target_pos_v + dimensions_uv['h']
             target_low_v = target_pos_v
-            move_highest_x = (edges_xy['x'][1] / edges_uv['u'][1]) * target_high_u
-            move_lowest_x = (edges_xy['x'][0] / edges_uv['u'][0]) * target_low_u
-            move_highest_y = (edges_xy['y'][1] / edges_uv['v'][1]) * target_high_v
-            move_lowest_y = (edges_xy['y'][0] / edges_uv['v'][0]) * target_low_v
+            move_highest_x = (edges['x'][1] / edges['u'][1]) * target_high_u
+            move_lowest_x = (edges['x'][0] / edges['u'][0]) * target_low_u
+            move_highest_y = (edges['y'][1] / edges['v'][1]) * target_high_v
+            move_lowest_y = (edges['y'][0] / edges['v'][0]) * target_low_v
 
-            obj.location.x - (move_highest_x * overscale_x)
-            # if width > 0 or height > 0:
-            #     new_width = width * (1 + overscale)
-            #     new_height = height * (1 + overscale)
+            new_delta_x = move_highest_x - move_lowest_x
+            new_delta_y = move_highest_y - move_lowest_y
+            new_x = obj.location.x + new_delta_x
+            new_y = obj.location.y + new_delta_y
 
-        else:
-            return obj
+            obj.location = (new_x, new_y, obj.location.z)
+
     return obj
+
+# test
+fit_vertices_to_frustum(bpy.context.object, bpy.context.scene.camera)
 
 # TODO allow stretch (non-uniform scale)
 # TODO move instead of scale if object could fit
@@ -216,7 +219,5 @@ def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, margi
 
     return vertex_extremes
 
-fit_to_frustum(bpy.context.object, margin=1.0)
-
-# Work through detecting object in camera again:
-# https://blender.stackexchange.com/questions/45146/how-to-find-all-objects-in-the-cameras-view-with-python/45324
+# test
+#fit_to_frustum(bpy.context.object, margin=1.0)
