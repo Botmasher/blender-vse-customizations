@@ -120,6 +120,38 @@ def scale_vertices_to_uv(obj, width_u, height_v):
         obj.scale /= 1 + (overscale * 2)    # double to account for both sides
     return (overscale_x, overscale_y)
 
+def move_vertices_to_uv(obj, width_u, height_u, edges):
+    """Move a viewport-sized object entirely within render UV"""
+    # store object's extreme UV points and distances
+    uv_edges_flat = edges['u'] + edges['v']
+    dimensions_uv = {'w': width_u, 'h': height_u}
+    #dimensions_xy = {'w': edges['x'][1] - edges['x'][0], 'h': edges['y'][1] - edges['y'][1]}
+
+    # obj needs moved
+    if max(uv_edges_flat, 1.0) > 1 or min(uv_edges_flat, 0.0) < 0:
+
+        # new uv point at bottom left (leaving margin on all sides)
+        target_uv = {}
+        for d in dimensions_uv.keys():
+            target_uv[d]['low'] = (1 - dimensions_uv[d]) / 2
+            target_uv[d]['high'] = dimensions_uv[d]
+
+        # new x,y point at bottom left = (obj_xy / obj_uv) * new_target_uv
+        target_xy = {}
+        for d in target_uv.keys():
+            axis = 'x' if d == 'u' else 'y'
+            target_xy[axis]['high'] = (edges[axis][1] / edges[d][1]) * target_uv[d]['high']
+            target_xy[axis]['low'] = (edges[axis][0] / edges[d][0]) * target_uv[d]['low']
+
+        new_delta_x = target_xy['x']['high'] - target_xy['x']['low']
+        new_delta_y =target_xy['y']['high'] - target_xy['y']['low']
+        new_x = obj.location.x + new_delta_x
+        new_y = obj.location.y + new_delta_y
+
+        obj.location = (new_x, new_y, obj.location.z)
+
+    return obj
+
 # Fit based on vertex extremes NOT object center
 # - calculate obj vertex X-Y extremes
 # - figure out their center and distance
@@ -151,33 +183,7 @@ def fit_vertices_to_frustum(obj, cam, move=True, calls_remaining=10):
     #    return obj
 
     if move:
-        uv_edges_flat = edges['u'] + edges['v']
-        dimensions_uv = {'w': width, 'h': height}
-        dimensions_xy = {'w': edges['x'][1] - edges['x'][0], 'h': edges['y'][1] - edges['y'][1]}
-        if max(uv_edges_flat, 1.0) > 1 or min(uv_edges_flat, 0.0) < 0:
-
-            # obj needs moved
-
-            # new uv point at bottom left (actually margin on all sides)
-            target_pos_u = (1 - dimensions_uv['w']) / 2
-            target_pos_v = (1 - dimensions_uv['h']) / 2
-            # new x,y point at bottom left = (obj_xy / obj_uv) * new_target_uv
-            target_high_u = target_pos_u + dimensions_uv['w']
-            target_low_u = target_pos_u
-            target_high_v = target_pos_v + dimensions_uv['h']
-            target_low_v = target_pos_v
-            move_highest_x = (edges['x'][1] / edges['u'][1]) * target_high_u
-            move_lowest_x = (edges['x'][0] / edges['u'][0]) * target_low_u
-            move_highest_y = (edges['y'][1] / edges['v'][1]) * target_high_v
-            move_lowest_y = (edges['y'][0] / edges['v'][0]) * target_low_v
-
-            new_delta_x = move_highest_x - move_lowest_x
-            new_delta_y = move_highest_y - move_lowest_y
-            new_x = obj.location.x + new_delta_x
-            new_y = obj.location.y + new_delta_y
-
-            obj.location = (new_x, new_y, obj.location.z)
-
+        move_vertices_to_uv(obj, width, height, edges)
     return obj
 
 # test
