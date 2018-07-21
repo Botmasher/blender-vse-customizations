@@ -10,6 +10,7 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
+- [ ] shuffle selected strips and change lengths (for randomizing animations like typing, bg talking)
 - [X] pull out extend and separate already cut substrips from subcutter (useful for manually cut ones)
 - [ ] center object in viewport
 - [ ] make text editor keypress <kbd>OPT + A</kbd> default to animate instead of "å" unless held
