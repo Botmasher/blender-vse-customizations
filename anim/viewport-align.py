@@ -99,19 +99,21 @@ def get_edge_vertices_uv_xy(obj, cam):
         # zeroth value for L/bottom of render screen, first value for R/top render screen
         edge_units = [{'uv': 'u', 'xy': 'x'}, {'uv': 'v', 'xy': 'y'}]
         for i in range(len(edge_units)):
-            uv, xy = *(edge_units[i]['uv'] + edge_units[i]['xy'])
+            uv = edge_units[i]['uv']
+            xy = edge_units[i]['xy']
             if edges[uv][0] is None or v_uv[i] < edges[uv][0]:
                 edges[uv][0] = v_uv[i]
                 edges[xy][0] = obj.matrix_world * v.co[i]
             if edges[uv][1] is None or v_uv[i] > edges[uv][1]:
                 edges[uv][1] = v_uv[i]
                 edges[xy][1] = obj.matrix_world * v.co[i]
+    print("\n\nUV Extreme Edges:")
+    print(edges)
     return edges
 
 def is_clamped(r=[], r_min=0.0, r_max=1.0):
     """Check if all values in list fall between min and max values"""
-    if not r or len(r) < 1 or not r_min or not r_min: return
-    if max(*r, r_max) <= r_max and min(*r, r_min) >= r_min:
+    if min(*r, r_min) >= r_min and max(*r, r_max) <= r_max:
         return True
     return False
 
@@ -119,13 +121,13 @@ def ratio_scale_to_uv(width_u, height_v):
     """Calculate scaledown UV width and height to fit within render UV"""
     # normalize <0 and >1 overflows (rendered UV points are in range 0-1)
     overscale_x = width_u - 1.0
-    overscale_y = height_u - 1.0
+    overscale_y = height_v - 1.0
     # use highest x or y to scale down uniformly
     overscale = overscale_y if overscale_y > overscale_x else overscale_x
     # already properly scaled
-    if overscale <= 0: return
+    if overscale <= 0: return 1.0
     # needs scaled
-    return 1 + (overscale * 2)    # double to account for both sides
+    return 1.0 + overscale * 2.0   # double to account for both sides
 
 def move_vertices_to_uv(obj, width_u, height_v, edges):
     """Move a viewport-sized object entirely within render UV"""
@@ -135,30 +137,33 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
     #dimensions_xy = {'w': edges['x'][1] - edges['x'][0], 'h': edges['y'][1] - edges['y'][1]}
 
     # object fully in view - does not need moved
-    if not is_clamped(r=edges_uv_flat, r_min=0.0, r_max=0.1): return
+    if is_clamped(r=edges_uv_flat, r_min=0.0, r_max=1.0):
+        print("Viewport Align - not moving object already fully in view")
+        return
 
     # map point pos from UV to XY
     # anchor to viewport bottom left leaving margin on all sides
-    target_uv = {}      # render (shape) space
-    target_xy = {}      # world (form) space
+    target_uv = {'u': {}, 'v': {}}      # render (shape) space
+    target_xy = {'x': {}, 'y': {}}      # world (form) space
     for d in dimensions_uv.keys():
-        target_uv[d]['low'] = (1 - dimensions_uv[d]) / 2
-        target_uv[d]['high'] = dimensions_uv[d]
+        mapping_coord = 'u' if d == 'w' else 'v'
+        target_uv[mapping_coord]['low'] = (1 - dimensions_uv[d]) / 2
+        target_uv[mapping_coord]['high'] = dimensions_uv[d]
         # new x,y point at bottom left = (obj_xy / obj_uv) * new_target_uv
-        axis = 'x' if d == 'u' else 'y'
-        target_xy[axis]['high'] = (edges[axis][1] / edges[d][1]) * target_uv[d]['high']
-        target_xy[axis]['low'] = (edges[axis][0] / edges[d][0]) * target_uv[d]['low']
+        axis = 'x' if d == 'w' else 'y'
+        target_xy[axis]['high'] = (edges[axis][1] / edges[mapping_coord][1]) * target_uv[mapping_coord]['high']
+        target_xy[axis]['low'] = (edges[axis][0] / edges[mapping_coord][0]) * target_uv[mapping_coord]['low']
 
     # calculate object XY translation
     new_xy = {}
     for axis in target_xy:
-        axis not in ['x', 'y'] and raise Exception("Viewport Align failed to move object {0} along {1} axis".format(obj, axis))
+        if axis not in ['x', 'y']: raise Exception("Viewport Align failed to move object {0} along {1} axis".format(obj, axis))
         new_delta = target_xy[axis]['high'] - target_xy[axis]['low']
         new_xy[axis] = getattr(obj.location, axis) + new_delta
 
-    obj.location = (new_xy['x'], new_xy['y'], obj.location.z)
-
-    return obj
+    ratio_scale = new_xy['x'], new_xy['y'], obj.location.z
+    print(ratio_scale)
+    return ratio_scale
 
 # Fit based on vertex extremes NOT object center
 # - calculate obj vertex X-Y extremes
@@ -179,19 +184,12 @@ def fit_vertices_to_frustum(obj, cam, move=True, calls_remaining=10):
     width = edges['u'][1] - edges['u'][0]
     height = edges['v'][1] - edges['v'][0]
 
-    obj.scale /= ratio_scale_to_uv(width, height)
-
-    # call again to verify scaledown - double check scaled object fit
-    #if move and calls_remaining > 0:
-    #    # TODO instead of recursing calculate expected loc of scaledown points then update move dimensions
-    #    # see correctly scaled move else branch below
-    #    fit_vertices_to_frustum(obj, cam, calls_remaining=calls_remaining-1)
-    #else:
-    #    print("Failed to correctly size and position object to viewport - method exceeded expected number of recursive calls")
-    #    return obj
+    obj.scale /= ratio_scale_to_uv(width, height) * 1.0
 
     if move:
-        move_vertices_to_uv(obj, width, height, edges)
+        move_pos = move_vertices_to_uv(obj, width, height, edges)
+        obj.location = move_pos if move_pos else obj.location
+
     return obj
 
 # test
