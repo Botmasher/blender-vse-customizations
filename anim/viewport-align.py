@@ -98,6 +98,8 @@ def get_edge_vertices_uv_xy(obj, cam):
         # TODO add vertex to edges if it is more positive or negative than stored extreme edges
         # zeroth value for L/bottom of render screen, first value for R/top render screen
         edge_units = [{'uv': 'u', 'xy': 'x'}, {'uv': 'v', 'xy': 'y'}]
+        edges[uv][0] = v_uv[0]
+        edges[xy][0] = 
         for i in range(len(edge_units)):
             uv = edge_units[i]['uv']
             xy = edge_units[i]['xy']
