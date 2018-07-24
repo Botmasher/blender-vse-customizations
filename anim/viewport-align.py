@@ -97,18 +97,21 @@ def get_edge_vertices_uv_xy(obj, cam):
         v_uv = get_frustum_loc(obj.matrix_world * v.co, cam=cam)
         # TODO add vertex to edges if it is more positive or negative than stored extreme edges
         # zeroth value for L/bottom of render screen, first value for R/top render screen
-        edge_units = [{'uv': 'u', 'xy': 'x'}, {'uv': 'v', 'xy': 'y'}]
-        edges[uv][0] = v_uv[0]
-        edges[xy][0] = 
-        for i in range(len(edge_units)):
-            uv = edge_units[i]['uv']
-            xy = edge_units[i]['xy']
+        edge_units = [['u', 'x'], ['v', 'y']]
+        for i in range(2):
+            uv, xy = edge_units[i]
+            print("Vertex %s coords:" % uv.upper())
+            v_uv and print(v_uv[i])
+            print("Vertex %s coords:" % xy.upper())
+            v.co and print((obj.matrix_world * v.co)[i])
             if edges[uv][0] is None or v_uv[i] < edges[uv][0]:
                 edges[uv][0] = v_uv[i]
-                edges[xy][0] = obj.matrix_world * v.co[i]
+                edges[xy][0] = (obj.matrix_world * v.co)[i]
             if edges[uv][1] is None or v_uv[i] > edges[uv][1]:
                 edges[uv][1] = v_uv[i]
-                edges[xy][1] = obj.matrix_world * v.co[i]
+                edges[xy][1] = (obj.matrix_world * v.co)[i]
+            print(edges[uv][0])
+            print(edges[uv][1])
     print("\n\nUV Extreme Edges:")
     print(edges)
     return edges
