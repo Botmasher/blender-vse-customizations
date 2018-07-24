@@ -110,8 +110,6 @@ def get_edge_vertices_uv_xy(obj, cam):
             if edges[uv][1] is None or v_uv[i] > edges[uv][1]:
                 edges[uv][1] = v_uv[i]
                 edges[xy][1] = (obj.matrix_world * v.co)[i]
-            print(edges[uv][0])
-            print(edges[uv][1])
     print("\n\nUV Extreme Edges:")
     print(edges)
     return edges
@@ -122,7 +120,7 @@ def is_clamped(r=[], r_min=0.0, r_max=1.0):
         return True
     return False
 
-def ratio_scale_to_uv(width_u, height_v):
+def ratio_scale_to_uv(width_u, height_v, downscale_factor):
     """Calculate scaledown UV width and height to fit within render UV"""
     # normalize <0 and >1 overflows (rendered UV points are in range 0-1)
     overscale_x = width_u - 1.0
@@ -132,7 +130,8 @@ def ratio_scale_to_uv(width_u, height_v):
     # already properly scaled
     if overscale <= 0: return 1.0
     # needs scaled
-    return 1.0 + overscale * 2.0   # double to account for both sides
+    downscale = 1.0 + overscale * 2.0   # double to account for both sides
+    return downscale * downscale_factor
 
 def move_vertices_to_uv(obj, width_u, height_v, edges):
     """Move a viewport-sized object entirely within render UV"""
@@ -140,6 +139,8 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
     edges_uv_flat = edges['u'] + edges['v']
     dimensions_uv = {'w': width_u, 'h': height_v}
     #dimensions_xy = {'w': edges['x'][1] - edges['x'][0], 'h': edges['y'][1] - edges['y'][1]}
+    print(dimensions_uv)
+    print(edges_uv_flat)
 
     # object fully in view - does not need moved
     if is_clamped(r=edges_uv_flat, r_min=0.0, r_max=1.0):
@@ -151,13 +152,16 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
     target_uv = {'u': {}, 'v': {}}      # render (shape) space
     target_xy = {'x': {}, 'y': {}}      # world (form) space
     for d in dimensions_uv.keys():
-        mapping_coord = 'u' if d == 'w' else 'v'
-        target_uv[mapping_coord]['low'] = (1 - dimensions_uv[d]) / 2
-        target_uv[mapping_coord]['high'] = dimensions_uv[d]
+        print(d)
+        uv = 'u' if d == 'w' else 'v'
+        margin_uv = (1 - dimensions_uv[d]) / 2   # centering between both sides
+        target_uv[uv]['low'] = margin_uv
+        target_uv[uv]['high'] = margin_uv + dimensions_uv[d]
         # new x,y point at bottom left = (obj_xy / obj_uv) * new_target_uv
-        axis = 'x' if d == 'w' else 'y'
-        target_xy[axis]['high'] = (edges[axis][1] / edges[mapping_coord][1]) * target_uv[mapping_coord]['high']
-        target_xy[axis]['low'] = (edges[axis][0] / edges[mapping_coord][0]) * target_uv[mapping_coord]['low']
+        xy = 'x' if d == 'w' else 'y'
+        target_xy[xy]['high'] = (edges[xy][1] / edges[uv][1]) * target_uv[uv]['high']
+        target_xy[xy]['low'] = (edges[xy][0] / edges[uv][0]) * target_uv[uv]['low']
+    print(target_xy)
 
     # calculate object XY translation
     new_xy = {}
@@ -167,14 +171,13 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
         new_xy[axis] = getattr(obj.location, axis) + new_delta
 
     ratio_scale = new_xy['x'], new_xy['y'], obj.location.z
-    print(ratio_scale)
     return ratio_scale
 
 # Fit based on vertex extremes NOT object center
 # - calculate obj vertex X-Y extremes
 # - figure out their center and distance
 # - use the VERTEX center to align object in cam
-def fit_vertices_to_frustum(obj, cam, move=True, calls_remaining=10):
+def fit_vertices_to_frustum(obj, cam, move=True, scale_factor=1.0):
     if not has_mesh(obj) or not is_camera(cam) or len(obj.data.vertices) < 1:
         return
 
@@ -189,11 +192,12 @@ def fit_vertices_to_frustum(obj, cam, move=True, calls_remaining=10):
     width = edges['u'][1] - edges['u'][0]
     height = edges['v'][1] - edges['v'][0]
 
-    obj.scale /= ratio_scale_to_uv(width, height) * 1.0
+    obj.scale /= ratio_scale_to_uv(width, height, scale_factor)
 
     if move:
         move_pos = move_vertices_to_uv(obj, width, height, edges)
-        obj.location = move_pos if move_pos else obj.location
+        print(move_pos)
+        #obj.location = move_pos if move_pos else obj.location
 
     return obj
 
