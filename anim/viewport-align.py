@@ -147,6 +147,13 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
         print("Viewport Align - not moving object already fully in view")
         return
 
+    # TODO: calc XY move from vert not from all space
+    # - e.g. getting to U=0.3 will be different for a point at -0.3u, -0.3x at different depths
+    # - e.g. getting to V=0.3 will differ for a point at 0.2v, 0.2y at different Z
+    def test_vertex_calc(u, v, x, y):
+        # NOTE if can't calc with these vals for a point, currently can't move correctly
+        return
+
     # map point pos from UV to XY
     # anchor to viewport bottom left leaving margin on all sides
     target_uv = {'u': {}, 'v': {}}      # render (shape) space
@@ -155,8 +162,11 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
         print(d)
         uv = 'u' if d == 'w' else 'v'
         margin_uv = (1 - dimensions_uv[d]) / 2   # centering between both sides
+        print("margin on %s side: %s" % (uv, margin_uv))
         target_uv[uv]['low'] = margin_uv
         target_uv[uv]['high'] = margin_uv + dimensions_uv[d]
+        print("2 margins plus body: %s" % (margin_uv + dimensions_uv[d] + margin_uv))
+
         # new x,y point at bottom left = (obj_xy / obj_uv) * new_target_uv
         xy = 'x' if d == 'w' else 'y'
         target_xy[xy]['high'] = (edges[xy][1] / edges[uv][1]) * target_uv[uv]['high']
@@ -169,6 +179,8 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
         if axis not in ['x', 'y']: raise Exception("Viewport Align failed to move object {0} along {1} axis".format(obj, axis))
         new_delta = target_xy[axis]['high'] - target_xy[axis]['low']
         new_xy[axis] = getattr(obj.location, axis) + new_delta
+
+    print(new_xy)
 
     ratio_scale = new_xy['x'], new_xy['y'], obj.location.z
     return ratio_scale
