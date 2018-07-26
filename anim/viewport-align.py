@@ -152,6 +152,7 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
     # - e.g. getting to V=0.3 will differ for a point at 0.2v, 0.2y at different Z
     def test_vertex_calc(u, v, x, y):
         # NOTE if can't calc with these vals for a point, currently can't move correctly
+        # NOTE find center of cam uv and translate to xy as point of comparison
         return
 
     # map point pos from UV to XY
@@ -205,6 +206,9 @@ def fit_vertices_to_frustum(obj, cam, move=True, scale_factor=1.0):
     height = edges['v'][1] - edges['v'][0]
 
     obj.scale /= ratio_scale_to_uv(width, height, scale_factor)
+
+    # TODO calc XY center of render viewport where UV (0.5, 0.5)
+    # - this may be a line along global X,Y coords (see centering cam method)
 
     if move:
         move_pos = move_vertices_to_uv(obj, width, height, edges)
