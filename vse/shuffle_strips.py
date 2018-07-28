@@ -7,26 +7,24 @@ from random import shuffle
 ## Used for giving variation to repetitive animations like typing or background talking
 
 # TODO:
+# - currently iterating over selected strips multiple times
+#   - consider what can be done in selected_strips()
 # - subshuffle just within blocks of strips
 # - optionally move strips into same channel (on base shuffle not by channel)
-#
 
 def move_strips_away(strips):
-    initial_start_frame = None
+    """Move sequences out of the way to make space for easy reordering"""
+    # /!\ break risk: very long strips or many h of strips
     for s in strips:
-        if not initial_start_frame or s.frame_start < initial_start_frame:
-            initial_start_frame = s.frame_start
-        # TODO instead of moving strips, store current and future placement
-        # then consider other workarounds like shrinking/hiding/other
-        s.frame_start -= 999999     # move all strips out of the way
-    return initial_start_frame
+        s.frame_start += 999999
+    return strips
 
 def swap_two_strips(strip_1, strip_2):
     """Switch the start frame and the channel of two strips"""
     swap_frames = [strip_1.frame_start, strip_2.frame_start]
     swap_channels = [strip_1.channel, strip_2.channel]
     # move one out of the way
-    strip_1.frame_start += -999999     # /!\ break risk: very long strips or many h of strips
+    move_strips_away([strip_1])
     # swap
     strip_2.frame_start = swap_frames[0]
     strip_2.channel = swap_channels[0]
@@ -39,14 +37,12 @@ def shuffle_strips(strips):
     if not strips or len(strips) < 2: return
     strips = sorted(strips, key=lambda x: x.frame_start)
     start_frame = strips[0].frame_start
-    shuffled_strips = strips[:]
-    shuffle(shuffled_strips)
-    for i in range(len(shuffled_strips)):
-        current_strip = strips[i]
-        target_strip = shuffled_strips[i]
-        swap_two_strips(current_strip, target_strip)
-        #strip.frame_start = start_frame
-        #start_frame += strip.frame_final_duration
+    #shuffled_strips = strips[:]
+    move_strips_away(strips)
+    shuffle(strips)
+    for strip in strips:
+        strip.frame_start = start_frame
+        start_frame += strip.frame_final_duration
     return strips
 
 def shuffle_strips_by_channel(strips):
