@@ -1,11 +1,15 @@
 import bpy
 from random import shuffle
 
-
-## TODO: split by channel
-## TODO: ? subshuffle just within blocks of strips
-
 ## Shuffle Selected Strips
+##
+## Perform a pseudorandom reordering of selected VSE sequences
+## Used for giving variation to repetitive animations like typing or background talking
+
+# TODO:
+# - subshuffle just within blocks of strips
+# - optionally move strips into same channel (on base shuffle not by channel)
+#
 
 def move_strips_away(strips):
     initial_start_frame = None
@@ -17,16 +21,36 @@ def move_strips_away(strips):
         s.frame_start -= 999999     # move all strips out of the way
     return initial_start_frame
 
+def swap_two_strips(strip_1, strip_2):
+    """Switch the start frame and the channel of two strips"""
+    swap_frames = [strip_1.frame_start, strip_2.frame_start]
+    swap_channels = [strip_1.channel, strip_2.channel]
+    # move one out of the way
+    strip_1.frame_start += -999999     # /!\ break risk: very long strips or many h of strips
+    # swap
+    strip_2.frame_start = swap_frames[0]
+    strip_2.channel = swap_channels[0]
+    strip_1.frame_start = swap_frames[1]
+    strip_1.channel = swap_channels[1]
+    return (strip_1, strip_2)
+
 def shuffle_strips(strips):
+    """Reorder sequences pseudorandomly along timeline"""
+    if not strips or len(strips) < 2: return
     strips = sorted(strips, key=lambda x: x.frame_start)
-    start_frame = move_strips_away(strips)
-    shuffle(strips)
-    for s in strips:
-        s.frame_start = start_frame
-        start_frame += s.frame_final_duration
+    start_frame = strips[0].frame_start
+    shuffled_strips = strips[:]
+    shuffle(shuffled_strips)
+    for i in range(len(shuffled_strips)):
+        current_strip = strips[i]
+        target_strip = shuffled_strips[i]
+        swap_two_strips(current_strip, target_strip)
+        #strip.frame_start = start_frame
+        #start_frame += strip.frame_final_duration
     return strips
 
 def shuffle_strips_by_channel(strips):
+    """Reorder sequences in the same channel pseudorandomly along timeline"""
     strips_by_channel = {}
     for strip in strips:
         if not strip.channel in strips_by_channel:
@@ -37,6 +61,14 @@ def shuffle_strips_by_channel(strips):
         shuffle_strips(channel_strips)
     return strips_by_channel
 
-strips = [s for s in bpy.context.scene.sequence_editor.sequences if s.select]
-#start_frame = min([s.frame_start for s in strips])
-shuffle_strips(strips)
+def selected_strips(same_type=False, strip_type=''):
+    """List all currently selected sequences"""
+    strips = []
+    for s in bpy.context.scene.sequence_editor.sequences:
+        if s.select:
+            if same_type and s.type != strip_type:
+                continue
+            strips.append(s)
+    return strips
+
+shuffle_strips_by_channel(selected_strips())
