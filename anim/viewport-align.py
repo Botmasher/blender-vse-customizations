@@ -186,6 +186,55 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
     ratio_scale = new_xy['x'], new_xy['y'], obj.location.z
     return ratio_scale
 
+
+# TODO: rework movement
+# - calculate edge vertices (incl uv and xy placement) after scale
+#   - can rely on existing method above?
+# - move to center using vertex uv & xy and cam current xy
+#   - obj is centered visually to uv
+#   - uv extremes account for margins: (1, 1) = (2*margin + w, 2*margin + h)
+
+def determine_vertex_extremes(obj):
+    """Calculate the most distant vertices """
+    edges = {'u': [], 'v': [], 'x': [], 'y': []}
+    # TODO calc extremes
+    # - uv extremes are farthest from viewport center (0.5, 0.5)
+    # - xy extremes just match the point
+    #   - not highest XY values vs cam center
+    return edges
+
+def compare_abs_values_return_rel_values(a=[], b=None, origin=0):
+    """Find the farthest of two values from origin"""
+    if not b:
+        # compare both elements of a two-element list
+        if isinstance(a, list) and len(a) == 2:
+            return a[0] if abs(a[0] - origin) > abs(a[1] - origin) else a[1]
+        else:
+            return None     # exception:
+    # compare two values
+    return a if abs(a - origin) > abs(b - origin) else b
+
+def calc_move_vertex_to_pivot_xy_cam_center(cam, vertex_uv_xy):
+    """Translate vertex from an extreme UV point to a new XY based on camera XY
+    vertex_uv_xy = {'u': [0,1], 'v': , 'xy': [0,1]}
+    """
+    # X distance from cam
+    cam_u = 0.5
+    obj_u = vertex_uv_xy['u'][0] if abs(vertex_uv_xy['u'][0]) > abs(vertex_uv_xy['u'][1]) else vertex_uv_xy['u'][1]
+    u_dist = cam_u - obj_u
+    # Y distance from cam
+    cam_v = 0.5
+    obj_v = vertex_uv_xy['v'][0] if abs(vertex_uv_xy['v'][0]) > abs(vertex_uv_xy['v'][1]) else vertex_uv_xy['v'][1]
+    v_dist = cam_v - obj_v
+
+    dist_from_cam = [u_dist, v_dist]    # uv sign and mag
+    # TEST: move vertex to cam center
+    cam_u_to_x = 0.5 / cam.location.x
+    cam_v_to_x = 0.5 / cam.location.y
+    obj.location = (obj.location.x + dist_from_cam[0], obj.location.y + dist_from_cam[1], obj.location.z)
+    return obj
+
+
 # Fit based on vertex extremes NOT object center
 # - calculate obj vertex X-Y extremes
 # - figure out their center and distance
