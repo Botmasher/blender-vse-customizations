@@ -2,7 +2,7 @@ import bpy
 from mathutils import Matrix
 import bpy_extras
 
-#3 Align Object in Camera Viewport
+## Align Object in Camera Viewport
 ##
 ## Blender Python script by Josh R (GitHub user Botmasher)
 
@@ -17,6 +17,11 @@ import bpy_extras
 #   - account for all points (or just normals) in mesh
 
 # TODO align non-mesh objects like text (or separate?)
+
+def get_current_cam_and_obj(scene=bpy.context.scene):
+    cam = scene.camera
+    obj = scene.objects.active
+    return (cam, obj)
 
 def is_translatable(*objs):
     """Determine if the object exists and is movable"""
@@ -186,7 +191,6 @@ def move_vertices_to_uv(obj, width_u, height_v, edges):
     ratio_scale = new_xy['x'], new_xy['y'], obj.location.z
     return ratio_scale
 
-
 # TODO: rework movement
 # - calculate edge vertices (incl uv and xy placement) after scale
 #   - can rely on existing method above?
@@ -214,26 +218,26 @@ def compare_abs_values_return_rel_values(a=[], b=None, origin=0):
     # compare two values
     return a if abs(a - origin) > abs(b - origin) else b
 
-def calc_move_vertex_to_pivot_xy_cam_center(cam, vertex_uv_xy):
+def calc_move_vertex_to_pivot_xy_cam_center(vertex, cam, vertex_uv_xy):
     """Translate vertex from an extreme UV point to a new XY based on camera XY
     vertex_uv_xy = {'u': [0,1], 'v': , 'xy': [0,1]}
     """
+    print(vertex_uv_xy)
     # X distance from cam
     cam_u = 0.5
-    obj_u = vertex_uv_xy['u'][0] if abs(vertex_uv_xy['u'][0]) > abs(vertex_uv_xy['u'][1]) else vertex_uv_xy['u'][1]
+    obj_u = vertex_uv_xy['u']   # compare_abs_values_return_rel_values(vertex_uv_xy['u'])
     u_dist = cam_u - obj_u
     # Y distance from cam
     cam_v = 0.5
-    obj_v = vertex_uv_xy['v'][0] if abs(vertex_uv_xy['v'][0]) > abs(vertex_uv_xy['v'][1]) else vertex_uv_xy['v'][1]
+    obj_v = vertex_uv_xy['v']   # compare_abs_values_return_rel_values(vertex_uv_xy['v'])
     v_dist = cam_v - obj_v
 
     dist_from_cam = [u_dist, v_dist]    # uv sign and mag
     # TEST: move vertex to cam center
-    cam_u_to_x = 0.5 / cam.location.x
-    cam_v_to_x = 0.5 / cam.location.y
+    cam_u_x = cam.location.x / 0.5
+    cam_v_x = cam.location.y / 0.5
     obj.location = (obj.location.x + dist_from_cam[0], obj.location.y + dist_from_cam[1], obj.location.z)
-    return obj
-
+    return vertex
 
 # Fit based on vertex extremes NOT object center
 # - calculate obj vertex X-Y extremes
@@ -266,56 +270,15 @@ def fit_vertices_to_frustum(obj, cam, move=True, scale_factor=1.0):
 
     return obj
 
-# test
-fit_vertices_to_frustum(bpy.context.object, bpy.context.scene.camera)
-
 # TODO allow stretch (non-uniform scale)
 # TODO move instead of scale if object could fit
 #   - may want to move if object center is outside frustum
 #   - alternatively guard check if obj inside frustum in the first place
-def fit_to_frustum(obj, cam=bpy.context.scene.camera, move_into_view=True, margin=0.0, distance=5.0, distort=False):
-    if not has_mesh(obj) or not is_camera(cam):
-        return
-    vertex_extremes = [0.0, 0.0, 0.0]
-    # calculate mesh vertices far outside of viewport
-    # TODO rework calculations here to store XY excess only at this step
-    overflow_high = 0.0
-    move_loc = obj.location
-    for vertex in obj.data.vertices:
-        uvz = get_frustum_loc(obj.matrix_world * vertex.co, cam=cam)
-        # shallow Z location closest to camera (negative is behind)
-        if uvz[2] < 0 and abs(uvz[2]) > abs(vertex_extremes[2]):
-            # TODO handle Z index behind cam
-            # use high negative w to move object in front of cam and recurse for u,v
-            # move into cam view and retry
-            center_in_cam_view(obj=obj, cam=cam, distance=distance)
-            return fit_to_frustum(obj, cam=cam, move_into_view=False, margin=margin, distance=distance, distort=distort)
-        # cut off and store excess (outside range 0-1)
-        overflows = [max(0, d - 1.0) if d > 0 else d for d in uvz]
-        # keep track of highest excess found so far
-        vertex_extremes = [overflows[i] if abs(overflows[i]) > abs(vertex_extremes[i]) else vertex_extremes[i] for i in range(len(vertex_extremes))]
-    # farthest XY locations outside UV render frame
-    overflow_high = max(abs(overflows[0]), abs(overflows[1]))
 
-    # use high UV to rescale object
-    # TODO check meshes entirely out of viewport (move into view?)
-    # adjust calc so mesh ends up fully inside (see vertex loop at top of method)
-    # EITHER    double change to account for both sides (e.g. top AND bottom)
-    # OR        move in opposite direction
-    overflow_high *= 2              # account for excess on both sides
-    obj.scale /= 1 + overflow_high
-    #obj.location = move_loc        # move for both sides
-
-    print("\nObj vertices in render space: {0}".format(vertex_extremes))
-    print("Attempting to adjust by {0}".format(overflow_high))
-
-    ## TODO move realign
-    ##  - center first, check again then move
-    ##  - centering first above avoids dealing with outside values
-    #for i in range(len(vertex_extremes)):
-    #    move_loc[i] *= vertex_extremes[i]
-
-    return vertex_extremes
-
-# test
-#fit_to_frustum(bpy.context.object, margin=1.0)
+# test runs
+#fit_vertices_to_frustum(bpy.context.object, bpy.context.scene.camera)
+cam, obj = get_current_cam_and_obj()
+obj_edges = get_edge_vertices_uv_xy(obj, cam)
+# reduce to only most extreme val
+obj_edges = {k: compare_abs_values_return_rel_values(v) for (k, v) in obj_edges.items()}
+calc_move_vertex_to_pivot_xy_cam_center(obj, cam, obj_edges)
