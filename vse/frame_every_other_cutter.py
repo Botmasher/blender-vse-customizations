@@ -22,6 +22,12 @@ def deselect_strips():
         select_strip(strip, deselect=True)
     bpy.context.scene.sequence_editor.active_strip = None
 
+def activate_lone_strip(strip):
+    deselect_strips()
+    select_strip(strip)
+    bpy.context.scene.sequence_editor.active_strip = strip
+    return strip
+
 def remove_strip(strip):
     select_strip(strip)
     bpy.context.scene.sequence_editor.active_strip = strip
@@ -47,21 +53,34 @@ def every_other_group_cut(strips):
         toggle = not odds
     return strips_remaining
 
-def every_other_frame_cut(strip, interval=1):
+def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, interval=1):
     if not strip or not hasattr(strip, ['frame_start']) or interval < 1:
         return
     strips_remaining = []
     toggle = False
     deselect_strips()
-    select_strip(strip)
+    activate_lone_strip(strip)
+    frame = bpy.context.scene.frame_current
+
+    # subcut strip and checker cut
     for frame_group in range(len(strip.frames) / interval):
-        # TODO
         # move ahead interval frames
+        bpy.context.scene.frame_current += interval
         # hard cut strip
+        orig_end_length = strip.frame_final_duration
+        strip_two = bpy.context.scene.sequences.new(name=strip.name)
+        strip_two.frame_final_duration = orig_end_length - bpy.context.scene.frame_current - strip.frame_start
         # move ahead interval frames
+        bpy.context.scene.frame_current += interval
         # hard cut strip
+        new_uncut_strip = bpy.context.scene.sequences.new(name=strip.name)
+        new_uncut_strip.frame_final_duration = strip.frame_final_duration
+        strip.frame_final_duration = bpy.context.scene.frame_current - strip.frame_start
         # select second new strip
+        activate_lone_strip(strip_two)
         # remove second new strip
+        bpy.ops.sequencer.remove()
+        deselect_strips()
 
         # only one more noncut strip left
         if bpy.context.scene.frame_current + interval > strip.frame_start + strip.length:
@@ -69,9 +88,10 @@ def every_other_frame_cut(strip, interval=1):
             break
 
         # only one more noncut + another tocut strip left
-        if bpy.context.scene.frame_current + interval * 2 > strip.frame_start + strip.length:
+        # NOTE case handled by loop
+        #if bpy.context.scene.frame_current + interval * 2 > strip.frame_start + strip.length:
             # cut between the two, delete the second, then end
-            break
+        #    break
 
         continue
 
