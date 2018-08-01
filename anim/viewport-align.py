@@ -302,11 +302,30 @@ def fit_vertices_to_frustum(obj, cam, move=True, scale_factor=1.0):
 #   - may want to move if object center is outside frustum
 #   - alternatively guard check if obj inside frustum in the first place
 
+def move_obj(obj, x=0, y=0, z=0):
+    if obj:
+        obj.location = (x, y, z)
+    return obj
+
+def move_vertex_to_cam(vert_data, obj, cam):
+    dist_u = 0.5 - vert_data['u']
+    dist_v = 0.5 - vert_data['v']
+    dist_x = cam.location.x - vert_data['x']
+    dist_y = cam.location.y - vert_data['y']
+    if dist_u == 0 or dist_v == 0:
+        return  # already at loc
+    obj.location.x += dist_x
+    obj.location.y += disy_y
+    move_obj(obj, x=dist_x, y=dist_y)
+    return vert
+
 # test runs
 #fit_vertices_to_frustum(bpy.context.object, bpy.context.scene.camera)
 cam, obj = get_current_cam_and_obj()
 obj_edges = get_edge_vertices_uv_xy(obj, cam)
 # reduce to only most extreme val
-if obj_edges:
-    obj_edges = {k: compare_abs_values_return_rel_values(v) for (k, v) in obj_edges.items()}
-    calc_move_vertex_to_pivot_xy_cam_center(obj, cam, obj_edges)
+#if obj_edges:
+#    obj_edges = {k: compare_abs_values_return_rel_values(v) for (k, v) in obj_edges.items()}
+#    calc_move_vertex_to_pivot_xy_cam_center(obj, cam, obj_edges)
+if obj_edges:   # selected obj
+    move_vertex_to_cam(obj_edges, obj, cam)
