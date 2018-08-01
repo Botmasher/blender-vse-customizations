@@ -227,16 +227,43 @@ def calc_move_vertex_to_pivot_xy_cam_center(vertex, cam, vertex_uv_xy):
     cam_u = 0.5
     obj_u = vertex_uv_xy['u']   # compare_abs_values_return_rel_values(vertex_uv_xy['u'])
     u_dist = cam_u - obj_u
+    x_dist = vertex_uv_xy['x'] - cam.location.x
+
     # Y distance from cam
     cam_v = 0.5
     obj_v = vertex_uv_xy['v']   # compare_abs_values_return_rel_values(vertex_uv_xy['v'])
     v_dist = cam_v - obj_v
+    y_dist = vertex_uv_xy['y'] - cam.location.y
 
-    dist_from_cam = [u_dist, v_dist]    # uv sign and mag
-    # TEST: move vertex to cam center
-    cam_u_x = cam.location.x / 0.5
-    cam_v_x = cam.location.y / 0.5
-    obj.location = (obj.location.x + dist_from_cam[0], obj.location.y + dist_from_cam[1], obj.location.z)
+    margin_uv = {
+        'left': 0.2,
+        'right': 0.8,
+        'bottom': 0.2,
+        'top': 0.8,
+        'center': [0.5, 0.5]
+    }
+
+    # Ratio for mvmt space from vertex to cam
+
+    # account for 0.0 (no diff btwn cam loc and vertex loc)
+    if not v_dist or not u_dist:
+        print("unable to determine distance from cam center")
+        return
+    # for every unit u=1.0 move x=?
+    vertex_x_per_u = x_dist / u_dist
+    # for every unit v=1.0 move y=?
+    vertex_y_per_v = y_dist / v_dist
+
+    u_target = margin_uv['left']
+    v_target = margin_uv['bottom']
+    vertex_to_specific_x = vertex_x_per_u * (vertex_uv_xy['u'] - u_target)
+    vertex_to_specific_y = vertex_y_per_v * (vertex_uv_xy['v'] - v_target)
+
+    # TODO determine location of a fixed position relative to cam center (NOT obj)
+    (cam.location.x - u_target, cam.location.y - v_target)
+
+    obj.location = (cam.location.x - vertex_to_specific_x, cam.location.y - vertex_to_specific_y, obj.location.z)
+
     return vertex
 
 # Fit based on vertex extremes NOT object center
@@ -280,5 +307,6 @@ def fit_vertices_to_frustum(obj, cam, move=True, scale_factor=1.0):
 cam, obj = get_current_cam_and_obj()
 obj_edges = get_edge_vertices_uv_xy(obj, cam)
 # reduce to only most extreme val
-obj_edges = {k: compare_abs_values_return_rel_values(v) for (k, v) in obj_edges.items()}
-calc_move_vertex_to_pivot_xy_cam_center(obj, cam, obj_edges)
+if obj_edges:
+    obj_edges = {k: compare_abs_values_return_rel_values(v) for (k, v) in obj_edges.items()}
+    calc_move_vertex_to_pivot_xy_cam_center(obj, cam, obj_edges)
