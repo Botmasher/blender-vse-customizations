@@ -53,8 +53,17 @@ def every_other_group_cut(strips):
         toggle = not odds
     return strips_remaining
 
+def copy_strip(strip, create_new=None, channel=None, frame_start=None):
+    if not strip or not create_new:
+        return
+    path = strip.directory  # /!\ fails to load path for image sequence
+    channel = strip.channel if not channel else channel
+    frame_start = strip.frame_start if not frame_start else frame_start
+    new_strip = create_new(name=strip.name, filepath=path, channel=channel, frame_start=frame_start)
+    return new_strip
+
 def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, interval=1):
-    if not strip or not hasattr(strip, ['frame_start']) or interval < 1:
+    if not strip or not hasattr(strip, 'frame_start') or interval < 1:
         return
     strips_remaining = []
     toggle = False
@@ -62,18 +71,29 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
     activate_lone_strip(strip)
     frame = bpy.context.scene.frame_current
 
+    # store method for creating substrip copies of same strip type
+    strip_type = strip.type.lower()
+    create_strip = getattr(bpy.context.scene.sequence_editor.sequences, 'new_{0}'.format(strip_type))
+
     # subcut strip and checker cut
-    for frame_group in range(len(strip.frames) / interval):
+    # TODO verify range includes cut within final incomplete interval
+    substrips_count = int(strip.frame_final_duration / interval)   # how many frame groups
+    for substrip_i in range(substrips_count):
+
+        # TODO use ops to duplicate to keep loaded images
+        #bpy.ops.sequencer.duplicate()
+        #new_strip = bpy.context.scene.sequence_editor.active_strip
+
         # move ahead interval frames
         bpy.context.scene.frame_current += interval
         # hard cut strip
         orig_end_length = strip.frame_final_duration
-        strip_two = bpy.context.scene.sequences.new(name=strip.name)
+        strip_two = copy_strip(strip, create_new=create_strip, channel=5, frame_start=bpy.context.scene.frame_current)
         strip_two.frame_final_duration = orig_end_length - bpy.context.scene.frame_current - strip.frame_start
         # move ahead interval frames
         bpy.context.scene.frame_current += interval
         # hard cut strip
-        new_uncut_strip = bpy.context.scene.sequences.new(name=strip.name)
+        new_uncut_strip = create_strip(name=strip.name)
         new_uncut_strip.frame_final_duration = strip.frame_final_duration
         strip.frame_final_duration = bpy.context.scene.frame_current - strip.frame_start
         # select second new strip
@@ -87,12 +107,8 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
             # done cutting
             break
 
-        # only one more noncut + another tocut strip left
-        # NOTE check case handled by loop
-        #if bpy.context.scene.frame_current + interval * 2 > strip.frame_start + strip.length:
-            # cut between the two, delete the second, then end
-        #    break
-
         continue
 
-every_other_cut(bpy.context.scene.sequence_editor.sequences)
+strips = [strip for strip in bpy.context.scene.sequence_editor.sequences if strip.select]
+len(strips) == 1 and every_other_frame_cut(bpy.context.scene.sequence_editor.active_strip)
+#len(strips) > 1 and every_other_group_cut(bpy.context.scene.sequence_editor.sequences)
