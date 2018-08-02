@@ -3,7 +3,7 @@ import re
 from mathutils import Vector
 
 # Autoconfigure project from dict
-# by GitHub user Botmasher (Joshua R) 
+# by GitHub user Botmasher (Joshua R)
 #
 # Adjust settings and create and delete elements based on a single config dictionary.
 #
@@ -180,7 +180,7 @@ class Autoconfig_Anim:
 
 	def autoset_attributes(self, v, k=None, attr_chain=bpy):
 		"""Iterate through subdictionaries to configure find and set Blender attributes
-		
+
 		Current setup supports chaining (sub)attributes to either indices or attributes,
 		but only assigning values to attributes.
 
@@ -218,7 +218,7 @@ class Autoconfig_Anim:
 			return attr_chain
 		# node is a nested dict: chain the attr and look for subattr values
 		if k is not None:
-			bracketed = self.try_key_or_index(k, attr_chain)		
+			bracketed = self.try_key_or_index(k, attr_chain)
 			if bracketed is not None:
 				attr_chain = attr_chain[bracketed]
 			else:

@@ -62,6 +62,70 @@ def copy_strip(strip, create_new=None, channel=None, frame_start=None):
     new_strip = create_new(name=strip.name, filepath=path, channel=channel, frame_start=frame_start)
     return new_strip
 
+# TODO: break out area ops exec into own script
+def switch_area(area=bpy.context.scene.area, area_type=None):
+    if not old_area or not area_type:
+        return
+    try:
+        old_type = area.type
+        area.type = area_type
+    except:
+        raise Exception("Unknown area {0} or area type {1}".format(area, area_type))
+    return old_type
+
+def switch_areas_run_op(op, params=[]):
+    """Run a contextual operation in the associated area"""
+
+    # TODO: fill out accounting for every ops attr
+    ops_areas_map = {
+        'view3d': 'VIEW_3D',
+        'time': 'TIMELINE',
+        'graph': 'GRAPH_EDITOR',
+        'action': 'DOPESHEET_EDITOR',
+        'nla': 'NLA_EDITOR',
+        'image': 'IMAGE_EDITOR',
+        'clip': 'CLIP_EDITOR',
+        'sequencer': 'SEQUENCE_EDITOR',
+        'node': 'NODE_EDITOR',
+        'text': 'TEXT_EDITOR',
+        'logic': 'LOGIC_EDITOR',
+        'buttons': 'PROPERTIES',    # /!\ render, buttons, object and many other ops here
+        'outliner': 'OUTLINER',
+        'wm': 'USER',
+        # other proposed maps
+        'object': 'VIEW_3D',    # or 'PROPERTIES'?
+        'material': 'VIEW_3D',  # or 'PROPERTIES'?
+        'texture': 'VIEW_3D'    # or 'PROPERTIES'?
+    }
+
+    # determine run area and swap areas
+    op_id = op.idname_py()
+    op_key = op_id.split('.', 1)[0]
+    new_area = ops_areas_map[op_key]
+    old_area = switch_area(area_type=new_area)
+
+    # run op
+    if params:
+        op(*params)
+    else:
+        op()
+
+    # revert to original area
+    switch_area(area_type=old_area)
+
+    return 0
+
+def switch_areas_run_method(area, method, params=[]):
+    """Run a method with the current context switched to the target area"""
+    old_area = switch_area(area_type=area)
+    res = None
+    if params:
+        res = method(*params)
+    else:
+        res = method()
+    switch_area(area_type=old_area)
+    return res
+
 def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, interval=1):
     if not strip or not hasattr(strip, 'frame_start') or interval < 1:
         return

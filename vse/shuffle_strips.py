@@ -9,6 +9,7 @@ from random import shuffle
 # TODO:
 # - currently iterating over selected strips multiple times
 #   - consider what can be done in selected_strips()
+# - maybe leverage bpy.ops.sequencer.swap to shuffle
 # - subshuffle just within blocks of strips
 # - optionally move strips into same channel (on base shuffle not by channel)
 

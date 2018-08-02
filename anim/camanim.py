@@ -11,7 +11,7 @@ from bpy.props import *
 ## Automatic camera animation along those markers.
 ##
 
-# TODO chck that replace_current_markers and remove_current_markers do not break cycling or placement
+# TODO check that replace_current_markers and remove_current_markers do not break cycling or placement
 
 # TODO adjust all markers, or all markers following currently selected one
 
@@ -32,8 +32,6 @@ def get_scene_cameras():
 		if obj.type == 'CAMERA':
 			cams.append(obj)
 	return cams
-
-print(get_scene_cameras())
 
 # UI props for setting keyframing params
 def setup_cam_ui_props():
