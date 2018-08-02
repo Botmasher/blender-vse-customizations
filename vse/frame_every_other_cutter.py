@@ -62,6 +62,7 @@ def copy_strip(strip, create_new=None, channel=None, frame_start=None):
     new_strip = create_new(name=strip.name, filepath=path, channel=channel, frame_start=frame_start)
     return new_strip
 
+## Switch ops areas
 # TODO: break out area ops exec into own script
 def switch_area(area=bpy.context.scene.area, area_type=None):
     if not old_area or not area_type:
@@ -76,7 +77,7 @@ def switch_area(area=bpy.context.scene.area, area_type=None):
 def switch_areas_run_op(op, params=[]):
     """Run a contextual operation in the associated area"""
 
-    # TODO: fill out accounting for every ops attr
+    # TODO: account for every ops attr
     ops_areas_map = {
         'view3d': 'VIEW_3D',
         'time': 'TIMELINE',
@@ -119,12 +120,11 @@ def switch_areas_run_method(area, method, params=[]):
     """Run a method with the current context switched to the target area"""
     old_area = switch_area(area_type=area)
     res = None
-    if params:
-        res = method(*params)
-    else:
-        res = method()
+    res = method(*params) if params else method()
     switch_area(area_type=old_area)
     return res
+
+## END switch ops areas
 
 def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, interval=1):
     if not strip or not hasattr(strip, 'frame_start') or interval < 1:
@@ -142,27 +142,45 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
     # subcut strip and checker cut
     # TODO verify range includes cut within final incomplete interval
     substrips_count = int(strip.frame_final_duration / interval)   # how many frame groups
+
+    strips = [strip]
+
     for substrip_i in range(substrips_count):
 
-        # TODO use ops to duplicate to keep loaded images
-        #bpy.ops.sequencer.duplicate()
-        #new_strip = bpy.context.scene.sequence_editor.active_strip
+        # copy strip as first strip
+        # use ops to duplicate to keep loaded images
+        activate_lone_strip(strips[0])
+        switch_areas_run_op(bpy.ops.sequencer.duplicate)
+        new_strip = bpy.context.scene.sequence_editor.active_strip
+        strips.append(strip)
 
         # move ahead interval frames
         bpy.context.scene.frame_current += interval
         # hard cut strip
         orig_end_length = strip.frame_final_duration
-        strip_two = copy_strip(strip, create_new=create_strip, channel=5, frame_start=bpy.context.scene.frame_current)
-        strip_two.frame_final_duration = orig_end_length - bpy.context.scene.frame_current - strip.frame_start
+
+        # create new first strip
+        #strip_two = copy_strip(strip, create_new=create_strip, channel=5, frame_start=bpy.context.scene.frame_current)
+        #strip_two.frame_final_duration = orig_end_length - bpy.context.scene.frame_current - strip.frame_start
+
         # move ahead interval frames
         bpy.context.scene.frame_current += interval
-        # hard cut strip
-        new_uncut_strip = create_strip(name=strip.name)
-        new_uncut_strip.frame_final_duration = strip.frame_final_duration
-        strip.frame_final_duration = bpy.context.scene.frame_current - strip.frame_start
-        # select second new strip
+
+        # copy strip as second strip
+        activate_lone_strip(new_strip)
+        switch_areas_run_op(bpy.ops.sequencer.duplicate)
+        new_strip = bpy.context.scene.sequence_editor.active_strip
+        strips.append(strip)
+
+        # create new second strip to cut
+        #new_uncut_strip = create_strip(name=strip.name)
+        #new_uncut_strip.frame_final_duration = strip.frame_final_duration
+        #strip.frame_final_duration = bpy.context.scene.frame_current - strip.frame_start
+
+        # select second strip
         activate_lone_strip(strip_two)
-        # remove second new strip
+
+        # remove second strip
         bpy.ops.sequencer.remove()
         deselect_strips()
 
