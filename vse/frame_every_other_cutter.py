@@ -74,10 +74,9 @@ def switch_area(area=bpy.context.area, area_type=None):
         raise Exception("Unknown area {0} or area type {1}".format(area, area_type))
     return old_type
 
-def switch_areas_run_op(op, params=[]):
+def switch_areas_run_op(op):
     """Run a contextual operation in the associated area"""
 
-    # TODO: account for every ops attr
     ops_areas_map = {
         'view3d': 'VIEW_3D',
         'time': 'TIMELINE',
@@ -106,15 +105,12 @@ def switch_areas_run_op(op, params=[]):
     old_area = switch_area(area_type=new_area)
 
     # run op
-    if params:
-        op(*params)
-    else:
-        op()
+    op()
 
     # revert to original area
     switch_area(area_type=old_area)
 
-    return 0
+    return
 
 def switch_areas_run_method(area, method, params=[]):
     """Run a method with the current context switched to the target area"""
@@ -147,17 +143,18 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
     strips_remaining = []
     toggle = False
     deselect_strips()
-    activate_lone_strip(strip)
     bpy.context.scene.frame_current = strip.frame_start
 
     # subcut strip and checker cut
     # TODO verify range includes cut within final incomplete interval
     # TODO allow reverse (neg) strip traversal and checker cutting
-    substrips_count = int(strip.frame_final_duration / interval)   # how many frame groups
+    substrip_count = int(strip.frame_final_duration / interval)   # how many frame groups
 
     strips = [strip]
 
-    for substrip_i in range(substrips_count):
+    print("There are {0} substrips to checker cut".format(substrip_count))
+
+    for i in range(substrip_count):
 
         # Procedure to keep moving start frame of original strip back
         # while modifying duplicate substrips:
@@ -172,6 +169,8 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
         # 9. remove the "second" substrip
         # TODO condense this by toggling checkercut param each iteration
 
+        activate_lone_strip(strip)
+
         # move ahead interval frames
         bpy.context.scene.frame_current += interval
 
@@ -180,25 +179,35 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
         strips.append(first_strip)
 
         # cut first strip along interval
-        strip.frame_start = bpy.context.scene.frame_current
+        #strip.frame_start = bpy.context.scene.frame_current
         first_strip.frame_final_duration = bpy.context.scene.frame_current - first_strip.frame_start
+
+        # offset internal animation for frames
+        strip.frame_offset_start += interval
+        #strip.frame_offset_end = length - (interval * len(strips))
+
+        activate_lone_strip(strip)
 
         # move ahead interval frames
         bpy.context.scene.frame_current += interval
 
         # copy strip as second strip
-        second_strip = duplicate_strip(first_strip)
+        second_strip = duplicate_strip(strip)
         strips.append(second_strip)
 
         # cut second strip along doubled interval
-        strip.frame_start = bpy.context.scene.frame_current
+        #strip.frame_start = bpy.context.scene.frame_current
         second_strip.frame_final_duration = bpy.context.scene.frame_current - second_strip.frame_start
+
+        # TODO: move through intervals setting offsets instead
+        # offset internal animation for frames
+        strip.frame_offset_start += interval
 
         # select second strip
         activate_lone_strip(second_strip)
 
         # remove second strip
-        bpy.ops.sequencer.remove()
+        #switch_areas_run_op(bpy.ops.sequencer.delete)
         deselect_strips()
 
         # only one more noncut strip left
@@ -209,5 +218,5 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
         continue
 
 strips = [strip for strip in bpy.context.scene.sequence_editor.sequences if strip.select]
-len(strips) == 1 and every_other_frame_cut(bpy.context.scene.sequence_editor.active_strip)
+len(strips) == 1 and every_other_frame_cut(bpy.context.scene.sequence_editor.active_strip, interval=2)
 #len(strips) > 1 and every_other_group_cut(bpy.context.scene.sequence_editor.sequences)
