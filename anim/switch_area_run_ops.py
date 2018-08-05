@@ -4,7 +4,7 @@ import bpy
 
 def switch_area(new_area=None):
     area = bpy.context.area
-    if not area_target or area.type == new_area:
+    if not area or area.type == new_area:
         return
     old_area = area.type
     area.type = new_area
@@ -14,7 +14,6 @@ def switch_area(new_area=None):
     return switch_area_back
 
 def build_areas_map():
-    # TODO: account for every ops attr
     ops_areas_map = {
         'view3d': 'VIEW_3D',
         'time': 'TIMELINE',
@@ -30,6 +29,9 @@ def build_areas_map():
         'buttons': 'PROPERTIES',    # /!\ render, buttons, object and many other ops here
         'outliner': 'OUTLINER',
         'wm': 'USER',
+        'marker': 'SEQUENCE_EDITOR',
+        'screen': 'TIMELINE',
+        'transform': 'SEQUENCE_EDITOR',
         # other proposed maps
         'object': 'VIEW_3D',    # or 'PROPERTIES'?
         'material': 'VIEW_3D',  # or 'PROPERTIES'?
@@ -37,19 +39,28 @@ def build_areas_map():
     }
     return ops_areas_map
 
-def switch_areas_run_op(op, params=[]):
+def run_area_op(op_handler, name=None, params=[]):
     ops_areas = build_areas_map()
 
     # determine run area and swap areas
-    op_id = op.idname_py()
+    op_id = op_handler.idname_py()
     op_key = op_id.split('.', 1)[0]
     new_area = ops_areas[op_key]
     switchback = switch_area(new_area=new_area)
 
     # run op
-    res = op(*params) if params else op()
+    res = op_handler()
 
     # revert to original area
     switchback()
 
     return res
+
+def setup_op_handler(methods=[]):
+    def run_ops():
+        return [method() for method in methods]
+    return run_ops
+
+# test call
+handler = setup_op_handler([bpy.ops.marker.add])
+run_area_op(handler)
