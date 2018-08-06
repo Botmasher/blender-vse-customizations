@@ -187,6 +187,15 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
 
     return strips
 
-strips = [strip for strip in bpy.context.scene.sequence_editor.sequences if strip.select]
-len(strips) == 1 and every_other_frame_cut(bpy.context.scene.sequence_editor.active_strip, interval=3)
-#len(strips) > 1 and every_other_group_cut(bpy.context.scene.sequence_editor.sequences)
+def handle_strip_cuts(strips=[], use_selected=True):
+    if not strips and not use_selected:
+        return
+    if use_selected:
+        strips = [strip for strip in bpy.context.scene.sequence_editor.sequences if strip.select]
+    if len(strips) == 1:
+        every_other_frame_cut(bpy.context.scene.sequence_editor.active_strip, interval=3)
+    elif len(strips) > 1:
+        every_other_group_cut(bpy.context.scene.sequence_editor.sequences)
+    return strips
+
+handle_strip_cuts()
