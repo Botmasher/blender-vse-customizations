@@ -151,72 +151,42 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
     substrip_count = int(strip.frame_final_duration / interval)   # how many frame groups
 
     strips = [strip]
-
+    checker_cut = False
     print("There are {0} substrips to checker cut".format(substrip_count))
 
+    channel = strip.channel
+
     for i in range(substrip_count):
-
-        # Procedure to keep moving start frame of original strip back
-        # while modifying duplicate substrips:
-        # 1. move interval frames along original strip
-        # 2. duplicate original strip to "first" substrip
-        # 3. move start frame of original strip back to interval
-        # 4. set last frame of "first" substrip to current (intervaled) frame
-        # 5. move interval frames along original strip
-        # 6. move start frame of original strip back to doubled interval
-        # 7. duplicate original strip to "second" substrip
-        # 8. set last frame of "second" substrip to current (double intervaled) frame
-        # 9. remove the "second" substrip
-        # TODO condense this by toggling checkercut param each iteration
-
         activate_lone_strip(strip)
 
         # move ahead interval frames
         bpy.context.scene.frame_current += interval
 
         # copy strip as first strip
-        first_strip = duplicate_strip(strip)
-        strips.append(first_strip)
+        substrip = duplicate_strip(strip)
+        strips.append(substrip)
 
         # cut first strip along interval
-        #strip.frame_start = bpy.context.scene.frame_current
-        first_strip.frame_final_duration = bpy.context.scene.frame_current - first_strip.frame_start
+        strip.frame_start = bpy.context.scene.frame_current - interval
+        substrip.frame_final_duration = bpy.context.scene.frame_current - substrip.frame_start
 
         # offset internal animation for frames
-        strip.frame_offset_start += interval
-        #strip.frame_offset_end = length - (interval * len(strips))
+        strip.animation_offset_start += interval
+        strip.frame_start += interval
 
-        activate_lone_strip(strip)
-
-        # move ahead interval frames
-        bpy.context.scene.frame_current += interval
-
-        # copy strip as second strip
-        second_strip = duplicate_strip(strip)
-        strips.append(second_strip)
-
-        # cut second strip along doubled interval
-        #strip.frame_start = bpy.context.scene.frame_current
-        second_strip.frame_final_duration = bpy.context.scene.frame_current - second_strip.frame_start
-
-        # TODO: move through intervals setting offsets instead
-        # offset internal animation for frames
-        strip.frame_offset_start += interval
-
-        # select second strip
-        activate_lone_strip(second_strip)
+        # place in channel now that strips are cut
+        strip.channel = channel
+        substrip.channel = channel
 
         # remove second strip
-        #switch_areas_run_op(bpy.ops.sequencer.delete)
+        checker_cut and switch_areas_run_op(bpy.ops.sequencer.delete)
+        checker_cut = not checker_cut
+
         deselect_strips()
-
-        # only one more noncut strip left
-        #if bpy.context.scene.frame_current + interval > strip.frame_start + strip.length:
-            # done cutting
-        #    break
-
         continue
 
+    return strips
+
 strips = [strip for strip in bpy.context.scene.sequence_editor.sequences if strip.select]
-len(strips) == 1 and every_other_frame_cut(bpy.context.scene.sequence_editor.active_strip, interval=2)
+len(strips) == 1 and every_other_frame_cut(bpy.context.scene.sequence_editor.active_strip, interval=3)
 #len(strips) > 1 and every_other_group_cut(bpy.context.scene.sequence_editor.sequences)
