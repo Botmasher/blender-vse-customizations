@@ -74,29 +74,49 @@ def get_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene
     #   - values at index 2 less than 0 are behind camera
     return uv_loc
 
-def is_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene):
-    """Check if a point falls within camera's rendered frame"""
-    if not point or not cam or not scene: return
-    uv_loc = bpy_extras.object_utils.world_to_camera_view(scene, cam, point)
-    return (0.0 <= uv_loc[0] <= 1.0 and 0.0 <= uv_loc[1] <= 1.0 and uv_loc[2] >= 0.0)
+def is_scene(obj):
+    """Check if the object is a scene"""
+    return obj.name in bpy.data.scenes and bpy.data.scenes[obj.name] == obj
 
 def has_mesh(obj):
     """Check if the object contains mesh data"""
-    if hasattr(obj.data, 'vertices'):
-        return True
-    return False
+    return hasattr(obj.data, 'vertices')
 
 def is_camera(obj):
     """Check if the object is a Camera"""
-    if obj and hasattr(obj, 'type') and obj.type == 'CAMERA':
-        return True
-    return False
+    return obj and hasattr(obj, 'type') and obj.type == 'CAMERA'
 
-def get_edge_vertices_uv_xy(obj, cam):
+def is_vertex(obj):
+    """Check if the object is a vertex point"""
+    return hasattr(obj, 'co')
+
+def is_frustum_loc(point, cam=bpy.context.scene.camera, scene=bpy.context.scene):
+    """Check if a point falls within camera's rendered frame"""
+    if not is_vertex(point) or not is_camera(cam) or not is_scene(scene):
+        return
+        uv_loc = bpy_extras.object_utils.world_to_camera_view(scene, cam, point)
+        return (0.0 <= uv_loc[0] <= 1.0 and 0.0 <= uv_loc[1] <= 1.0 and uv_loc[2] >= 0.0)
+
+def get_active_alignables(scene=bpy.context.scene):
+    """Get the active camera and object in the scene"""
+    obj = scene.objects.active
+    cam = scene.camera
+    return (obj, cam)
+
+def is_alignable(scene=bpy.context.scene):
+    """Check that scene has active mesh object to align to active camera"""
+    obj, cam = get_active_alignables()
+    if not has_mesh(obj) or not is_camera(cam):
+        return False
+    return True
+
+def get_edge_vertices_uv_xy():
     """Find the rightmost, leftmost, topmost and bottommost vertex in camera view
     Return render UV and the world XY coordinates for these extremes
     """
-    if not has_mesh(obj) or not is_camera(cam): return
+    if not is_alignable():
+        return
+    obj, cam = get_active_alignables()
     edges = {'u': [None, None], 'v': [None, None], 'x': [None, None], 'y': [None, None]}
     for v in obj.data.vertices:
         v_uv = get_frustum_loc(obj.matrix_world * v.co, cam=cam)

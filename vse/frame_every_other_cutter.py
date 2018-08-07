@@ -66,6 +66,7 @@ def strip_creator(strip):
     return create_strip
 
 def every_other_group_cut(strips):
+    """Checker cut every other strip in a group of strips"""
     if strips.type != list:
         return
     strips_remaining = []
