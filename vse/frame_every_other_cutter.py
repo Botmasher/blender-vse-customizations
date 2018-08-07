@@ -6,38 +6,64 @@ import bpy
 ## or every other strip or every other group of n strips from a strip group.
 ## Used for eliminating noise such as motion blur frames in repetitive renders.
 
-# pseudocode sketch
-
 def arrange_strips_by_time(strips, descending=False):
+    """Sort a list of strips by start frame"""
     return sorted(strips, lambda x: x.frame_start, reversed=descending)
 
 def select_strip(strip, deselect=False):
+    """Set one strip's select attribute to True"""
     if not strip or not hasattr(strip, 'frame_start'):
         return
     strip.select = not deselect
     return strip
 
 def deselect_strips():
+    """Set all sequencer strips' select attributes to False"""
     for strip in bpy.context.scene.sequence_editor.sequences_all:
         select_strip(strip, deselect=True)
     bpy.context.scene.sequence_editor.active_strip = None
 
 def activate_lone_strip(strip):
+    """Deselect all strips and activate only this strip"""
     deselect_strips()
     select_strip(strip)
     bpy.context.scene.sequence_editor.active_strip = strip
     return strip
 
-def remove_strip(strip):
-    select_strip(strip)
-    bpy.context.scene.sequence_editor.active_strip = strip
-    # TODO non-ops method of removing sequence and strip data
+def run_sequencer_op(op):
+    """Switch area to sequence editor and run sequencer op"""
+    original_area = bpy.context.area
+    sequence_area = 'SEQUENCE_EDITOR'
+    bpy.context.area.type = squence_area
     try:
-        bpy.ops.sequencer.delete()
-        return True
+        op()
     except:
-        raise Exception("Unable to delete strip - {0}".format(strip))
-    return False
+        raise Exception("Failed to run op {0} in SEQUENCE_EDITOR".format(op))
+    bpy.context.area.type = original_area
+    return
+
+def remove_strip(strip):
+    """Delete the strip from the sequencer"""
+    activate_lone_strip(strip)
+    run_sequencer_op(bpy.ops.sequencer.delete)
+    return
+
+def duplicate_strip(strip):
+    """Make and return a copy of the sequence"""
+    activate_lone_strip(strip)
+    run_sequencer_op(bpy.ops.sequencer.duplicate)
+    new_strip = bpy.context.scene.sequence_editor.active_strip
+    return new_strip
+
+def strip_creator(strip):
+    """Return new strip creation method accounting for strip type"""
+    # store method for creating substrip copies of same strip type
+    strip_type = strip.type.lower()
+    try:
+        create_strip = getattr(bpy.context.scene.sequence_editor.sequences, 'new_{0}'.format(strip_type))
+    except:
+        raise Exception("unable to find a new strip creation method on {0}".format(strip))
+    return create_strip
 
 def every_other_group_cut(strips):
     if strips.type != list:
@@ -53,91 +79,8 @@ def every_other_group_cut(strips):
         toggle = not odds
     return strips_remaining
 
-def copy_strip(strip, create_new=None, channel=None, frame_start=None):
-    if not strip or not create_new:
-        return
-    path = strip.directory  # /!\ fails to load path for image sequence
-    channel = strip.channel if not channel else channel
-    frame_start = strip.frame_start if not frame_start else frame_start
-    new_strip = create_new(name=strip.name, filepath=path, channel=channel, frame_start=frame_start)
-    return new_strip
-
-## Switch ops areas
-# TODO: break out area ops exec into own script
-def switch_area(area=bpy.context.area, area_type=None):
-    if not area or not area_type or area.type == area_type:
-        return
-    try:
-        old_type = area.type
-        area.type = area_type
-    except:
-        raise Exception("Unknown area {0} or area type {1}".format(area, area_type))
-    return old_type
-
-def switch_areas_run_op(op):
-    """Run a contextual operation in the associated area"""
-
-    ops_areas_map = {
-        'view3d': 'VIEW_3D',
-        'time': 'TIMELINE',
-        'graph': 'GRAPH_EDITOR',
-        'action': 'DOPESHEET_EDITOR',
-        'nla': 'NLA_EDITOR',
-        'image': 'IMAGE_EDITOR',
-        'clip': 'CLIP_EDITOR',
-        'sequencer': 'SEQUENCE_EDITOR',
-        'node': 'NODE_EDITOR',
-        'text': 'TEXT_EDITOR',
-        'logic': 'LOGIC_EDITOR',
-        'buttons': 'PROPERTIES',    # /!\ render, buttons, object and many other ops here
-        'outliner': 'OUTLINER',
-        'wm': 'USER',
-        # other proposed maps
-        'object': 'VIEW_3D',    # or 'PROPERTIES'?
-        'material': 'VIEW_3D',  # or 'PROPERTIES'?
-        'texture': 'VIEW_3D'    # or 'PROPERTIES'?
-    }
-
-    # determine run area and swap areas
-    op_id = op.idname_py()
-    op_key = op_id.split('.', 1)[0]
-    new_area = ops_areas_map[op_key]
-    old_area = switch_area(area_type=new_area)
-
-    # run op
-    op()
-
-    # revert to original area
-    switch_area(area_type=old_area)
-
-    return
-
-def switch_areas_run_method(area, method, params=[]):
-    """Run a method with the current context switched to the target area"""
-    old_area = switch_area(area_type=area)
-    res = None
-    res = method(*params) if params else method()
-    switch_area(area_type=old_area)
-    return res
-
-## END switch ops areas
-
-def duplicate_strip(strip):
-    activate_lone_strip(strip)
-    switch_areas_run_op(bpy.ops.sequencer.duplicate)
-    new_strip = bpy.context.scene.sequence_editor.active_strip
-    return new_strip
-
-def strip_creator(strip):
-    # store method for creating substrip copies of same strip type
-    strip_type = strip.type.lower()
-    try:
-        create_strip = getattr(bpy.context.scene.sequence_editor.sequences, 'new_{0}'.format(strip_type))
-    except:
-        raise Exception("unable to find a new strip creation method on {0}".format(strip))
-    return create_strip
-
-def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, interval=1):
+def every_other_cut(strip=bpy.context.scene.sequence_editor.active_strip, interval=1, is_odd=False):
+    """Cut a single strip into substrips of interval length then delete every other substrip"""
     if not strip or not hasattr(strip, 'frame_start') or interval < 1:
         return
     strips_remaining = []
@@ -151,7 +94,7 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
     substrip_count = int(strip.frame_final_duration / interval)   # how many frame groups
 
     strips = [strip]
-    checker_cut = False
+    checker_cut = is_odd    # T to cut even substrips, F for odd
     print("There are {0} substrips to checker cut".format(substrip_count))
 
     channel = strip.channel
@@ -179,7 +122,7 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
         substrip.channel = channel
 
         # remove second strip
-        checker_cut and switch_areas_run_op(bpy.ops.sequencer.delete)
+        checker_cut and run_sequencer_op(bpy.ops.sequencer.delete)
         checker_cut = not checker_cut
 
         deselect_strips()
@@ -188,6 +131,7 @@ def every_other_frame_cut(strip=bpy.context.scene.sequence_editor.active_strip, 
     return strips
 
 def handle_strip_cuts(strips=[], use_selected=True):
+    """Handler method for checker cutting either one or multiple strips"""
     if not strips and not use_selected:
         return
     if use_selected:
@@ -198,4 +142,5 @@ def handle_strip_cuts(strips=[], use_selected=True):
         every_other_group_cut(bpy.context.scene.sequence_editor.sequences)
     return strips
 
+# run checker cut handler
 handle_strip_cuts()
