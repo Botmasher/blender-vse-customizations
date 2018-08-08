@@ -11,7 +11,7 @@
 
 ## Future plans
 - [ ] center object in viewport
-- [ ] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
+- [X] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
 - [ ] blurless frame button for quickly toggling motion blur during animation
 - [X] print all fonts used in anim text objects
 - [X] shuffle selected strips and change lengths (for randomizing animations like typing, bg talking)
