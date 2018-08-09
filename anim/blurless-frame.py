@@ -10,26 +10,41 @@ def is_node_tree(tree):
 
 def get_vecblur_nodes(tree):
     nodes = []
-    for node in tree:
+    for node in tree.nodes:
         node.type == 'VECBLUR' and nodes.append(node)
     return nodes
 
-def blurless_vecblur_stint(tree=None, frames=1):
-    if not tree or not frames or not is_node_tree(tree)
+def move_playhead(frames, scene=bpy.context.scene):
+    if frames and scene:
+        scene.frame_current += frames
+    return scene.frame_current
+
+def key_vecblur(node, factor, framejump):
+    move_playhead(framejump)
+    node.factor = factor
+    node.keyframe_insert('factor')
+    return node
+
+def set_blurless_node(node, frames):
+    if node.type != 'VECBLUR':
+        return False
+    blur = node.factor  # TODO hi/lo toggle values
+    key_vecblur(node, blur, -1)
+    key_vecblur(node, 0.0, 1)
+    key_vecblur(node, 0.0, frames)
+    key_vecblur(node, blur, 1)
+    return True
+
+def blurless_vecblur_stint(tree=None, blurless_frames=1):
+    if not is_node_tree(tree) or not frames:
+        return
     nodes = get_vecblur_nodes(tree)
     for node in nodes:
         node.type == 'VECBLUR' and print(node)
-        # toggle and keyframe
-        if node.type == 'VECBLUR':
-            blur = node.factor  # TODO hi/lo toggle values
-            node.keyframe_insert('factor')
-            node.factor = 0.0 #blur if node.factor == 0 else blur
-            node.keyframe_insert('factor')
-            bpy.context.scene.frame_current += blurless_time
-            node.factor = blur
-            node.keyframe_insert('factor')
+        # turn blur off and back on later
+        set_blurless_node(node, frames)
     return nodes
 
 node_tree = bpy.context.scene.node_tree
 blurless_time = 10  # int prop
-blurless_vecblur_stint(tree=node_tree, frames=10)
+blurless_vecblur_stint(tree=node_tree, blurless_frames=10)

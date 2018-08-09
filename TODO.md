@@ -11,8 +11,9 @@
 
 ## Future plans
 - [ ] center object in viewport
-- [X] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
 - [ ] blurless frame button for quickly toggling motion blur during animation
+- [ ] copy parented object, unparent, resize, move to selected object, optionally parent to selected
+- [X] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
 - [X] print all fonts used in anim text objects
 - [X] shuffle selected strips and change lengths (for randomizing animations like typing, bg talking)
 - [X] pull out extend and separate already cut substrips from subcutter (useful for manually cut ones)
