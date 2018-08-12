@@ -49,7 +49,7 @@ def set_blurless_node(node, frames, factor):
     blur = node.factor
     blurless_rel_keyframes = ((blur, -1), (factor, 1), (factor, frames), (blur, 1))
     for kf in blurless_rel_keyframes:
-        key_vecblur(node, kf[0], framejump=kbf[1])
+        key_vecblur(node, kf[0], framejump=kf[1])
     return True
 
 def handle_blurless_stint(tree=bpy.context.scene.node_tree, blurless_frames=1, blurless_factor=0.0):
@@ -62,56 +62,49 @@ def handle_blurless_stint(tree=bpy.context.scene.node_tree, blurless_frames=1, b
         set_blurless_node(node, blurless_frames, blurless_factor)
     return nodes
 
-# test run
-blurless_time = 10  # int prop
-handle_blurless_stint(blurless_frames=10)
-
 class BlurlessPanel(bpy.types.Panel):
-	bl_label = "Blurless"
-	bl_idname = 'scene.blurless_panel'
-	bl_space_type = "VIEW_3D"
-	bl_region_type = "TOOLS"
-	bl_category = "Blurless"
+    bl_label = "Blurless"
+    bl_idname = 'scene.blurless_panel'
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "Blurless"
 
-	def draw(self, ctx):
-
-        define_blurless_props()
-
-		layout = self.layout
-		col = layout.column(align=True)
-
-		col.label("Config blurless:")
-		col.row().prop(scene, "blurless_frames")
+    def draw(self, ctx):
+        scene = bpy.context.scene
+        layout = self.layout
+        col = layout.column(align=True)
+        col.label("Config blurless:")
+        col.row().prop(scene, "blurless_frames")
         col.row().prop(scene, "blurless_factor")
-
-		col.label("Run blurless:")
-		row = col.row(align=True)
-		row.operator('scene.blurless_op', text="blurless stint")
-
-		return
+        col.label("Run blurless:")
+        row = col.row(align=True)
+        row.operator('scene.blurless_op', text="blurless stint")
+        return
 
 class BlurlessOperator(bpy.types.Operator):
-	bl_label = "Blurless Frames"
-	bl_idname = 'scene.blurless_op'
-	bl_description = "Keyframe blurless vec blur frames"
-	bl_options = {'REGISTER', 'UNDO'}
+    bl_label = "Blurless Frames"
+    bl_idname = 'scene.blurless_op'
+    bl_description = "Keyframe blurless vec blur frames"
+    bl_options = {'REGISTER', 'UNDO'}
 
-	@classmethod
-	def poll(c, ctx):
-		return ctx.mode == "OBJECT"
+    @classmethod
+    def poll(c, ctx):
+        return ctx.mode == "OBJECT"
 
     def execute(self, context):
         frames = bpy.context.scene.blurless_frames
         factor = bpy.context.scene.blurless_factor
+        # TODO fix blurless frames not setting when frames > 1
         handle_blurless_stint(blurless_frames=frames, blurless_factor=factor)
         return {'FINISHED'}
 
 def register():
-	bpy.utils.register_class(BlurlessPanel)
-	bpy.utils.register_module(__name__)
+    define_blurless_props()
+    bpy.utils.register_class(BlurlessPanel)
+    bpy.utils.register_module(__name__)
 
 def unregister():
-	bpy.utils.unregister_class(BlurlessPanel)
-	bpy.utils.unregister_module(__name__)
+    bpy.utils.unregister_class(BlurlessPanel)
+    bpy.utils.unregister_module(__name__)
 
 __name__ == "__main__" and register()
