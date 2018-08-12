@@ -21,10 +21,10 @@ def is_vecblur_node(obj):
     return obj and obj.type == 'VECBLUR'
 
 def move_playhead(frames, scene=bpy.context.scene):
-    """Move the scene timeline playhead relative to its current frame position"""
+    """Move the timeline playhead relative to its current frame position"""
     if frames and scene:
         scene.frame_current += frames
-        return scene.frame_current
+    return scene.frame_current
 
 def get_vecblur_nodes(tree):
     """Return a list of all vector blur nodes in the node tree"""
@@ -58,7 +58,6 @@ def handle_blurless_stint(tree=bpy.context.scene.node_tree, blurless_frames=1, b
         return
     nodes = get_vecblur_nodes(tree)
     for node in nodes:
-        node.type == 'VECBLUR' and print(node)
         set_blurless_node(node, blurless_frames, blurless_factor)
     return nodes
 
@@ -94,7 +93,7 @@ class BlurlessOperator(bpy.types.Operator):
     def execute(self, context):
         frames = bpy.context.scene.blurless_frames
         factor = bpy.context.scene.blurless_factor
-        # TODO fix blurless frames not setting when frames > 1
+        print("Turning vec blur down to {0} for {1} frames starting at {2}".format(factor, frames, bpy.context.scene.frame_current))
         handle_blurless_stint(blurless_frames=frames, blurless_factor=factor)
         return {'FINISHED'}
 
