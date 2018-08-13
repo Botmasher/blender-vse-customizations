@@ -11,7 +11,7 @@
 
 ## Future plans
 - [ ] center object in viewport
-- [ ] blurless frame button for quickly toggling motion blur during animation
+- [X] blurless frame button for quickly toggling motion blur during animation
 - [ ] copy parented object, unparent, resize, move to selected object, optionally parent to selected
 - [X] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
 - [X] print all fonts used in anim text objects
