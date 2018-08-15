@@ -39,6 +39,10 @@ def offset_parented_pos(obj):
         return add_locs(obj.location, obj.parent.location)
     return
 
+def has_parent(obj):
+    """Check if the object has a parent object"""
+    return obj and hasattr(obj, 'parent') and obj.parent
+
 def unset_parent(obj):
     """Remove the object's parent if it has one"""
     if obj and hasattr(obj, 'parent'):
@@ -59,21 +63,21 @@ def get_inactive_selected():
 
 def handle_deparenting(obj=bpy.context.scene.objects.active, to_selected=False, reparent=False):
     """Unset active object parent but maintain current position in world, optionally reparenting to the first inactive selected object"""
+    if not obj or not has_parent(obj):
+        return obj
     target = get_inactive_selected()
-    if reparent and target:
-        move(obj, target.location)
-        reparent and set_parent(target)
+    if target and to_selected:
+        # keep same offset from inactive selected object
+        offset_loc = add_locs(obj.location, target.location)
     else:
-        if to_selected and target:
-            move(obj, target.location)
-        else:
-            move(obj, offset_loc)
-    offset_loc = offset_parented_pos(obj)
+        # maintain current world position (no visual move)
+        offset_loc = add_locs(obj.location, obj.parent.location)
+    move(obj, offset_loc)
     # remove parent last to allow calculating parent loc
     unset_parent(obj)
+    reparent and set_parent(target)
     return obj
 
-# TODO: offset from target position instead of snapping directly to target
 
 # test deparent + keep world pos
 handle_deparenting()
