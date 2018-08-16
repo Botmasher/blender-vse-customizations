@@ -12,11 +12,6 @@ import bpy.props
 ## An option for reversing this sequence allows you to make a popout animation.
 ##
 
-# TODO fix runtime / sem bugs
-# -[X] 'MESH' check prevents popping other scalables like 'FONT'
-# -[X] initial scaledown keyframe not set when executing on current frame 0
-# -[X] props stored locally per object (ux feel: forgot/ignored user settings)
-
 def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     """Keyframe a property on object at this frame"""
     if not obj or not prop_name or not prop_val or frame is None: return
@@ -47,11 +42,11 @@ def popin(obj, start_frame=1, scale_frames=0, rebound_frames=0, overshoot_factor
 
 # UI menu properties
 def setup_ui_props():
-    S = bpy.types.Scene
-    S.popin_frames_scale = bpy.props.IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=6)
-    S.popin_frames_rebound = bpy.props.IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=2)
-    S.popin_strength = bpy.props.FloatProperty(name="Strength", description="How much to overshoot object scale on popin", default=1.1)
-    S.popin_reverse = bpy.props.BoolProperty(name="Reverse", description="Keyframe as scale-down popout instead", default=0)
+    Scene = bpy.types.Scene
+    Scene.popin_frames_scale = bpy.props.IntProperty(name="Scale Frames", description="How long it takes object to scale up to popin", default=6)
+    Scene.popin_frames_rebound = bpy.props.IntProperty(name="Rebound Frames", description="How long it takes object to settle after popin", default=2)
+    Scene.popin_strength = bpy.props.FloatProperty(name="Strength", description="How much to overshoot object scale on popin", default=1.1)
+    Scene.popin_reverse = bpy.props.BoolProperty(name="Reverse", description="Keyframe as scale-down popout instead", default=0)
     return
 
 setup_ui_props()
@@ -66,13 +61,13 @@ class PopinPanel (bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     def draw (self, context):
-        obj = bpy.context.scene.objects.active
+        scene = bpy.context.scene
         rows = [self.layout.row() for i in range(5)]
         # config interface
-        rows[0].prop(obj, "popin_frames_scale")
-        rows[1].prop(obj, "popin_frames_rebound")
-        rows[2].prop(obj, "popin_strength")
-        rows[3].prop(obj, "popin_reverse")
+        rows[0].prop(scene, "popin_frames_scale")
+        rows[1].prop(scene, "popin_frames_rebound")
+        rows[2].prop(scene, "popin_strength")
+        rows[3].prop(scene, "popin_reverse")
         props = rows[4].operator("object.popin_effect", text="Popin Object")
         return
 
@@ -82,10 +77,11 @@ class PopinOperator (bpy.types.Operator):
     bl_description = "Add a customized scale pop-in animation to the 3D object"
 
     def execute (self, context):
+        scene = bpy.context.scene
         obj = bpy.context.scene.objects.active
         frame = bpy.context.scene.frame_current
         if hasattr(obj, 'scale') and hasattr(obj, 'animation_data'):
-            popin(obj, start_frame=frame, scale_frames=obj.popin_frames_scale, rebound_frames=obj.popin_frames_rebound, overshoot_factor=obj.popin_strength, reverse=obj.popin_reverse)
+            popin(obj, start_frame=frame, scale_frames=scene.popin_frames_scale, rebound_frames=scene.popin_frames_rebound, overshoot_factor=scene.popin_strength, reverse=scene.popin_reverse)
             bpy.context.scene.frame_current = frame
         #else:
         #    print("Current object does not support Popin-Popout animations")
