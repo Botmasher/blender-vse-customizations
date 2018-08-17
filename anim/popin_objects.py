@@ -68,7 +68,8 @@ class PopinPanel (bpy.types.Panel):
         rows[1].prop(scene, "popin_frames_rebound")
         rows[2].prop(scene, "popin_strength")
         rows[3].prop(scene, "popin_reverse")
-        props = rows[4].operator("object.popin_effect", text="Popin Object")
+        pop_txt = "Popin Object" if not scene.popin_reverse else "Popout Object"
+        props = rows[4].operator("object.popin_effect", text=pop_txt)
         return
 
 class PopinOperator (bpy.types.Operator):

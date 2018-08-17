@@ -23,16 +23,54 @@ def current_frame():
     scene = bpy.context.scene
     def set_ahead(frames_ahead):
         scene.frame_current += frames_ahead
+        return scene.frame_current
     return set_ahead
 
-def shapekey_spike(target_val=1.0):
-    sk = bpy.context.scene.objects.active.active_shape_key
-    sk_i = bpy.context.scene.objects.active.active_shape_key_index
-    sks = bpy.context.scene.objects.active.data.shape_keys
-    # get object from sk
-    obj = sks.user
-    playhead = current_frame()
-    return
+def is_shape_key(object):
+    return object and object.bl_rna and object.bl_rna.rna_type == 'Shape Key'
+
+def set_shape_keyframe(shape_key, key_value):
+    if not is_shape_key(shape_key):
+        return
+    shape_key.value = key_value
+    shape_key.keyframe_insert('value')
+    return shape_key
+
+def get_active_shape_key(object):
+    return object.active_shape_key
+
+def spike_shape_key(object=bpy.context.object, target_val=1.0, spike_frames=1, left_frames=1, asymmetrical=False, right_frames=1):
+
+    if not object or not hasattr(object, 'active_shape_key') not target_val or not left_frames:
+        return
+
+    shape_key = get_active_shape_key(object)
+
+    if not shape_key:
+        return
+
+    initial_val = shape_key.value
+
+    # retrieve other potentially relevant objects
+    #shape_key_i = bpy.context.scene.objects.active.active_shape_key_index
+    #shape_keys = bpy.context.scene.objects.active.data.shape_keys
+    #obj = shape_keys.user
+
+    # store timeline movement method
+    move_playhead = current_frame()
+
+    # create spike keyframes
+    set_shape_keyframe(shape_key, initial_val)
+    move_playhead(left_frames)
+    set_shape_keyframe(shape_key, target_val)
+    move_playhead(spike_frames)
+    set_shape_keyframe(shape_key, target_val)
+    current_frame = move_playhead(right_frames) if asymmetrical else move_playhead(left_frames)
+    set_shape_keyframe(shape_key, initial_val)
+
+    return shape_key
+
+spike_shape_key()
 
 # TODO add props for custom config
 # - number of frames on spike sides

@@ -11,9 +11,11 @@
 
 ## Future plans
 - [ ] center object in viewport
-- [ ] shapekey spikes
+- [ ] shape key spikes
 	- set shape key, key to target value, optional deadkey, key to original value
 	- move playhead ahead between keyings
+- [ ] chain popin effect with frame offset
+	- example use: popin many images one after another
 - [X] blurless frame button for quickly toggling motion blur during animation
 - [ ] copy parented object, unparent, resize, move to selected object, optionally parent to selected
 - [X] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
