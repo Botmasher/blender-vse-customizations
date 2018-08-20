@@ -21,6 +21,7 @@ from bpy.props import *
 # - keyframe active to original value
 
 def current_frame_setter():
+    """Return a function for advancing the scene playhead frame"""
     scene = bpy.context.scene
     def set_ahead(frames_ahead):
         scene.frame_current += frames_ahead
@@ -28,21 +29,23 @@ def current_frame_setter():
     return set_ahead
 
 def is_shape_key(object):
+    """Check for a shape key"""
     return object and object.bl_rna and object.bl_rna.name == 'Shape Key'
 
 def set_shape_keyframe(shape_key, key_value):
+    """Change shape key's value and keyframe at the current frame"""
     if not is_shape_key(shape_key):
-        print("Not a shape key: {0}".format(shape_key))
         return
     shape_key.value = key_value
     shape_key.keyframe_insert('value')
     return shape_key
 
 def get_active_shape_key(object):
+    """Return the active shape key for a given object"""
     return object.active_shape_key
 
 def spike_shape_key(object=bpy.context.object, target_val=1.0, spike_frames=1, left_frames=1, asymmetric=False, right_frames=1):
-
+    """Move and set shape key value to create shape key spike"""
     if not object or not hasattr(object, 'active_shape_key') or not target_val or not left_frames:
         return
 
@@ -68,6 +71,7 @@ def spike_shape_key(object=bpy.context.object, target_val=1.0, spike_frames=1, l
     return shape_key
 
 def add_shapekey_spike_props():
+    """Define custom properties for the Shapekey Spike UI"""
     O = bpy.types.Object
     # number of frames on spike sides
     O.shapekey_spike_frames_left = IntProperty(name="Side Length", description="Frames to the left and right of spike target value (just left if asymmetric)", default=1)
@@ -80,12 +84,15 @@ def add_shapekey_spike_props():
     O.shapekey_spike_asymmetric = BoolProperty(name="Asymmetric", description="Option to use different frame counts to the left and right of spike target value", default=False)
     return
 
+# UI
+
 class ShapekeySpikePanel (bpy.types.Panel):
     bl_label = "Shapekey Spike"
-    bl_context = "objectmode"
+    bl_context = "data"
     bl_idname = "object.shapekey_spike_panel"
     bl_category = "Shape Keys"
     bl_space_type = "OUTLINER"
+    bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     def draw (self, context):
         obj = bpy.context.object
@@ -94,7 +101,7 @@ class ShapekeySpikePanel (bpy.types.Panel):
         rows[1].prop(obj, "shapekey_spike_frames_mid")
         rows[2].prop(obj, "shapekey_spike_value")
         rows[3].prop(obj, "shapekey_spike_frames_right")
-        rows[4].prop(obj, "shapeky_spike_asymmetric")
+        rows[4].prop(obj, "shapekey_spike_asymmetric")
         props = rows[5].operator("object.shapekey_spike", text="Spike Shape Key")
         return
 
@@ -106,7 +113,7 @@ class ShapekeySpikeOperator (bpy.types.Operator):
     def execute (self, context):
         obj = bpy.context.object
         if hasattr(obj, 'active_shape_key'):
-            spike_shape_key(left_frames=obj.shapekey_spike_frames_left, spike_frames=obj.shapekey_spike_frames_mid, right_frames=obj.shapekey_spike_frames_right, target_val=obj.shapekey_spike_value, asymmetric=obj.asymmetric)
+            spike_shape_key(left_frames=obj.shapekey_spike_frames_left, spike_frames=obj.shapekey_spike_frames_mid, right_frames=obj.shapekey_spike_frames_right, target_val=obj.shapekey_spike_value, asymmetric=obj.shapekey_spike_asymmetric)
         return {'FINISHED'}
 
 def register():
@@ -118,4 +125,5 @@ def unregister():
     bpy.utils.unregister_class(ShapekeySpikePanel)
     bpy.utils.unregister_class(ShapekeySpikeOperator)
 
-__name__ == '__main__' and register()
+if __name__ == '__main__':
+    register()
