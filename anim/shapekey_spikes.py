@@ -7,19 +7,6 @@ from bpy.props import *
 ## Optionally flattened spike keys in the middle around the target value.
 ## Example use: blink plane eyes
 
-# NOTE
-# - check for shape keys
-# - get active shape key
-# - take in target value (see props below; create UI slider)
-# - keyframe active to current value
-# - move ahead frames
-# - keyframe active to target value
-# - (optional middle frames at top of spike)
-#   - move ahead frames
-#   - keyframe active to target value again
-# - move ahead frames
-# - keyframe active to original value
-
 def current_frame_setter():
     """Return a function for advancing the scene playhead frame"""
     scene = bpy.context.scene
@@ -86,7 +73,7 @@ def add_shapekey_spike_props():
 
 # UI
 
-class ShapekeySpikePanel (bpy.types.Panel):
+class ShapeKeySpikePanel (bpy.types.DATA_PT_shape_keys):
     bl_label = "Shapekey Spike"
     bl_context = "data"
     bl_idname = "object.shapekey_spike_panel"
@@ -94,36 +81,58 @@ class ShapekeySpikePanel (bpy.types.Panel):
     bl_space_type = "OUTLINER"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
+
+    def layout_property_rows(self, obj, properties):
+        rows = []
+        for property in properties:
+            row = self.layout.row()
+            if type(property) == list:
+                row.operator(property[0], text=property[1])
+            else:
+                row.prop(obj, property)
+            rows.append(row)
+        return rows
+
+    def __init__(self):
+        # TODO integrate existing DATA_PT_shape_keys panel and draw on top
+        self.draw_base_panel = self.draw # actually parent draw
+
     def draw (self, context):
         obj = bpy.context.object
-        rows = [self.layout.row() for i in range(6)]
-        rows[0].prop(obj, "shapekey_spike_frames_left")
-        rows[1].prop(obj, "shapekey_spike_frames_mid")
-        rows[2].prop(obj, "shapekey_spike_value")
-        rows[3].prop(obj, "shapekey_spike_frames_right")
-        rows[4].prop(obj, "shapekey_spike_asymmetric")
-        props = rows[5].operator("object.shapekey_spike", text="Spike Shape Key")
+        shapekey_props = [
+            "shapekey_spike_value",
+            "shapekey_spike_frames_left",
+            "shapekey_spike_frames_mid",
+            "shapekey_spike_asymmetric"
+        ]
+        shapekey_op = [
+            "object.shapekey_spike",
+            "Spike Shape Key"
+        ]
+        shapekey_right_side = "shapekey_spike_frames_right"
+        obj.shapekey_spike_asymmetric and shapekey_props.append(shapekey_right_side)
+        shapekey_props.append(shapekey_op)
+        self.layout_property_rows(obj, shapekey_props)
         return
 
-class ShapekeySpikeOperator (bpy.types.Operator):
+class ShapeKeySpike (bpy.types.Operator):
     bl_label = "Shapekey Spike Operator"
     bl_idname = "object.shapekey_spike"
     bl_description = "Take shape key to a target value then return to original value"
 
     def execute (self, context):
         obj = bpy.context.object
-        if hasattr(obj, 'active_shape_key'):
-            spike_shape_key(left_frames=obj.shapekey_spike_frames_left, spike_frames=obj.shapekey_spike_frames_mid, right_frames=obj.shapekey_spike_frames_right, target_val=obj.shapekey_spike_value, asymmetric=obj.shapekey_spike_asymmetric)
+        hasattr(obj, 'active_shape_key') and spike_shape_key(left_frames=obj.shapekey_spike_frames_left, spike_frames=obj.shapekey_spike_frames_mid, right_frames=obj.shapekey_spike_frames_right, target_val=obj.shapekey_spike_value, asymmetric=obj.shapekey_spike_asymmetric)
         return {'FINISHED'}
 
 def register():
     add_shapekey_spike_props()
-    bpy.utils.register_class(ShapekeySpikeOperator)
-    bpy.utils.register_class(ShapekeySpikePanel)
+    bpy.utils.register_class(ShapeKeySpike)
+    bpy.utils.register_class(ShapeKeySpikePanel)
 
 def unregister():
-    bpy.utils.unregister_class(ShapekeySpikePanel)
-    bpy.utils.unregister_class(ShapekeySpikeOperator)
+    bpy.utils.unregister_class(ShapeKeySpikePanel)
+    bpy.utils.unregister_class(ShapeKeySpike)
 
 if __name__ == '__main__':
     register()
