@@ -69,7 +69,6 @@ def add_shapekey_spike_props():
     O.shapekey_spike_frames_right = IntProperty(name="Right length", description="Frames to the right of spike target value (only if asymmetric)", default=1)
     # spike sides have different frames
     O.shapekey_spike_asymmetric = BoolProperty(name="Asymmetric", description="Option to use different frame counts to the left and right of spike target value", default=False)
-    O.shapekey_spike_panel_added = BoolProperty(name="Added Shapekey Panel", description="Panel already added, set to avoid appending to existing ShapeKeyPanel", default=False)
     return
 
 # UI
@@ -85,6 +84,9 @@ class ShapeKeySpike (bpy.types.Operator):
 
 def shape_key_spike_panel(self, context):
     obj = bpy.context.object
+    # do not show for relative basis key
+    if obj.active_shape_key.relative_key == obj.active_shape_key:
+        return
     shapekey_props = [
         "shapekey_spike_value",
         "shapekey_spike_frames_left",
@@ -92,19 +94,19 @@ def shape_key_spike_panel(self, context):
         "shapekey_spike_asymmetric"
     ]
     obj.shapekey_spike_asymmetric and shapekey_props.append("shapekey_spike_frames_right")
+    self.layout.row().label("Shape Key Spike")
     rows = [self.layout.row().prop(obj, property) for property in shapekey_props]
     self.layout.row().operator("object.shapekey_spike", text="Spike Shape Key")
-    obj.shapekey_spike_panel_added = True
 
 def register():
+    obj = bpy.context.object
     add_shapekey_spike_props()
     bpy.utils.register_class(ShapeKeySpike)
-    print(bpy.context.object.shapekey_spike_panel_added)
-    not bpy.context.object.shapekey_spike_panel_added and bpy.types.DATA_PT_shape_keys.append(shape_key_spike_panel)
-    bpy.context.object.shapekey_spike_panel_added = True
+    bpy.types.DATA_PT_shape_keys.append(shape_key_spike_panel)
 
 def unregister():
     bpy.utils.unregister_class(ShapeKeySpike)
+    bpy.types.DATA_PT_shape_keys and bpy.types.DATA_PT_shape_keys.remove(shape_key_spike_panel)
 
 if __name__ == '__main__':
     register()
