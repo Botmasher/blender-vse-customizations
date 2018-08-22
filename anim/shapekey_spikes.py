@@ -69,52 +69,10 @@ def add_shapekey_spike_props():
     O.shapekey_spike_frames_right = IntProperty(name="Right length", description="Frames to the right of spike target value (only if asymmetric)", default=1)
     # spike sides have different frames
     O.shapekey_spike_asymmetric = BoolProperty(name="Asymmetric", description="Option to use different frame counts to the left and right of spike target value", default=False)
+    O.shapekey_spike_panel_added = BoolProperty(name="Added Shapekey Panel", description="Panel already added, set to avoid appending to existing ShapeKeyPanel", default=False)
     return
 
 # UI
-
-class ShapeKeySpikePanel (bpy.types.DATA_PT_shape_keys):
-    bl_label = "Shapekey Spike"
-    bl_context = "data"
-    bl_idname = "object.shapekey_spike_panel"
-    bl_category = "Shape Keys"
-    bl_space_type = "OUTLINER"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-
-    def layout_property_rows(self, obj, properties):
-        rows = []
-        for property in properties:
-            row = self.layout.row()
-            if type(property) == list:
-                row.operator(property[0], text=property[1])
-            else:
-                row.prop(obj, property)
-            rows.append(row)
-        return rows
-
-    def __init__(self):
-        # TODO integrate existing DATA_PT_shape_keys panel and draw on top
-        self.draw_base_panel = self.draw # actually parent draw
-
-    def draw (self, context):
-        obj = bpy.context.object
-        shapekey_props = [
-            "shapekey_spike_value",
-            "shapekey_spike_frames_left",
-            "shapekey_spike_frames_mid",
-            "shapekey_spike_asymmetric"
-        ]
-        shapekey_op = [
-            "object.shapekey_spike",
-            "Spike Shape Key"
-        ]
-        shapekey_right_side = "shapekey_spike_frames_right"
-        obj.shapekey_spike_asymmetric and shapekey_props.append(shapekey_right_side)
-        shapekey_props.append(shapekey_op)
-        self.layout_property_rows(obj, shapekey_props)
-        return
-
 class ShapeKeySpike (bpy.types.Operator):
     bl_label = "Shapekey Spike Operator"
     bl_idname = "object.shapekey_spike"
@@ -125,13 +83,27 @@ class ShapeKeySpike (bpy.types.Operator):
         hasattr(obj, 'active_shape_key') and spike_shape_key(left_frames=obj.shapekey_spike_frames_left, spike_frames=obj.shapekey_spike_frames_mid, right_frames=obj.shapekey_spike_frames_right, target_val=obj.shapekey_spike_value, asymmetric=obj.shapekey_spike_asymmetric)
         return {'FINISHED'}
 
+def shape_key_spike_panel(self, context):
+    obj = bpy.context.object
+    shapekey_props = [
+        "shapekey_spike_value",
+        "shapekey_spike_frames_left",
+        "shapekey_spike_frames_mid",
+        "shapekey_spike_asymmetric"
+    ]
+    obj.shapekey_spike_asymmetric and shapekey_props.append("shapekey_spike_frames_right")
+    rows = [self.layout.row().prop(obj, property) for property in shapekey_props]
+    self.layout.row().operator("object.shapekey_spike", text="Spike Shape Key")
+    obj.shapekey_spike_panel_added = True
+
 def register():
     add_shapekey_spike_props()
     bpy.utils.register_class(ShapeKeySpike)
-    bpy.utils.register_class(ShapeKeySpikePanel)
+    print(bpy.context.object.shapekey_spike_panel_added)
+    not bpy.context.object.shapekey_spike_panel_added and bpy.types.DATA_PT_shape_keys.append(shape_key_spike_panel)
+    bpy.context.object.shapekey_spike_panel_added = True
 
 def unregister():
-    bpy.utils.unregister_class(ShapeKeySpikePanel)
     bpy.utils.unregister_class(ShapeKeySpike)
 
 if __name__ == '__main__':
