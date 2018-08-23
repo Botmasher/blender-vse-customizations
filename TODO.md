@@ -13,7 +13,6 @@
 - [ ] center object in viewport
 - [X] shape key spikes
 - [ ] chain popin effect with frame offset
-	- example use: popin many imagesy one after another
 - [X] blurless frame button for quickly toggling motion blur during animation
 - [ ] copy parented object, unparent, resize, move to selected object, optionally parent to selected
 - [X] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
