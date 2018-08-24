@@ -7,7 +7,7 @@ from collections import deque
 ## and staggering the effects
 ## Example use: popin multiple image planes one after another
 
-## TODO remove this popin_object copy and access through ops
+## TODO remove popin_object copy - access op instead
 def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     """Keyframe a property on object at this frame"""
     if not obj or not prop_name or not prop_val or frame is None: return
@@ -41,7 +41,7 @@ def get_deselect_selected(objs=bpy.context.scene.objects):
     objs = deque(objs)
     active_obj = None
     for obj in objs:
-        if obj == bpy.context.scene.active_object:
+        if obj == bpy.context.scene.objects.active:
             active_obj = obj
         elif obj.select:
             obj.select = False
@@ -51,20 +51,33 @@ def get_deselect_selected(objs=bpy.context.scene.objects):
     active_obj and objs.appendleft(active_obj)
     return objs
 
-def select(objs):
+def set_selected(objs):
     for obj in objs:
         obj.select = True
     return objs
 
-def popin_objects_sequentially(objs=[], popin_op=None, frame_delay=0):
+def get_selected(scene=bpy.context.scene):
+    return [obj for obj in bpy.context.scene.objects if obj.select]
+
+def set_active(obj, scene_objects=bpy.context.scene.objects):
+    if not obj or not obj.select or not hasattr(scene_objects, 'active'):
+        return
+    scene_objects.active = obj
+    return obj
+
+def forward_frames(frames, scene=bpy.context.scene):
+    if not hasattr(scene, 'frame_current'):
+        return
+    scene.frame_current += frames
+    return scene.frame_current
+
+def popin_sequential(objs=[], popin_op=None, frame_gap=0):
     if not objs or not popin_op:
         return
     for obj in objs:
-        bpy.context.scene.frame_current += frame_delay
-        # TODO pass props
-        bpy.context.scene.active_object = obj
-        popin_op(obj)
-    return
+        set_active(obj)
+        popin_op(obj, start_frame=bpy.context.scene.frame_current, scale_frames=4, rebound_frames=2, overshoot_factor=1.1)
+        obj != objs[len(objs)-1] and frame_gap and forward_frames(frame_gap)
+    return objs
 
-selected_objs = [obj in bpy.context.scene.objects if obj.select]
-run_popin_sequentially(objs=selected_objs, popin_op=popin, frame_delay=2)
+popin_sequential(objs=get_selected(), popin_op=popin, frame_gap=2)
