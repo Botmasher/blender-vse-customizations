@@ -8,6 +8,7 @@ from collections import deque
 ## Example use: popin multiple image planes one after another
 
 ## TODO remove popin_object copy - access op instead
+## NOTE popin start_frame removed to avoid keying wrong frames
 def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     """Keyframe a property on object at this frame"""
     if not obj or not prop_name or not prop_val or frame is None: return
@@ -20,10 +21,9 @@ def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     fc = obj.animation_data.action.fcurves.find(prop_name)  # actually returns fc with all points for prop_name
     return fc
 
-def popin(obj, start_frame=1, scale_frames=0, rebound_frames=0, overshoot_factor=1.0, tiny_size=(0,0,0), reverse=False):
+def popin(obj, scale_frames=0, rebound_frames=0, overshoot_factor=1.0, tiny_size=(0,0,0), reverse=False):
     """Animate a popin or popout effect on one mesh object"""
     full_size = obj.scale.to_tuple()
-    bpy.context.scene.frame_current = start_frame
     # keyframe initial state
     obj_size = full_size if reverse else tiny_size
     keyframe_prop(obj, prop_name='scale', prop_val=obj_size, frame=bpy.context.scene.frame_current)
@@ -37,18 +37,18 @@ def popin(obj, start_frame=1, scale_frames=0, rebound_frames=0, overshoot_factor
     return obj
 ## end copy
 
-def get_deselect_selected(objs=bpy.context.scene.objects):
-    objs = deque(objs)
+def get_deselect_selected(objs):
+    deselected_objs = deque([])
     active_obj = None
     for obj in objs:
         if obj == bpy.context.scene.objects.active:
             active_obj = obj
         elif obj.select:
             obj.select = False
-            objs.append(obj)
+            deselected_objs.append(obj)
         else:
             pass
-    active_obj and objs.appendleft(active_obj)
+    active_obj and deselected_objs.appendleft(active_obj)
     return objs
 
 def set_selected(objs):
@@ -65,7 +65,28 @@ def set_active(obj, scene_objects=bpy.context.scene.objects):
     scene_objects.active = obj
     return obj
 
-def forward_frames(frames, scene=bpy.context.scene):
+class Playhead:
+    def __init__(self, scene=bpy.context.scene):
+        if not hasattr(scene, 'frame_current'):
+            raise Exception("Unable to find timeline playhead for scene {0}".format(scene))
+        self.scene = scene
+
+    def get(self):
+        return self.scene.frame_current
+
+    def set(self, frame):
+        self.scene.frame_current = frame
+        return self.get()
+
+    def forward(self, added_frames):
+        self.set(self.scene.frame_current + added_frames)
+        return self.get()
+
+    def reverse(self, subtracted_frames):
+        self.set(self.scene.frame_current - subtracted_frames)
+        return self.get()
+
+def playhead_forward(frames, scene=bpy.context.scene):
     if not hasattr(scene, 'frame_current'):
         return
     scene.frame_current += frames
@@ -74,10 +95,13 @@ def forward_frames(frames, scene=bpy.context.scene):
 def popin_sequential(objs=[], popin_op=None, frame_gap=0):
     if not objs or not popin_op:
         return
+    playhead = Playhead()
     for obj in objs:
         set_active(obj)
-        popin_op(obj, start_frame=bpy.context.scene.frame_current, scale_frames=4, rebound_frames=2, overshoot_factor=1.1)
-        obj != objs[len(objs)-1] and frame_gap and forward_frames(frame_gap)
+        popin_op(obj, scale_frames=4, rebound_frames=2, overshoot_factor=1.1)
+        obj != objs[len(objs)-1] and frame_gap and playhead.forward(frame_gap)
     return objs
 
-popin_sequential(objs=get_selected(), popin_op=popin, frame_gap=2)
+selected_objects = get_deselect_selected(get_selected())
+
+popin_sequential(objs=selected_objects, popin_op=popin, frame_gap=2)
