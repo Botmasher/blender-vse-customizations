@@ -7,8 +7,6 @@ from collections import deque
 ## and staggering the effects
 ## Example use: popin multiple image planes one after another
 
-## TODO remove popin_object copy - access op instead
-## NOTE popin start_frame removed to avoid keying wrong frames
 def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     """Keyframe a property on object at this frame"""
     if not obj or not prop_name or not prop_val or frame is None: return
@@ -20,23 +18,6 @@ def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     obj.keyframe_insert(data_path=prop_name, frame=frame)
     fc = obj.animation_data.action.fcurves.find(prop_name)  # actually returns fc with all points for prop_name
     return fc
-
-# /!\ edited inline version used in obj iteration below
-def popin(obj, scale_frames=0, rebound_frames=0, overshoot_factor=1.0, tiny_size=(0,0,0), reverse=False):
-    """Animate a popin or popout effect on one mesh object"""
-    full_size = obj.scale.to_tuple()
-    # keyframe initial state
-    obj_size = full_size if reverse else tiny_size
-    keyframe_prop(obj, prop_name='scale', prop_val=obj_size, frame=bpy.context.scene.frame_current)
-    # keyframe overshoot state
-    bpy.context.scene.frame_current += rebound_frames if reverse else scale_frames
-    keyframe_prop(obj, prop_name='scale', prop_val=[x * overshoot_factor for x in full_size], frame=bpy.context.scene.frame_current)
-    # keyframe final state
-    bpy.context.scene.frame_current += scale_frames if reverse else rebound_frames
-    obj_size = tiny_size if reverse else full_size
-    keyframe_prop(obj, prop_name='scale', prop_val=obj_size, frame=bpy.context.scene.frame_current)
-    return obj
-## end copy
 
 def get_deselect_selected(objs):
     deselected_objs = deque([])
@@ -52,13 +33,13 @@ def get_deselect_selected(objs):
     active_obj and deselected_objs.appendleft(active_obj)
     return objs
 
-def set_selected(objs):
+def set_selected(objs=bpy.context.selected_objects):
     for obj in objs:
         obj.select = True
     return objs
 
-def get_selected(scene=bpy.context.scene):
-    return [obj for obj in bpy.context.scene.objects if obj.select]
+def get_selected():
+    return bpy.context.selected_objects
 
 def set_active(obj, scene_objects=bpy.context.scene.objects):
     if not obj or not obj.select or not hasattr(scene_objects, 'active'):
@@ -100,7 +81,39 @@ def deactivate_all():
     bpy.context.scene.objects.active = None
     return True
 
+def popin(obj, tiny_size=(0, 0, 0), overshoot_factor=1.1, scale_frames=4, rebound_frames=2, reverse=False):
+    # values
+    full_size = obj.scale.to_tuple()    # pop large size (popin end, popout start)
+    # keyframe initial state
+    obj_size = full_size if reverse else tiny_size
+    keyframe_prop(obj, prop_name='scale', prop_val=obj_size, frame=bpy.context.scene.frame_current)
+    # keyframe overshoot state
+    bpy.context.scene.frame_current += rebound_frames if reverse else scale_frames
+    keyframe_prop(obj, prop_name='scale', prop_val=[x * overshoot_factor for x in full_size], frame=bpy.context.scene.frame_current)
+    # keyframe final state
+    bpy.context.scene.frame_current += scale_frames if reverse else rebound_frames
+    obj_size = tiny_size if reverse else full_size
+    keyframe_prop(obj, prop_name='scale', prop_val=obj_size, frame=bpy.context.scene.frame_current)
+    return obj
+
 # TODO: allow control of sequence (or at least check following select order)
+class OrderedSelection:
+    ## allow preserving selection order of selected objects
+    def __init__(self):
+        self.selected = []
+
+    def reset(self):
+        self.selected = []
+
+    def add(self, obj):
+        self.selected = [*self.selected, obj]
+
+    def remove(self, obj):
+        self.selected = [o for o in self.selected if o != obj]
+
+    def get(self):
+        return self.selected
+
 def popin_sequential(objs=[], popin_op=None, frame_gap=0):
     if not objs or not popin_op:
         return
@@ -111,29 +124,14 @@ def popin_sequential(objs=[], popin_op=None, frame_gap=0):
 
     for obj in objs:
         set_active(obj)
-        #popin_op(obj, scale_frames=4, rebound_frames=2, overshoot_factor=1.1)
 
-        # popin effect
-        # values
-        reverse = False
-        full_size = obj.scale.to_tuple()    # pop large size (popin end, popout start)
-        overshoot_factor = 1.1              # pop climax size (mid "pop" size)
-        tiny_size = (0, 0, 0)               # pop small size (popin start, popout end)
-        scale_frames = 4
-        rebound_frames = 2
-        # keyframe initial state
-        obj_size = full_size if reverse else tiny_size
-        keyframe_prop(obj, prop_name='scale', prop_val=obj_size, frame=bpy.context.scene.frame_current)
-        # keyframe overshoot state
-        bpy.context.scene.frame_current += rebound_frames if reverse else scale_frames
-        keyframe_prop(obj, prop_name='scale', prop_val=[x * overshoot_factor for x in full_size], frame=bpy.context.scene.frame_current)
-        # keyframe final state
-        bpy.context.scene.frame_current += scale_frames if reverse else rebound_frames
-        obj_size = tiny_size if reverse else full_size
-        keyframe_prop(obj, prop_name='scale', prop_val=obj_size, frame=bpy.context.scene.frame_current)
+        popin(obj)
 
         unset_active()
         obj != objs[len(objs)-1] and frame_gap and playhead.forward(frame_gap)
+
+    set_selected(objs)
+
     return objs
 
 #selected_objects = get_deselect_selected(get_selected())
