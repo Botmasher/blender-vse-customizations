@@ -1,5 +1,6 @@
 import bpy
 from collections import deque
+import selection_utils
 
 ## Popin-Popout Objects Sequentially
 ##
@@ -105,6 +106,9 @@ class OrderedSelection:
     def reset(self):
         self.selected = []
 
+    def set(self, objs):
+        self.selected = objs
+
     def add(self, obj):
         self.selected = [*self.selected, obj]
 
@@ -122,19 +126,9 @@ selection = OrderedSelection()
 # compare proposed ways of getting selection:
 # https://blenderartists.org/t/how-to-get-selection-order/635194/8
 
-@persistent
-def scene_handler(dummy):
-    removables = []
-    for obj in selection.get():
-        obj not in bpy.context.selected_objects and removables.append(obj)
-    for obj in removables:
-        selection.remove(obj)
-    for obj in bpy.context.selected_objects:
-        not selection.has(obj) and selection.add(obj)
-
-bpy.app.handlers.scene_update_post.append(scene_handler)
-
 def popin_sequential(frame_gap=0):
+
+    selection.set(selection_utils.selected)
 
     objs = selection.get()
 
