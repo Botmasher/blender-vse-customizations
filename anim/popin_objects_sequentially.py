@@ -111,11 +111,34 @@ class OrderedSelection:
     def remove(self, obj):
         self.selected = [o for o in self.selected if o != obj]
 
+    def has(self, obj):
+        return obj in self.selected
+
     def get(self):
         return self.selected
 
-def popin_sequential(objs=[], popin_op=None, frame_gap=0):
-    if not objs or not popin_op:
+selection = OrderedSelection()
+
+# compare proposed ways of getting selection:
+# https://blenderartists.org/t/how-to-get-selection-order/635194/8
+
+@persistent
+def scene_handler(dummy):
+    removables = []
+    for obj in selection.get():
+        obj not in bpy.context.selected_objects and removables.append(obj)
+    for obj in removables:
+        selection.remove(obj)
+    for obj in bpy.context.selected_objects:
+        not selection.has(obj) and selection.add(obj)
+
+bpy.app.handlers.scene_update_post.append(scene_handler)
+
+def popin_sequential(frame_gap=0):
+
+    objs = selection.get()
+
+    if not objs:
         return
 
     playhead = Playhead()
@@ -134,7 +157,4 @@ def popin_sequential(objs=[], popin_op=None, frame_gap=0):
 
     return objs
 
-#selected_objects = get_deselect_selected(get_selected())
-selected_objects = [obj for obj in bpy.context.scene.objects if obj.select]
-
-popin_sequential(objs=selected_objects, popin_op=popin, frame_gap=2)
+popin_sequential(frame_gap=2)
