@@ -8,6 +8,12 @@ import selection_utils
 ## and staggering the effects
 ## Example use: popin multiple image planes one after another
 
+## currently works
+
+# TODO: popin objects by selection order
+# proposed ways of preserving order:
+# https://blenderartists.org/t/how-to-get-selection-order/635194/8
+
 def keyframe_prop(obj, prop_name='', prop_val=None, frame=None):
     """Keyframe a property on object at this frame"""
     if not obj or not prop_name or not prop_val or frame is None: return
@@ -122,13 +128,9 @@ class OrderedSelection:
         return self.selected
 
 selection = OrderedSelection()
-
-# compare proposed ways of getting selection:
-# https://blenderartists.org/t/how-to-get-selection-order/635194/8
+selection.set(bpy.context.selected_objects)
 
 def popin_sequential(frame_gap=0):
-
-    selection.set(selection_utils.selected)
 
     objs = selection.get()
 
