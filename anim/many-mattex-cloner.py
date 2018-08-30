@@ -6,8 +6,8 @@ import bpy
 ## 
 ## Task: 	Duplicate one material with its associated textures into an array of named materials.
 ## Use: 	Create many separate objects with the same textures that can independently toggle texes on/off.
-## 				(When texes are associated with the same material across objects, setting one to active/inactive
-## 				sets for all objects with that material)
+## 			(When texes are associated with the same material across objects, setting one to active/inactive
+## 			sets for all objects with that material)
 
 def duplicate_material_across_names (names=[], obj=None):
 	"""Make as many duplicates of the selected object's active material as there are
@@ -22,7 +22,7 @@ def duplicate_material_across_names (names=[], obj=None):
 
 	# for each name in the list
 	for name in names:
-		
+
 		# mat_new = obj.data.materials.new(name=name)
 		#obj.data.materials.append(mat_new)
 
@@ -31,9 +31,9 @@ def duplicate_material_across_names (names=[], obj=None):
 		mat_new.name = name
 		# attach copy to active object - just add it to same object for now
 		obj.data.materials.append(mat_new)
-		
+
 	return obj.data.materials
-	
+
 # TODO apply to an array of objects (just all selected objects), one per object
 
 # test

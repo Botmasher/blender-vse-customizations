@@ -11,8 +11,8 @@
 
 ## Future plans
 - [ ] center object in viewport
-- [X] shape key spikes
-- [ ] chain popin effect with frame offset
+- [X] shape key spikes for keyframing initial-final-initial values
+- [ ] chain popin effect with frame offset (hurdle: preserving object selection order)
 - [X] blurless frame button for quickly toggling motion blur during animation
 - [ ] copy parented object, unparent, resize, move to selected object, optionally parent to selected
 - [X] every other cutter: like framesplitter but removes (vec blurred) intermediate frames
@@ -30,9 +30,6 @@
 - [ ] save loc/rot/scale points and animate between them over n frames (allow push XOR pull anims)
 	- even togglable mode where you move/rot/scale object, it sets kfs n frames apart
 	- you can reverse for in/out
-- [ ] shape key cycles initial > final > initial values
-	- in/out (close-open,open-close)
-	- continuous (unblink-blink-unblink)
 - [ ] auto stretch/squash
 - [ ] overshoot i% over n frames before settling into final anim value
 - [ ] project completion meter and hour tracker
