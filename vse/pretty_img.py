@@ -12,6 +12,10 @@ from bpy_extras.io_utils import ImportHelper
 
 def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.scene.frame_current, length=10, alpha=True):
     # open a browser window and let user pick the path
+
+    bpy.context.scene.sequence_editor_create()
+    # create sequence editor
+
     strip = bpy.context.scene.sequence_editor.sequences.new_image(name=name, filepath=path, channel=channel, frame_start=frame_start)
 
     # TODO set channel strip wisely - currently importing many causes interlaced stacking of transform and image strips
