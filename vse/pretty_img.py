@@ -8,42 +8,66 @@ from bpy_extras.io_utils import ImportHelper
 ##
 ## This small Blender Python tool loads prettier images with transparency and original image
 ## dimensions instead of default settings and wonkily stretched/squashed dimensions
-## 
+##
 
-def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.scene.frame_current, length=10, alpha=True):
-    # open a browser window and let user pick the path
+def load_scale_img (name, path, scale=1.0, channel=1, length=10, alpha=True):
 
-    bpy.context.scene.sequence_editor_create()
+    scene = bpy.context.scene
+
+    scene.sequence_editor_create()
     # create sequence editor
 
-    strip = bpy.context.scene.sequence_editor.sequences.new_image(name=name, filepath=path, channel=channel, frame_start=frame_start)
+    strip = scene.sequence_editor.sequences.new_image(name=name, filepath=path, channel=channel, frame_start=scene.frame_current)
+
+    def deselect_strips ():
+        bpy.ops.sequencer.select_all(action='DESELECT')
+        return
+
+    def print_dimensions_at_frame ():
+        print("Playhead at frame {0} and img dimensions are: {1} x {2}".format(scene.frame_current, strip.elements[0].orig_width, strip.elements[0].orig_height))
+        return
 
     # TODO set channel strip wisely - currently importing many causes interlaced stacking of transform and image strips
+    # NOTE transform strips are set poorly when another strip is selected
 
-    for s in bpy.context.scene.sequence_editor.sequences_all: s.select = False
+    deselect_strips()
     strip.select = True
-    
+    scene.sequence_editor.active_strip = strip
+
     bpy.ops.sequencer.effect_strip_add(type='TRANSFORM')
-    transform_strip = bpy.context.scene.sequence_editor.active_strip
+    transform_strip = scene.sequence_editor.active_strip
     transform_strip.use_uniform_scale = False
-    
+
     # hidden bg render to get updated img res data (otherwise orig w and h are 0)
     # https://blenderartists.org/forum/archive/index.php/t-339084.html
     bpy.ops.render.opengl(sequencer=True)
 
+    frame_initial = scene.frame_current
+    scene.frame_current = strip.frame_start
+
     # gather image data
     img = strip.elements[0]
-    img_res = {'w': img.orig_width, 'h': img.orig_height}
-    #directory = strip.directory
-    filename = img.filename
-    
-    print("%s: %s" % (filename, "{0} x {1}".format(img_res['w'], img_res['h'])))
+    print_dimensions_at_frame ()
+    # store dimensions
+
+    if not (img.orig_width and img.orig_height):
+        print("pretty_img - Failed to rescale img with width or height of 0: {0}".format(img.filename))
+        return
+
+    img_res = {
+        'w': img.orig_width,
+        'h': img.orig_height
+    }
+    print("%s: %s" % (img.filename, "{0} x {1}".format(img_res['w'], img_res['h'])))
 
     # resize image
     # figure out how to resize just using input dimensions, the stretch applied, transform scale
-    render_res = {'w': bpy.context.scene.render.resolution_x, 'h': bpy.context.scene.render.resolution_y}
+    render_res = {'w': scene.render.resolution_x, 'h': scene.render.resolution_y}
     img_render_ratio = {'w': img_res['w'] / render_res['w'], 'h': img_res['h'] / render_res['h']}
     print("Image vs screen res ratio - w: {0:.0f}%, h: {1:.0f}%".format(img_render_ratio['w'] * 100, img_render_ratio['h'] * 100))
+
+    print_dimensions_at_frame ()
+    bpy.ops.sequencer.refresh_all()
 
     scaled_img_h = 1080     # 1.0 scale y == 100% render_res.h
     scaled_img_w = 1920     # stretched value
@@ -63,6 +87,10 @@ def load_scale_img (name, path, scale=1.0, channel=1, frame_start=bpy.context.sc
 
     # set strip length
     strip.frame_final_duration = length
+
+    scene.frame_current = frame_initial
+
+    deselect_strips()
 
     return strip
 
@@ -87,7 +115,7 @@ class PrettyImagePanel (bpy.types.Panel):
 
         row = self.layout.row()
         row.operator("strip.add_pretty", text="Add Pretty Image")
-        
+
 class PrettyImageOperator (bpy.types.Operator):
     # Blender UI label, id and description
     bl_label = "Pretty Image Operator"
@@ -107,7 +135,7 @@ class PrettyImageOperator (bpy.types.Operator):
     set_alpha = PrettyImageProperties['alpha']
     img_scale = PrettyImageProperties['scale']
     length = PrettyImageProperties['length']
-    
+
     def store_files (self, files):
         img_filenames = []
         for f in files:
@@ -126,7 +154,7 @@ class PrettyImageOperator (bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-  
+
 def register():
     bpy.utils.register_class(PrettyImagePanel)
     bpy.utils.register_class(PrettyImageOperator)
