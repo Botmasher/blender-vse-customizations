@@ -36,12 +36,7 @@ def load_scale_img (name, path, scale=1.0, channel=1, length=10, alpha=True):
         bpy.ops.sequencer.select_all(action='DESELECT')
         return
 
-    def print_dimensions_at_frame ():
-        print("Playhead at frame {0} and img dimensions are: {1} x {2}".format(scene.frame_current, strip.elements[0].orig_width, strip.elements[0].orig_height))
-        return
-
     # TODO set channel strip wisely - currently importing many causes interlaced stacking of transform and image strips
-    # NOTE transform strips are set poorly when another strip is selected
 
     deselect_strips()
     strip.select = True
@@ -51,13 +46,22 @@ def load_scale_img (name, path, scale=1.0, channel=1, length=10, alpha=True):
     transform_strip = scene.sequence_editor.active_strip
     transform_strip.use_uniform_scale = False
 
-    # hidden bg render to get updated img res data (otherwise orig w and h are 0)
-    # https://blenderartists.org/forum/archive/index.php/t-339084.html
-    bpy.ops.render.opengl(sequencer=True)
-
-    # TODO render image in viewport area so that orig_width and orig_height have non-zero values
+    # hack: update in viewport to read source img orig_width and orig_height
+    # switch view and area
+    area = bpy.context.area
+    original_area = area.type
+    area.type = 'SEQUENCE_EDITOR'
+    original_view = area.view_type
+    area.view_type = 'IMAGE_PREVIEW'
+    # NOTE playhead steps alone are sufficient when user has Image Preview open
     frame_initial = scene.frame_current
     scene.frame_current = strip.frame_start
+    scene.frame_current += 1
+    scene.frame_current -= 1
+    # reset view and area
+    area.view_type = original_view
+    area.type = original_area
+    # /hack
 
     # gather image data
     img = strip.elements[0]
@@ -80,12 +84,11 @@ def load_scale_img (name, path, scale=1.0, channel=1, length=10, alpha=True):
     img_render_ratio = {'w': img_res['w'] / render_res['w'], 'h': img_res['h'] / render_res['h']}
     print("Image vs screen res ratio - w: {0:.0f}%, h: {1:.0f}%".format(img_render_ratio['w'] * 100, img_render_ratio['h'] * 100))
 
-    print_dimensions_at_frame ()
     bpy.ops.sequencer.refresh_all()
 
-    scaled_img_h = 1080     # 1.0 scale y == 100% render_res.h
-    scaled_img_w = 1920     # stretched value
-    scaled_img_w_target = img_res['w'] / img_res['h'] * 1080      # final value we're after
+    scaled_img_h = scene.render.resolution_y    # 1.0 scale y == 100% render_res.h
+    scaled_img_w = scene.render.resolution_x    # stretched value
+    scaled_img_w_target = img_res['w'] / img_res['h'] * scaled_img_h  # final value we're after
     img_rescale_y = scaled_img_w_target / scaled_img_w  # what is that as a percentage of stretch?
 
     transform_strip.use_uniform_scale = False
