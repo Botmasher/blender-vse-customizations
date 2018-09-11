@@ -42,6 +42,7 @@ def load_scale_img (name, path, scale=1.0, channel=1, length=10, alpha=True):
     # https://blenderartists.org/forum/archive/index.php/t-339084.html
     bpy.ops.render.opengl(sequencer=True)
 
+    # TODO render image in viewport area so that orig_width and orig_height have non-zero values
     frame_initial = scene.frame_current
     scene.frame_current = strip.frame_start
 
