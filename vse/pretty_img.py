@@ -10,6 +10,19 @@ from bpy_extras.io_utils import ImportHelper
 ## dimensions instead of default settings and wonkily stretched/squashed dimensions
 ##
 
+bl_info = {
+    "name": "Pretty Image Loader",
+    "description": "Loads prettier images with transparency and original image.",
+    "author": "Joshua R",
+    "version": (1, 0, 0),
+    "blender": (2, 79, 0),
+    "location": "Sequencer > Strip Properties",
+    "tracker_url": "https://github.com/Botmasher/blender-vse-customizations/issues",
+    "wiki_url": "",
+    "support": "COMMUNITY",
+    "category": "VSE"
+}
+
 def load_scale_img (name, path, scale=1.0, channel=1, length=10, alpha=True):
 
     scene = bpy.context.scene
