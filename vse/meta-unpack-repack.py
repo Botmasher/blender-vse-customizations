@@ -30,10 +30,10 @@ def pack_meta(strips):
     bpy.ops.sequencer.meta_make()
     return packable_strips
 
-def run_op(strips, op):
-    return op(strips)
+def unpack_repack_meta(meta, op=None, add_selected=True):
 
-def unpack_add_repack_meta(meta, add_selected=False):
+    if not is_meta(meta):
+        return
 
     added_strips = []
     if add_selected:
@@ -41,9 +41,7 @@ def unpack_add_repack_meta(meta, add_selected=False):
 
     strips = unpack_meta(meta)
 
-    # example operation
-    #op = bpy.ops.sequencer.gap_insert()
-    #run_op(op)
+    op and op()
 
     # add new strips to meta
     strips = [*strips, *added_strips]
@@ -51,5 +49,20 @@ def unpack_add_repack_meta(meta, add_selected=False):
 
     return bpy.context.scene.sequence_editor.active_strip
 
+# example adding selected strips
 m = bpy.context.scene.sequence_editor.active_strip
-unpack_add_repack_meta(m)
+unpack_repack_meta(m)
+
+# example running operation while unpacked
+#def op_handler():
+#   bpy.ops.sequencer.gap_insert()
+#
+#unpack_repack(m, op=op_handler)
+
+# example unpacking all meta strips
+def unpack_repack_meta_all(op=None):
+    for s in bpy.context.scene.sequence_editor.sequences:
+        if is_meta(s):
+            unpack_repack_meta(s)
+            # TODO callback to allow running op once then packing all
+#unpack_repack_all()
