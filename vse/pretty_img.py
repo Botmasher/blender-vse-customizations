@@ -51,21 +51,19 @@ def load_scale_img (name, path, scale=1.0, channel=1, length=10, alpha=True):
     area = bpy.context.area
     original_area = area.type
     area.type = 'SEQUENCE_EDITOR'
-    original_view = area.view_type
-    area.view_type = 'IMAGE_PREVIEW'
-    # NOTE playhead steps alone are sufficient when user has Image Preview open
+    original_view = area.spaces[0].view_type
+    area.spaces[0].view_type = 'PREVIEW'
+    # NOTE playhead steps alone are sufficient when user has visible VSE Preview
     frame_initial = scene.frame_current
     scene.frame_current = strip.frame_start
-    scene.frame_current += 1
-    scene.frame_current -= 1
+    bpy.ops.render.opengl(sequencer=True)
     # reset view and area
-    area.view_type = original_view
+    area.spaces[0].view_type = original_view
     area.type = original_area
     # /hack
 
     # gather image data
     img = strip.elements[0]
-    print_dimensions_at_frame ()
     # store dimensions
 
     if not (img.orig_width and img.orig_height):
