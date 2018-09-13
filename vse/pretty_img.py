@@ -3,6 +3,8 @@ import bpy
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 
+## NOTE script deprecated! - the dedicated add-on project now lives at https://github.com/Botmasher/blender-vse-pretty-img
+
 ## Pretty Image Loader
 ## sequencer image loading tool by Botmasher (Joshua R)
 ##
