@@ -27,12 +27,6 @@ def add_locs(loc_a, loc_b):
         return Exception("Failed to add locations {0} and {1}".format(loc_a, loc_b))
     return [loc_a[i] + loc_b[i] for i in range(len(loc_a))]
 
-def subtract_locs(loc_a, loc_b):
-    """Subtract the x, y, z values of the second location from the first"""
-    if not is_loc(loc_a) or not is_loc(loc_b):
-        return Exception("Failed to subtract locations {0} and {1}".format(loc_a, loc_b))
-    return [loc_a[i] - loc_b[i] for i in range(len(loc_a))]
-
 def offset_parented_pos(obj):
     """Return the object's current world position if it were unparented"""
     if obj and hasattr(obj, 'parent') and hasattr(obj, 'location'):
@@ -66,8 +60,8 @@ def get_inactive_selected():
             inactive_selected.append(object)
     return inactive_selected
 
-def handle_deparenting(move_to_new_parent=False, reparent=False):
-    """Unset active object parent but maintain current position in world, optionally reparenting to the first inactive selected object"""
+def deparent_move_reparent(move_to_new_parent=True, reparent=True):
+    """Unset object parents but maintain current position in world, optionally reparenting to the active object"""
     if reparent:
         # use active as target for reparenting selected child to new parent
         objs = get_inactive_selected()
@@ -81,18 +75,18 @@ def handle_deparenting(move_to_new_parent=False, reparent=False):
         if not obj or not has_parent(obj):
             continue
 
-        if target and reparent and move_to_new_parent:
-            # keep same offset from inactive selected object
-            offset_loc = add_locs(obj.location, target.location)
-        else:
-            # maintain current world position (no visual move)
-            offset_loc = add_locs(obj.location, obj.parent.location)
+        # keep offset from inactive selected object (apply move offset pos)
+        # or maintain current world position (no visual move)
+        retain_offset = target and reparent and move_to_new_parent
+        offset_loc = add_locs(obj.location, target.location) if retain_offset else add_locs(obj.location, obj.parent.location)
+
         move(obj, offset_loc)
+
         # remove parent last to allow calculating parent loc
         unset_parent(obj)
         reparent and target and set_parent(target)
-        
+
     return objs
 
 # test deparent + keep world pos
-handle_deparenting()
+deparent_move_reparent()
