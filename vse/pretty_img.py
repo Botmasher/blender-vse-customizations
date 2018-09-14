@@ -138,10 +138,6 @@ class PrettyImageOperator (bpy.types.Operator):
     bl_label = "Pretty Image Operator"
     bl_idname = 'strip.add_pretty'
     bl_description = "Add a new image with alpha, transform strip and proper dimensions."
-    def execute (self, context):
-        bpy.context.scene.sequence_editor_create()  # verify vse is valid in scene
-        load_scale_img ("MY-ASDF-PATH.png")
-        return {'FINISHED'}
     # import settings
     filepath = StringProperty (name='File Path')
     files = CollectionProperty(name='File Names', type=bpy.types.OperatorFileListElement)
@@ -161,6 +157,7 @@ class PrettyImageOperator (bpy.types.Operator):
 
     def execute (self, ctx):
         print("\n\nRestarting PRETTY IMG LOADER...")
+        bpy.context.scene.sequence_editor_create()  # verify vse is valid in scene
         img_filenames = self.store_files(self.files)
         img_path = self.directory
         for filename in img_filenames:

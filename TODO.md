@@ -27,7 +27,7 @@
 - [X] scene popin objects (scale-overshoot-settle keyframes)
 - [ ] fancy animated text (make array of letters/words, set fx, chain fx, allow random)
 	- check out work from [other authors](https://gitlab.com/bkurdali/blender-addon-experiments/blob/master/text_fx.py)
-- [ ] allow for automatic manipulation (with unpacking then repacking) of metastrips
+- [X] allow for automatic manipulation (with unpacking then repacking) of metastrips
 - [X] create materials from common color names
 - [ ] save loc/rot/scale points and animate between them over n frames (allow push XOR pull anims)
 	- even togglable mode where you move/rot/scale object, it sets kfs n frames apart
