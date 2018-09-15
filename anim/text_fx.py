@@ -19,3 +19,22 @@ def text_fx(txt_obj):
     #   http://www.blenderdiplom.com/en/tutorials/all-tutorials/620-tutorial-animation-nodes-wiggle-explained.html
 
     return
+
+## take txt input and turn it into single-letter text objects
+def string_to_letters(txt=""):
+    origin = [0, 0, 0]
+    offset_x = 0
+    spacing = 0.5
+    letter_objs = []
+    for l in txt:
+        if l != " ":
+            letter = bpy.data.curves.new(name="\"{0}\"-letter-{1}".format(txt, l), type="FONT")
+            letter.body = l
+            letter_obj = bpy.data.objects.new(letter.name, letter)
+            bpy.context.scene.objects.link(letter_obj)
+            letter_obj.location = [offset_x, *origin[1:]]
+            letter_objs.append(letter_obj)
+        offset_x += spacing
+    return letter_objs
+
+string_to_letters("asdf yeah!")

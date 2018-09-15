@@ -21,7 +21,6 @@
 - [X] print all fonts used in anim text objects
 - [X] shuffle selected strips and change lengths (for randomizing animations like typing, bg talking)
 - [X] pull out extend and separate already cut substrips from subcutter (useful for manually cut ones)
-- [ ] make text editor keypress <kbd>OPT + A</kbd> default to animate instead of "å" unless held
 - [X] auto set alpha tex img to have nontransparent solid color bg
 - [X] auto blend texture setup (including blend direction side-to-side, top-to-bottom, ...)
 - [X] scene popin objects (scale-overshoot-settle keyframes)
