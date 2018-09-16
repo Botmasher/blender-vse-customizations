@@ -1,4 +1,5 @@
 import bpy
+import random
 
 def is_text(obj):
     return obj and hasattr(obj, 'type') and obj.type == 'FONT'
@@ -37,4 +38,44 @@ def string_to_letters(txt=""):
         offset_x += spacing
     return letter_objs
 
-string_to_letters("asdf yeah!")
+# temp method for constructing fx
+def do_fx (font_obj, frame_start, frame_length=5, fx="slide_in_R"):
+
+    if type(font_obj) is not 'FONT':
+        return
+
+    if fx == "slide_in_R":
+        # TODO keyframe location over frame_length frames
+
+    return font_obj
+
+def anim_txt(txt="", time_offset=0, randomize=False):
+
+    if not (txt and type(txt) is str):
+        return
+
+    letters = string_to_letters(txt)
+
+    offsets = [i * time_offset for i in range(len(letters))]
+    randomize and random.shuffle(offsets)
+    start_frame = bpy.context.scene.frame_current
+
+    # TODO think through tricky cases where fx have:
+    # - staggered starts but ending at the same frame
+    # - logarithmic staggered starts or ends
+    # - randomizing or complex animations
+    # - ...
+
+    # keyframe effect for each letter
+    for i in range(len(letters)):
+        letter = letters[i]
+        frame = start_frame + offsets[i]
+        bpy.context.scene.frame_current = frame
+        # TODO run specific fx
+        do_fx(letter, frame)
+
+    bpy.context.scene.frame_current = start_frame
+
+    return letters
+
+anim_txt("asdf yeah!")
