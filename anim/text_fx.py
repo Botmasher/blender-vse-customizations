@@ -39,17 +39,32 @@ def string_to_letters(txt=""):
     return letter_objs
 
 # temp method for constructing fx
-def do_fx (font_obj, frame_start, frame_length=5, fx="slide_in_R"):
+def do_fx (font_obj, frame_start, frame_length=5, from_values=[], to_values=[], fx="slide_in"):
 
-    if type(font_obj) is not 'FONT':
+    if not hasattr(font_obj, 'type') or font_obj.type != 'FONT' or not from_values or not to_values:
         return
 
-    if fx == "slide_in_R":
+    if fx == "slide_in":
         # TODO keyframe location over frame_length frames
+        font_obj.location = from_values
+        font_obj.keyframe_insert(data_path='location')
+        bpy.context.scene.frame_current += frame_length
+        font_obj.location = to_values
+        font_obj.keyframe_insert(data_path='location')
+
+    if fx == "wiggle":
+        font_obj.rotation_euler = from_values
+        font_obj.keyframe_insert(data_path='rotation_euler')
+        bpy.context.scene.frame_current += frame_length
+        font_obj.rotation_euler = to_values
+        font_obj.keyframe_insert(data_path='rotation_euler')
+        bpy.context.scene.frame_current += frame_length
+        font_obj.rotation_euler = from_values
+        font_obj.keyframe_insert(data_path='rotation_euler')
 
     return font_obj
 
-def anim_txt(txt="", time_offset=0, randomize=False):
+def anim_txt(txt="", time_offset=1, randomize=False):
 
     if not (txt and type(txt) is str):
         return
@@ -72,7 +87,14 @@ def anim_txt(txt="", time_offset=0, randomize=False):
         frame = start_frame + offsets[i]
         bpy.context.scene.frame_current = frame
         # TODO run specific fx
-        do_fx(letter, frame)
+        loc_start = [-3.0, letter.location.y, letter.location.z]
+        loc_end = [letter.location.x, letter.location.y, letter.location.z]
+        do_fx(letter, frame, from_values=loc_start, to_values=loc_end)
+
+        z_rotation = -0.15 if i % 2 else 0.25
+        rot_start = letter.rotation_euler
+        rot_end = [letter.rotation.x, letter.rotation.y, letter.rotation.z + z_rotation]
+        do_fx(letter, frame, from_values=loc_start, to_values=loc_end)
 
     bpy.context.scene.frame_current = start_frame
 
