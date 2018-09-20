@@ -39,37 +39,73 @@ def string_to_letters(txt=""):
     return letter_objs
 
 # temp method for constructing fx
-def do_fx (font_obj, frame_start, frame_length=5, from_values=[], to_values=[], fx="slide_in"):
+def do_fx (font_obj, fx={}):
+    """Keyframe an effect on a letter based on an fx dict
+
+    fx = {
+        'name': 'NAME',     # like 'SLIDE'
+        'attr': obj.attr,   # attribute to set on obj
+        'to': [x, y, z],
+        'from': [x, y, z],
+        'length': 0,        # frames
+        'return': False,    # for fx like 'WIGGLE'
+        'sub': {            # additional fx layering
+            'type': 'NAME',
+            ...
+        }
+    }
+    """
+
+    if not fx or not hasattr(font_obj, fx['attr']):
+        return
 
     if not hasattr(font_obj, 'type') or font_obj.type != 'FONT' or not from_values or not to_values:
         return
 
-    if fx == "slide_in":
-        # TODO keyframe location over frame_length frames
-        font_obj.location = from_values
-        font_obj.keyframe_insert(data_path='location')
+    # TODO keyframe location over frame_length frames
+    getattr(font_obj, fx['attr']) = fx['from']
+    font_obj.keyframe_insert(data_path=fx['attr'])
+    bpy.context.scene.frame_current += frame_length
+    getattr(font_obj, fx['attr']) = fx['to']
+    font_obj.keyframe_insert(data_path=fx['attr'])
+    if fx['return']:
         bpy.context.scene.frame_current += frame_length
-        font_obj.location = to_values
-        font_obj.keyframe_insert(data_path='location')
-
-    if fx == "wiggle":
-        font_obj.rotation_euler = from_values
-        font_obj.keyframe_insert(data_path='rotation_euler')
-        bpy.context.scene.frame_current += frame_length
-        font_obj.rotation_euler = to_values
-        font_obj.keyframe_insert(data_path='rotation_euler')
-        bpy.context.scene.frame_current += frame_length
-        font_obj.rotation_euler = from_values
-        font_obj.keyframe_insert(data_path='rotation_euler')
+        getattr(font_obj, fx['attr']) = fx['from']
+        font_obj.keyframe_insert(data_path=fx['attr'])
 
     return font_obj
 
-def anim_txt(txt="", time_offset=1, randomize=False):
+def get_fx_attr(fx_name):
+    fx_attr_map = {
+        'WIGGLE': ['rotation_euler', True],
+        'SLIDE': ['location', False],
+        # TODO support layered fx
+        #'WOBBLE': ['rotation_euler', 'location'],
+        #'SCALE': [], ...
+    }
+    return fx_attr_map[fx_name]
+
+def anim_txt(txt="", time_offset=1, fx_name='', fx_from=[], fx_to=[], frames=0, randomize=False):
 
     if not (txt and type(txt) is str):
         return
 
     letters = string_to_letters(txt)
+
+    # build fx dict
+    fx_attr = get_fx_attr(fx_name)
+
+    if not fx_attr:
+        return
+
+    fx = {
+        'name': fx_name,
+        'attr': fx_attr[:-1],
+        'length': frames,
+        'from': fx_from,
+        'to': fx_to,
+        'return': fx_attr[-1]
+    }
 
     offsets = [i * time_offset for i in range(len(letters))]
     randomize and random.shuffle(offsets)
@@ -86,18 +122,19 @@ def anim_txt(txt="", time_offset=1, randomize=False):
         letter = letters[i]
         frame = start_frame + offsets[i]
         bpy.context.scene.frame_current = frame
-        # TODO run specific fx
-        loc_start = [-3.0, letter.location.y, letter.location.z]
-        loc_end = [letter.location.x, letter.location.y, letter.location.z]
-        do_fx(letter, frame, from_values=loc_start, to_values=loc_end)
 
-        z_rotation = -0.15 if i % 2 else 0.25
-        rot_start = letter.rotation_euler
-        rot_end = [letter.rotation.x, letter.rotation.y, letter.rotation.z + z_rotation]
-        do_fx(letter, frame, from_values=loc_start, to_values=loc_end)
+        do_fx(letter, fx)
+
+        # TODO calc randomized values on return fx
 
     bpy.context.scene.frame_current = start_frame
 
     return letters
 
-anim_txt("asdf yeah!")
+loc_start = [-3.0, letter.location.y, letter.location.z]
+loc_end = [letter.location.x, letter.location.y, letter.location.z]
+anim_txt("slide the text", fx_name='SLIDE', fx_from=loc_start, fx_to=loc_end, frames=4)
+
+rot_start = letter.rotation_euler
+rot_end = [letter.rotation.x, letter.rotation.y, letter.rotation.z + z_rotation]
+anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_from=rot_start, fx_to=rot_end, frames=5)
