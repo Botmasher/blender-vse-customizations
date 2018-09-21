@@ -4,23 +4,6 @@ import random
 def is_text(obj):
     return obj and hasattr(obj, 'type') and obj.type == 'FONT'
 
-def text_fx(txt_obj):
-    if not is_text(txt_obj):
-        return
-    txt_src = txt_obj.data.body
-    for letter in txt_src:
-        print(letter)
-
-    # TODO: understand how to split letters within FONT obj and animate separately
-    # - text segment approach: https://gitlab.com/bkurdali/blender-addon-experiments/blob/master/text_fx.py
-    # - perhaps need to approach different fx from a variety of methods
-    # - rot constraints can be applied to every single letter
-    #   https://blender.stackexchange.com/questions/36908/letter-by-letter-animation
-    # - wiggle achievable with curve
-    #   http://www.blenderdiplom.com/en/tutorials/all-tutorials/620-tutorial-animation-nodes-wiggle-explained.html
-
-    return
-
 ## take txt input and turn it into single-letter text objects
 def string_to_letters(txt=""):
     origin = [0, 0, 0]
@@ -39,73 +22,93 @@ def string_to_letters(txt=""):
     return letter_objs
 
 # temp method for constructing fx
-def do_fx (font_obj, fx={}):
+def keyframe_letter_fx (font_obj, fx={}):
     """Keyframe an effect on a letter based on an fx dict
 
     fx = {
-        'name': 'NAME',     # like 'SLIDE'
-        'attr': obj.attr,   # attribute to set on obj
-        'to': [x, y, z],
-        'from': [x, y, z],
-        'length': 0,        # frames
-        'return': False,    # for fx like 'WIGGLE'
-        'sub': {            # additional fx layering
-            'type': 'NAME',
-            ...
-        }
+        'name': '',         # like 'SLIDE'
+        'attr': '',         # attribute to set on obj
+        'to_from': '10',    # point-to-point, cyclical, custom
+        'change': [],       # delta (1) from base value (0)
+        'length': 0         # frames
     }
     """
 
     if not fx or not hasattr(font_obj, fx['attr']):
         return
 
-    if not hasattr(font_obj, 'type') or font_obj.type != 'FONT' or not from_values or not to_values:
+    if not hasattr(font_obj, 'type') or font_obj.type != 'FONT' or not 'attr' in fx:
         return
 
+    def set_kf(obj, attr=None, value=None, frame_skip=0):
+        if not hasattr(obj, attr) or not hasattr(obj, 'keyframe_insert') or not value:
+            return
+        setattr(obj, attr, value)
+        kf = obj.keyframe_insert(data_path=attr)
+        bpy.context.scene.frame_current += frame_skip
+        return kf
+
     # TODO keyframe location over frame_length frames
-    getattr(font_obj, fx['attr']) = fx['from']
-    font_obj.keyframe_insert(data_path=fx['attr'])
-    bpy.context.scene.frame_current += frame_length
-    getattr(font_obj, fx['attr']) = fx['to']
-    font_obj.keyframe_insert(data_path=fx['attr'])
-    if fx['return']:
-        bpy.context.scene.frame_current += frame_length
-        getattr(font_obj, fx['attr']) = fx['from']
-        font_obj.keyframe_insert(data_path=fx['attr'])
+
+    start_value = getattr(font_obj, fx['attr'])
+    changed_value = fx['change']
+
+    # keyframe effect
+    for target in fx['to_from']:
+        fx_value = changed_value if target == '1' else start_value
+        print("setting {0} to {1}".format(fx['attr'], fx_value))
+        set_kf(font_obj, attr=fx['attr'], value=fx_value, frame_skip=fx['length'])
+    # undo last frame skip since not adding another kf
+    bpy.context.scene.frame_current -= fx['length']
 
     return font_obj
 
-def get_fx_attr(fx_name):
-    fx_attr_map = {
-        'WIGGLE': ['rotation_euler', True],
-        'SLIDE': ['location', False],
+def get_fx_map(fx_name):
+    WIGGLE = 'WIGGLE'
+    SLIDE_IN = 'SLIDE_IN'
+    SLIDE_OUT = 'SLIDE_OUT'
+    name = 'name'
+    attr = 'attr'
+    to_from = 'to_from'
+    fx_map = {
+        WIGGLE: {
+            name: WIGGLE,
+            attr: 'rotation_euler',
+            to_from: '010'
+        },
+        SLIDE_IN: {
+            name: SLIDE_IN,
+            attr: 'location',
+            to_from: '10'
+        },
+        SLIDE_OUT: {
+            name: SLIDE_OUT,
+            attr: 'location',
+            to_from: '01'
+        }
         # TODO support layered fx
         #'WOBBLE': ['rotation_euler', 'location'],
         #'SCALE': [], ...
     }
-    return fx_attr_map[fx_name]
+    if not fx_name in fx_map:
+        return
+    return fx_map[fx_name]
 
-def anim_txt(txt="", time_offset=1, fx_name='', fx_from=[], fx_to=[], frames=0, randomize=False):
+def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, randomize=False):
 
-    if not (txt and type(txt) is str):
+    if not (txt and type(txt) is str and fx_delta):
         return
 
     letters = string_to_letters(txt)
 
     # build fx dict
-    fx_attr = get_fx_attr(fx_name)
+    fx = get_fx_map(fx_name)
 
-    if not fx_attr:
+    if not fx:
         return
 
-    fx = {
-        'name': fx_name,
-        'attr': fx_attr[:-1],
-        'length': frames,
-        'from': fx_from,
-        'to': fx_to,
-        'return': fx_attr[-1]
-    }
+    fx['length'] = frames
+    fx['change'] = fx_delta
 
     offsets = [i * time_offset for i in range(len(letters))]
     randomize and random.shuffle(offsets)
@@ -123,7 +126,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_from=[], fx_to=[], frames=0, 
         frame = start_frame + offsets[i]
         bpy.context.scene.frame_current = frame
 
-        do_fx(letter, fx)
+        keyframe_letter_fx(letter, fx)
 
         # TODO calc randomized values on return fx
 
@@ -131,10 +134,10 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_from=[], fx_to=[], frames=0, 
 
     return letters
 
-loc_start = [-3.0, letter.location.y, letter.location.z]
-loc_end = [letter.location.x, letter.location.y, letter.location.z]
-anim_txt("slide the text", fx_name='SLIDE', fx_from=loc_start, fx_to=loc_end, frames=4)
+# TODO tether letters to parent empty
 
-rot_start = letter.rotation_euler
-rot_end = [letter.rotation.x, letter.rotation.y, letter.rotation.z + z_rotation]
-anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_from=rot_start, fx_to=rot_end, frames=5)
+#loc_deltas = [-3.0, 0.0, 0.0]
+#anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
+
+rot_deltas = [0.0, 0.0, 5.0]
+anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5)
