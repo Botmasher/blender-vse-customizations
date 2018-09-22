@@ -4,21 +4,34 @@ import random
 def is_text(obj):
     return obj and hasattr(obj, 'type') and obj.type == 'FONT'
 
+# TODO center letters to point instead of growing to right
+
 ## take txt input and turn it into single-letter text objects
-def string_to_letters(txt=""):
+def string_to_letters(txt="", spacing=0.0):
     origin = [0, 0, 0]
     offset_x = 0
-    spacing = 0.5
     letter_objs = []
     for l in txt:
-        if l != " ":
-            letter = bpy.data.curves.new(name="\"{0}\"-letter-{1}".format(txt, l), type="FONT")
-            letter.body = l
-            letter_obj = bpy.data.objects.new(letter.name, letter)
-            bpy.context.scene.objects.link(letter_obj)
-            letter_obj.location = [offset_x, *origin[1:]]
+        letter = bpy.data.curves.new(name="\"{0}\"-letter-{1}".format(txt, l), type="FONT")
+        letter.body = l if l != " " else "a"
+        letter_obj = bpy.data.objects.new(letter.name, letter)
+        bpy.context.scene.objects.link(letter_obj)
+        letter_obj.location = [offset_x, *origin[1:]]
+
+        # base spacing on letter width
+        bpy.context.scene.update()
+        letter_offset = letter_obj.dimensions.x + spacing
+        offset_x += letter_offset
+
+        # delete blank spaces
+        if l == " ":
+            for obj in bpy.context.scene.objects:
+                obj.select = False
+            letter_obj.select = True
+            bpy.ops.object.delete()
+        else:
             letter_objs.append(letter_obj)
-        offset_x += spacing
+
     return letter_objs
 
 # temp method for constructing fx
@@ -50,7 +63,7 @@ def keyframe_letter_fx (font_obj, fx={}):
 
     # TODO keyframe location over frame_length frames
 
-    start_value = getattr(font_obj, fx['attr'])
+    start_value = getattr(font_obj, fx['attr']).copy()
     changed_value = fx['change']
 
     # keyframe effect
@@ -94,12 +107,12 @@ def get_fx_map(fx_name):
         return
     return fx_map[fx_name]
 
-def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, randomize=False):
+def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, randomize=False):
 
     if not (txt and type(txt) is str and fx_delta):
         return
 
-    letters = string_to_letters(txt)
+    letters = string_to_letters(txt, spacing=spacing)
 
     # build fx dict
     fx = get_fx_map(fx_name)
@@ -139,5 +152,5 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, randomi
 #loc_deltas = [-3.0, 0.0, 0.0]
 #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
 
-rot_deltas = [0.0, 0.0, 5.0]
-anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5)
+rot_deltas = [0.0, 0.0, 0.5]
+anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5, spacing=0.1)
