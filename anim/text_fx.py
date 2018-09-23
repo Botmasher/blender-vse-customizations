@@ -1,10 +1,9 @@
 import bpy
 import random
+from bpy.props import *
 
 def is_text(obj):
     return obj and hasattr(obj, 'type') and obj.type == 'FONT'
-
-# TODO center letters to point instead of growing to right
 
 ## take txt input and turn it into single-letter text objects
 def string_to_letters(txt="", spacing=0.0):
@@ -133,9 +132,29 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     # - randomizing or complex animations
     # - ...
 
+    # set up parent for holding letters
+    empty_data = bpy.data.objects.new("letter_fx", None)
+    letters_empty = bpy.context.scene.objects.link(empty_data)
+    letters_empty.draw_size = 1.0
+    letters_empty.draw_type = 'ARROWS'
+
+    # store properties in empty
+    empty.text_fx_props.frames = frames
+    empty.text_fx_props.spacing = spacing
+    empty.text_fx_props.randomize = randomize
+    empty.text_fx_props.name = fx_name
+    empty.text_fx_props.txt = txt
+
+    # TODO use parent to align letters (without realignment they grow to right)
+
     # keyframe effect for each letter
     for i in range(len(letters)):
         letter = letters[i]
+
+        # attach to parent but remove offset
+        letter.parent = letters_empty
+        letter.matrix_parent_inverse = letters_empty.matrix_world.inverse()
+
         frame = start_frame + offsets[i]
         bpy.context.scene.frame_current = frame
 
@@ -147,10 +166,27 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
 
     return letters
 
-# TODO tether letters to parent empty
+# TODO set up props menu on empty (also shows up on letter select?)
+#   - modify the existing fx
+#   - update the text string
+
+class TextFxProperties(bpy.types.PropertyGroup):
+    name = StringProperty(name="Letter Effect name", description="Name of the effect applied to letters")
+    txt = StringProperty(name="Letter Effect text", description="Text that was split into animated letters")
+    frames = IntProperty(name="Letter Effect frames", description="Frame duration of effect on each letter", default=5)
+    spacing = FloatProperty(name="Letter Effect spacing", description="Distance between letters", default=0.0)
+    time_offset = IntProperty(name="Letter Effect timing", description="Frames to wait between each letter's animation", default=1)
+    randomize = BoolProperty(name="Randomize Letter Effect", description="Vary the time offset for each letter's animation", default=False)
 
 #loc_deltas = [-3.0, 0.0, 0.0]
 #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
 
 rot_deltas = [0.0, 0.0, 0.5]
 anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5, spacing=0.1)
+
+def register():
+    bpy.utils.register_class(TextFxProperties)
+    bpy.types.Object.text_fx_props = bpy.props.PointerProperty(type=PropertyGroup)
+
+if __name__ == '__main__':
+    register()
