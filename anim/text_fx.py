@@ -106,6 +106,16 @@ def get_fx_map(fx_name):
         return
     return fx_map[fx_name]
 
+def center_letter_fx(letters_parent):
+    """Move fx letter parent to simulate switching from left aligned to center aligned text"""
+    # TODO allow other alignments; account for global vs parent movement
+    extremes = []
+    extremes[0] = letters_parent[0].location.x
+    extremes[1] = letters_parent[-1].location.x + letters_parent[-1].dimensions.x
+    distance = extremes[1] - extremes[0]
+    letters_parent.location.x -= distance
+    return letters_parent
+
 def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, randomize=False):
 
     if not (txt and type(txt) is str and fx_delta):
@@ -133,17 +143,17 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     # - ...
 
     # set up parent for holding letters
-    empty_data = bpy.data.objects.new("letter_fx", None)
-    letters_empty = bpy.context.scene.objects.link(empty_data)
-    letters_empty.draw_size = 1.0
-    letters_empty.draw_type = 'ARROWS'
+    letters_parent = bpy.data.objects.new("text_fx", None)
+    bpy.context.scene.objects.link(letters_parent)
+    letters_parent.empty_draw_type = 'ARROWS'
+    letters_parent.empty_draw_size = 1.0
 
     # store properties in empty
-    empty.text_fx_props.frames = frames
-    empty.text_fx_props.spacing = spacing
-    empty.text_fx_props.randomize = randomize
-    empty.text_fx_props.name = fx_name
-    empty.text_fx_props.txt = txt
+    letters_parent.text_fx_props.frames = frames
+    letters_parent.text_fx_props.spacing = spacing
+    letters_parent.text_fx_props.randomize = randomize
+    letters_parent.text_fx_props.name = fx_name
+    letters_parent.text_fx_props.txt = txt
 
     # TODO use parent to align letters (without realignment they grow to right)
 
@@ -152,8 +162,8 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
         letter = letters[i]
 
         # attach to parent but remove offset
-        letter.parent = letters_empty
-        letter.matrix_parent_inverse = letters_empty.matrix_world.inverse()
+        letter.parent = letters_parent
+        letter.matrix_parent_inverse = letters_parent.matrix_world.inverted()
 
         frame = start_frame + offsets[i]
         bpy.context.scene.frame_current = frame
@@ -169,6 +179,8 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
 # TODO set up props menu on empty (also shows up on letter select?)
 #   - modify the existing fx
 #   - update the text string
+#       - accept text input directly
+#       - accept named text_editor object
 
 class TextFxProperties(bpy.types.PropertyGroup):
     name = StringProperty(name="Letter Effect name", description="Name of the effect applied to letters")
@@ -178,15 +190,17 @@ class TextFxProperties(bpy.types.PropertyGroup):
     time_offset = IntProperty(name="Letter Effect timing", description="Frames to wait between each letter's animation", default=1)
     randomize = BoolProperty(name="Randomize Letter Effect", description="Vary the time offset for each letter's animation", default=False)
 
-#loc_deltas = [-3.0, 0.0, 0.0]
-#anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
-
-rot_deltas = [0.0, 0.0, 0.5]
-anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5, spacing=0.1)
-
 def register():
     bpy.utils.register_class(TextFxProperties)
-    bpy.types.Object.text_fx_props = bpy.props.PointerProperty(type=PropertyGroup)
+    bpy.types.Object.text_fx_props = bpy.props.PointerProperty(type=TextFxProperties)
+
+    # tests outside UI
+
+    #loc_deltas = [-3.0, 0.0, 0.0]
+    #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
+
+    rot_deltas = [0.0, 0.0, 0.5]
+    anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5, spacing=0.1)
 
 if __name__ == '__main__':
     register()
