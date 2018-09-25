@@ -190,17 +190,55 @@ class TextFxProperties(bpy.types.PropertyGroup):
     time_offset = IntProperty(name="Letter Effect timing", description="Frames to wait between each letter's animation", default=1)
     randomize = BoolProperty(name="Randomize Letter Effect", description="Vary the time offset for each letter's animation", default=False)
 
+class TextFxOperator(bpy.types.Operator):
+    bl_label = "Text FX Operator"
+    bl_idname = "object.text_fx"
+    bl_description = "Create and configure text effect"
+
+    def execute(self, ctx):
+
+        #loc_deltas = [-3.0, 0.0, 0.0]
+        #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
+
+        rot_deltas = [0.0, 0.0, 0.5]
+        anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5, spacing=0.1)
+
+        return {'FINISHED'}
+
+class TextFxPanel(bpy.types.Panel):
+    bl_label = "Text FX Panel"
+    bl_idname = "object.text_fx_panel"
+    bl_category = "TextFX"
+    bl_context = "objectmode"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    name = StringProperty(name="Letter Effect name", description="Name of the effect applied to letters")
+    txt = StringProperty(name="Letter Effect text", description="Text that was split into animated letters")
+    frames = IntProperty(name="Letter Effect frames", description="Frame duration of effect on each letter", default=5)
+    spacing = FloatProperty(name="Letter Effect spacing", description="Distance between letters", default=0.0)
+    time_offset = IntProperty(name="Letter Effect timing", description="Frames to wait between each letter's animation", default=1)
+    randomize = BoolProperty(name="Randomize Letter Effect", description="Vary the time offset for each letter's animation", default=False)
+
+    def draw(self, ctx):
+
+        scene = bpy.context.scene
+        obj = scene.objects.active
+
+        prop_src = obj if hasattr(obj, "text_fx_props") else scene
+
+        col = self.layout.row().prop(self, "name")
+        self.layout.row().operator("object.text_fx", text="Create Text Effect")
+
 def register():
     bpy.utils.register_class(TextFxProperties)
+    bpy.utils.register_class(TextFxOperator)
+    bpy.utils.register_class(TextFxPanel)
     bpy.types.Object.text_fx_props = bpy.props.PointerProperty(type=TextFxProperties)
 
-    # tests outside UI
-
-    #loc_deltas = [-3.0, 0.0, 0.0]
-    #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
-
-    rot_deltas = [0.0, 0.0, 0.5]
-    anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5, spacing=0.1)
+def unregister():
+    bpy.utils.unregister_class(TextFxPanel)
+    bpy.utils.unregister_class(TextFxOperator)
+    bpy.utils.register_class(TextFxProperties)
 
 if __name__ == '__main__':
     register()
