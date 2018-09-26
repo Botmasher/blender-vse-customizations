@@ -149,11 +149,11 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     letters_parent.empty_draw_size = 1.0
 
     # store properties in empty
-    letters_parent.text_fx_props.frames = frames
-    letters_parent.text_fx_props.spacing = spacing
-    letters_parent.text_fx_props.randomize = randomize
-    letters_parent.text_fx_props.name = fx_name
-    letters_parent.text_fx_props.txt = txt
+    letters_parent.text_fx.frames = frames
+    letters_parent.text_fx.spacing = spacing
+    letters_parent.text_fx.randomize = randomize
+    letters_parent.text_fx.name = fx_name
+    letters_parent.text_fx.text = txt
 
     # TODO use parent to align letters (without realignment they grow to right)
 
@@ -176,6 +176,12 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
 
     return letters
 
+def find_text_fx_src():
+    scene = bpy.context.scene
+    obj = scene.objects.active
+    props_src = obj.text_fx if obj and hasattr(obj, "text_fx") else scene.text_fx
+    return props_src
+
 # TODO set up props menu on empty (also shows up on letter select?)
 #   - modify the existing fx
 #   - update the text string
@@ -183,12 +189,16 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
 #       - accept named text_editor object
 
 class TextFxProperties(bpy.types.PropertyGroup):
-    name = StringProperty(name="Letter Effect name", description="Name of the effect applied to letters")
-    txt = StringProperty(name="Letter Effect text", description="Text that was split into animated letters")
-    frames = IntProperty(name="Letter Effect frames", description="Frame duration of effect on each letter", default=5)
-    spacing = FloatProperty(name="Letter Effect spacing", description="Distance between letters", default=0.0)
-    time_offset = IntProperty(name="Letter Effect timing", description="Frames to wait between each letter's animation", default=1)
-    randomize = BoolProperty(name="Randomize Letter Effect", description="Vary the time offset for each letter's animation", default=False)
+    effect = StringProperty(name="Effect", description="Name of the effect applied to letters", default="WIGGLE")
+    text = StringProperty(name="Text", description="Text that was split into animated letters", default="")
+    frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=5)
+    spacing = FloatProperty(name="Spacing", description="Distance between letters", default=0.0)
+    time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
+    randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
+
+def create_text_fx_props(bpy_type):
+    bpy_type.text_fx = bpy.props.PointerProperty(type=TextFxProperties)
+    return bpy_type.text_fx
 
 class TextFxOperator(bpy.types.Operator):
     bl_label = "Text FX Operator"
@@ -196,6 +206,7 @@ class TextFxOperator(bpy.types.Operator):
     bl_description = "Create and configure text effect"
 
     def execute(self, ctx):
+        props_src = find_text_fx_src()
 
         #loc_deltas = [-3.0, 0.0, 0.0]
         #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
@@ -212,28 +223,26 @@ class TextFxPanel(bpy.types.Panel):
     bl_context = "objectmode"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
-    name = StringProperty(name="Letter Effect name", description="Name of the effect applied to letters")
-    txt = StringProperty(name="Letter Effect text", description="Text that was split into animated letters")
-    frames = IntProperty(name="Letter Effect frames", description="Frame duration of effect on each letter", default=5)
-    spacing = FloatProperty(name="Letter Effect spacing", description="Distance between letters", default=0.0)
-    time_offset = IntProperty(name="Letter Effect timing", description="Frames to wait between each letter's animation", default=1)
-    randomize = BoolProperty(name="Randomize Letter Effect", description="Vary the time offset for each letter's animation", default=False)
 
     def draw(self, ctx):
-
-        scene = bpy.context.scene
-        obj = scene.objects.active
-
-        prop_src = obj if hasattr(obj, "text_fx_props") else scene
-
-        col = self.layout.row().prop(self, "name")
-        self.layout.row().operator("object.text_fx", text="Create Text Effect")
+        props_src = find_text_fx_src()
+        print("props src is: {0}".format(props_src))
+        if props_src:
+            col = self.layout.row().prop(props_src, "effect")
+            col = self.layout.row().prop(props_src, "text")
+            col = self.layout.row().prop(props_src, "frames")
+            col = self.layout.row().prop(props_src, "spacing")
+            col = self.layout.row().prop(props_src, "time_offset")
+            col = self.layout.row().prop(props_src, "randomize")
+            self.layout.row().operator("object.text_fx", text="Create Text Effect")
 
 def register():
     bpy.utils.register_class(TextFxProperties)
     bpy.utils.register_class(TextFxOperator)
     bpy.utils.register_class(TextFxPanel)
-    bpy.types.Object.text_fx_props = bpy.props.PointerProperty(type=TextFxProperties)
+    # TODO assign class props and store locally on object instead
+    create_text_fx_props(bpy.types.Object)  # text_fx empty props
+    create_text_fx_props(bpy.types.Scene)   # UI props before text_fx created
 
 def unregister():
     bpy.utils.unregister_class(TextFxPanel)
