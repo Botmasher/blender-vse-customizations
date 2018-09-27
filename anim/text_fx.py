@@ -7,7 +7,7 @@ def is_text(obj):
 
 ## take txt input and turn it into single-letter text objects
 def string_to_letters(txt="", spacing=0.0):
-    origin = [0, 0, 0]
+    origin = bpy.context.scene.cursor_location
     offset_x = 0
     letter_objs = []
     for l in txt:
@@ -68,7 +68,6 @@ def keyframe_letter_fx (font_obj, fx={}):
     # keyframe effect
     for target in fx['to_from']:
         fx_value = changed_value if target == '1' else start_value
-        print("setting {0} to {1}".format(fx['attr'], fx_value))
         set_kf(font_obj, attr=fx['attr'], value=fx_value, frame_skip=fx['length'])
     # undo last frame skip since not adding another kf
     bpy.context.scene.frame_current -= fx['length']
@@ -179,8 +178,9 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
 def find_text_fx_src():
     scene = bpy.context.scene
     obj = scene.objects.active
-    props_src = obj.text_fx if obj and hasattr(obj, "text_fx") else scene.text_fx
-    return props_src
+    if obj and hasattr(obj, "text_fx") and is_text(obj) and obj.text_fx.text:
+        return obj.text_fx
+    return scene.text_fx
 
 # TODO set up props menu on empty (also shows up on letter select?)
 #   - modify the existing fx
@@ -189,14 +189,28 @@ def find_text_fx_src():
 #       - accept named text_editor object
 
 class TextFxProperties(bpy.types.PropertyGroup):
-    effect = StringProperty(name="Effect", description="Name of the effect applied to letters", default="WIGGLE")
     text = StringProperty(name="Text", description="Text that was split into animated letters", default="")
     frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=5)
     spacing = FloatProperty(name="Spacing", description="Distance between letters", default=0.0)
     time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
     randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
+    replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
+    effect = EnumProperty(
+        name = 'Effect',
+        description = 'Overall effect to give when animating the letters',
+        items = [('wiggle', 'Wiggle', 'Add wiggle effect to text'),
+                 ('slide_in', 'Slide-in', 'Add slide-in effect to text'),
+                 ('slide_out', 'Slide-out', 'Add slide-out effect to text')]
+    )
 
-def create_text_fx_props(bpy_type):
+# TODO layer effects vs replace effects
+#   - are created fx mutable?
+#   - replace each time vs stack effects?
+#   - keep record of each object's effects and props for those fx?
+# effects = SomeProperty(name="Applied effects", array_length=99, default=[None for i in range(99)])
+# TODO randomize effects
+
+def create_text_fx_props(bpy_type, fx_collection=False):
     bpy_type.text_fx = bpy.props.PointerProperty(type=TextFxProperties)
     return bpy_type.text_fx
 
@@ -207,6 +221,8 @@ class TextFxOperator(bpy.types.Operator):
 
     def execute(self, ctx):
         props_src = find_text_fx_src()
+
+        # TODO add effect to obj vs create new obj
 
         #loc_deltas = [-3.0, 0.0, 0.0]
         #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
@@ -226,14 +242,15 @@ class TextFxPanel(bpy.types.Panel):
 
     def draw(self, ctx):
         props_src = find_text_fx_src()
-        print("props src is: {0}".format(props_src))
-        if props_src:
-            col = self.layout.row().prop(props_src, "effect")
-            col = self.layout.row().prop(props_src, "text")
-            col = self.layout.row().prop(props_src, "frames")
-            col = self.layout.row().prop(props_src, "spacing")
-            col = self.layout.row().prop(props_src, "time_offset")
-            col = self.layout.row().prop(props_src, "randomize")
+        if props_src.id_data:
+            self.layout.row().prop(props_src, "text")
+            self.layout.row().prop(props_src, "effect")
+            self.layout.row().prop(props_src, "frames")
+            self.layout.row().prop(props_src, "spacing")
+            self.layout.row().prop(props_src, "time_offset")
+            row = self.layout.row()
+            row.prop(props_src, "randomize")
+            row.prop(props_src, "replace")
             self.layout.row().operator("object.text_fx", text="Create Text Effect")
 
 def register():
@@ -243,6 +260,7 @@ def register():
     # TODO assign class props and store locally on object instead
     create_text_fx_props(bpy.types.Object)  # text_fx empty props
     create_text_fx_props(bpy.types.Scene)   # UI props before text_fx created
+
 
 def unregister():
     bpy.utils.unregister_class(TextFxPanel)
