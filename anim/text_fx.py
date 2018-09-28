@@ -2,6 +2,55 @@ import bpy
 import random
 from bpy.props import *
 
+## Text FX data
+
+class Singleton:
+    instance = None
+    def __new__(singleton):
+        return super().__new__(singleton) if not singleton.instance else singleton.instance
+
+class TextEffectsMap(Singleton):
+    def __init__(self):
+        WIGGLE = 'WIGGLE'
+        SLIDE_IN = 'SLIDE_IN'
+        SLIDE_OUT = 'SLIDE_OUT'
+        POP_IN = 'POP_IN'
+        POP_OUT= 'POP_OUT'
+        self.map = {
+            WIGGLE: self.set_fx(name=WIGGLE, attr='rotation_euler', to_from='010'),
+            SLIDE_IN: self.set_fx(name=SLIDE_IN, attr='location', to_from='10'),
+            SLIDE_OUT: self.set_fx(name=SLIDE_OUT, attr='location', to_from='01'),
+            POP_IN: self.set_fx(name=POP_IN, attr='scale', to_from='01'),
+            POP_OUT: self.set_fx(name=POP_OUT, attr='scale', to_from='10')
+            # TODO support layered fx
+            #'WOBBLE': ['rotation_euler', 'location'],
+            #'SCALE_UP': [], ...
+            #'SCALE_DOWN': [], ...
+        }
+
+    def get_map(self):
+        return self.map
+
+    def get_fx(self, fx_name=''):
+        if not fx_name in self.map:
+            return
+        return self.map[fx_name]
+
+    def set_fx(self, name='', attr='', to_from='01'):
+        if not (fx_name and fx_attr and fx_to_from and type(fx_name) == str and type(fx_attr) == str and type(fx_to_from) == str):
+            return
+        self.map[fx_name] = {
+            'name': fx_name,
+            'attr': fx_attr,
+            'to_from': fx_to_from
+        }
+        return self.map[fx_name]
+
+fx_map = TextEffectsMap()
+
+
+## Text FX calcs
+
 def is_text(obj):
     return obj and hasattr(obj, 'type') and obj.type == 'FONT'
 
@@ -74,37 +123,6 @@ def keyframe_letter_fx (font_obj, fx={}):
 
     return font_obj
 
-def get_fx_map(fx_name):
-    WIGGLE = 'WIGGLE'
-    SLIDE_IN = 'SLIDE_IN'
-    SLIDE_OUT = 'SLIDE_OUT'
-    name = 'name'
-    attr = 'attr'
-    to_from = 'to_from'
-    fx_map = {
-        WIGGLE: {
-            name: WIGGLE,
-            attr: 'rotation_euler',
-            to_from: '010'
-        },
-        SLIDE_IN: {
-            name: SLIDE_IN,
-            attr: 'location',
-            to_from: '10'
-        },
-        SLIDE_OUT: {
-            name: SLIDE_OUT,
-            attr: 'location',
-            to_from: '01'
-        }
-        # TODO support layered fx
-        #'WOBBLE': ['rotation_euler', 'location'],
-        #'SCALE': [], ...
-    }
-    if not fx_name in fx_map:
-        return
-    return fx_map[fx_name]
-
 def center_letter_fx(letters_parent):
     """Move fx letter parent to simulate switching from left aligned to center aligned text"""
     # TODO allow other alignments; account for global vs parent movement
@@ -123,7 +141,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     letters = string_to_letters(txt, spacing=spacing)
 
     # build fx dict
-    fx = get_fx_map(fx_name)
+    fx = fx_map.get_fx(fx_name)
 
     if not fx:
         return
@@ -182,6 +200,9 @@ def find_text_fx_src():
         return obj.text_fx
     return scene.text_fx
 
+
+## Text FX interface
+
 # TODO set up props menu on empty (also shows up on letter select?)
 #   - modify the existing fx
 #   - update the text string
@@ -195,6 +216,7 @@ class TextFxProperties(bpy.types.PropertyGroup):
     time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
     randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
+    transform = FloatVectorProperty(name="Transform", description="Letter transform (location/rotation/scale) values to keyframe for this effect", default=[0.0, 0.0, 0.0])
     effect = EnumProperty(
         name = 'Effect',
         description = 'Overall effect to give when animating the letters',
@@ -245,6 +267,7 @@ class TextFxPanel(bpy.types.Panel):
         if props_src.id_data:
             self.layout.row().prop(props_src, "text")
             self.layout.row().prop(props_src, "effect")
+            self.layout.row().prop(props_src, "transform")
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
             self.layout.row().prop(props_src, "time_offset")
