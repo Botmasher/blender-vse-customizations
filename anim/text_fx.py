@@ -17,11 +17,11 @@ class TextEffectsMap(Singleton):
         POP_IN = 'POP_IN'
         POP_OUT= 'POP_OUT'
         self.map = {
-            WIGGLE: self.set_fx(name=WIGGLE, attr='rotation_euler', to_from='010'),
-            SLIDE_IN: self.set_fx(name=SLIDE_IN, attr='location', to_from='10'),
-            SLIDE_OUT: self.set_fx(name=SLIDE_OUT, attr='location', to_from='01'),
-            POP_IN: self.set_fx(name=POP_IN, attr='scale', to_from='01'),
-            POP_OUT: self.set_fx(name=POP_OUT, attr='scale', to_from='10')
+            WIGGLE: self.create_fx_entry(name=WIGGLE, attr='rotation_euler', to_from='010'),
+            SLIDE_IN: self.create_fx_entry(name=SLIDE_IN, attr='location', to_from='10'),
+            SLIDE_OUT: self.create_fx_entry(name=SLIDE_OUT, attr='location', to_from='01'),
+            POP_IN: self.create_fx_entry(name=POP_IN, attr='scale', to_from='01'),
+            POP_OUT: self.create_fx_entry(name=POP_OUT, attr='scale', to_from='10')
             # TODO support layered fx
             #'WOBBLE': ['rotation_euler', 'location'],
             #'SCALE_UP': [], ...
@@ -31,20 +31,30 @@ class TextEffectsMap(Singleton):
     def get_map(self):
         return self.map
 
-    def get_fx(self, fx_name=''):
-        if not fx_name in self.map:
+    def get_fx(self, name=''):
+        if not name in self.map:
             return
-        return self.map[fx_name]
+        return self.map[name]
+
+    def check_fx_vals(self, name, attr, to_from):
+        if name and attr and to_from and type(name) == str and type(attr) == str and type(to_from) == str:
+            return True
+        return False
+
+    def create_fx_entry(self, name='', attr='', to_from=''):
+        if not self.check_fx_vals(name, attr, to_from):
+            return
+        return {
+            'name': name,
+            'attr': attr,
+            'to_from': to_from
+        }
 
     def set_fx(self, name='', attr='', to_from='01'):
-        if not (fx_name and fx_attr and fx_to_from and type(fx_name) == str and type(fx_attr) == str and type(fx_to_from) == str):
+        if not self.check_fx_vals(name, attr, to_from):
             return
-        self.map[fx_name] = {
-            'name': fx_name,
-            'attr': fx_attr,
-            'to_from': fx_to_from
-        }
-        return self.map[fx_name]
+        self.map[name] = self.create_fx_entry(name=name, attr=attr, to_from=to_from)
+        return self.map[name]
 
 fx_map = TextEffectsMap()
 
@@ -55,13 +65,16 @@ def is_text(obj):
     return obj and hasattr(obj, 'type') and obj.type == 'FONT'
 
 ## take txt input and turn it into single-letter text objects
-def string_to_letters(txt="", spacing=0.0):
+def string_to_letters(txt="", spacing=0.0, font=''):
     origin = bpy.context.scene.cursor_location
     offset_x = 0
     letter_objs = []
     for l in txt:
         letter = bpy.data.curves.new(name="\"{0}\"-letter-{1}".format(txt, l), type="FONT")
         letter.body = l if l != " " else "a"
+        # TODO check loaded fonts - or offer fonts list at ui props time
+        if font and font in bpy.data.fonts:
+            letter.font = font  # have to load font!
         letter_obj = bpy.data.objects.new(letter.name, letter)
         bpy.context.scene.objects.link(letter_obj)
         letter_obj.location = [offset_x, *origin[1:]]
@@ -133,12 +146,12 @@ def center_letter_fx(letters_parent):
     letters_parent.location.x -= distance
     return letters_parent
 
-def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, randomize=False):
+def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, font='', randomize=False):
 
     if not (txt and type(txt) is str and fx_delta):
         return
 
-    letters = string_to_letters(txt, spacing=spacing)
+    letters = string_to_letters(txt, spacing=spacing, font=font)
 
     # build fx dict
     fx = fx_map.get_fx(fx_name)
@@ -212,7 +225,7 @@ def find_text_fx_src():
 class TextFxProperties(bpy.types.PropertyGroup):
     text = StringProperty(name="Text", description="Text that was split into animated letters", default="")
     frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=5)
-    spacing = FloatProperty(name="Spacing", description="Distance between letters", default=0.0)
+    spacing = FloatProperty(name="Spacing", description="Distance between letters", default=0.1)
     time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
     randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
@@ -224,6 +237,7 @@ class TextFxProperties(bpy.types.PropertyGroup):
                  ('slide_in', 'Slide-in', 'Add slide-in effect to text'),
                  ('slide_out', 'Slide-out', 'Add slide-out effect to text')]
     )
+    font = StringProperty(name="Font", description="Name of font to applied to effect letters")
 
 # TODO layer effects vs replace effects
 #   - are created fx mutable?
@@ -243,6 +257,7 @@ class TextFxOperator(bpy.types.Operator):
 
     def execute(self, ctx):
         props_src = find_text_fx_src()
+        print(props_src.effect)
 
         # TODO add effect to obj vs create new obj
 
@@ -250,7 +265,7 @@ class TextFxOperator(bpy.types.Operator):
         #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
 
         rot_deltas = [0.0, 0.0, 0.5]
-        anim_txt("Wiggle, yeah!", fx_name='WIGGLE', fx_delta=rot_deltas, frames=5, spacing=0.1)
+        anim_txt(props_src.text, fx_name=props_src.effect, fx_delta=props_src.transform, frames=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
@@ -271,6 +286,7 @@ class TextFxPanel(bpy.types.Panel):
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
             self.layout.row().prop(props_src, "time_offset")
+            self.layout.row().prop(props_src, "font")
             row = self.layout.row()
             row.prop(props_src, "randomize")
             row.prop(props_src, "replace")
