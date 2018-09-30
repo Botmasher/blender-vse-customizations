@@ -31,6 +31,12 @@ class TextEffectsMap(Singleton):
     def get_map(self):
         return self.map
 
+    def keys(self):
+        return self.map.keys()
+
+    def values(self):
+        return self.map.values()
+
     def get_fx(self, name=''):
         if not name in self.map:
             return
@@ -222,6 +228,15 @@ def find_text_fx_src():
 #       - accept text input directly
 #       - accept named text_editor object
 
+def format_fx_enum():
+    fx_items = []
+    fx_names_alphasort = sorted(fx_map.keys())
+    for k in fx_names_alphasort:
+        item_name = "{0}{1}".format(k[0].upper(), k[1:].lower().replace("_", " "))
+        item_description = "Add {0} effect to text".format(k.lower())
+        fx_items.append((k, item_name, item_description))
+    return fx_items
+
 class TextFxProperties(bpy.types.PropertyGroup):
     text = StringProperty(name="Text", description="Text that was split into animated letters", default="")
     frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=5)
@@ -233,11 +248,8 @@ class TextFxProperties(bpy.types.PropertyGroup):
     effect = EnumProperty(
         name = 'Effect',
         description = 'Overall effect to give when animating the letters',
-        items = [('wiggle', 'Wiggle', 'Add wiggle effect to text'),
-                 ('slide_in', 'Slide-in', 'Add slide-in effect to text'),
-                 ('slide_out', 'Slide-out', 'Add slide-out effect to text')]
+        items = format_fx_enum()
     )
-    font = StringProperty(name="Font", description="Name of font to applied to effect letters")
 
 # TODO layer effects vs replace effects
 #   - are created fx mutable?
@@ -257,15 +269,13 @@ class TextFxOperator(bpy.types.Operator):
 
     def execute(self, ctx):
         props_src = find_text_fx_src()
-        print(props_src.effect)
 
         # TODO add effect to obj vs create new obj
 
         #loc_deltas = [-3.0, 0.0, 0.0]
         #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
 
-        rot_deltas = [0.0, 0.0, 0.5]
-        anim_txt(props_src.text, fx_name=props_src.effect, fx_delta=props_src.transform, frames=props_src.frames, spacing=props_src.spacing)
+        anim_txt(props_src.text, fx_name=props_src.effect, fx_delta=props_src.transform[:3], frames=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
@@ -278,6 +288,7 @@ class TextFxPanel(bpy.types.Panel):
     bl_region_type = "TOOLS"
 
     def draw(self, ctx):
+        #bpy.context.scene.fonts = [font.name for font in bpy.data.fonts]
         props_src = find_text_fx_src()
         if props_src.id_data:
             self.layout.row().prop(props_src, "text")
@@ -286,7 +297,7 @@ class TextFxPanel(bpy.types.Panel):
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
             self.layout.row().prop(props_src, "time_offset")
-            self.layout.row().prop(props_src, "font")
+            self.layout.row().prop(bpy.context.scene, "fonts")
             row = self.layout.row()
             row.prop(props_src, "randomize")
             row.prop(props_src, "replace")
@@ -299,7 +310,12 @@ def register():
     # TODO assign class props and store locally on object instead
     create_text_fx_props(bpy.types.Object)  # text_fx empty props
     create_text_fx_props(bpy.types.Scene)   # UI props before text_fx created
-
+    # TODO repopulate when new fonts loaded into project
+    bpy.types.Scene.fonts = EnumProperty(
+        name="Fonts",
+        description="Loaded fonts available in this scene",
+        items=[(font.name, font.name, "Loaded font at path: {0}".format(font.filepath)) for font in bpy.data.fonts]
+    )
 
 def unregister():
     bpy.utils.unregister_class(TextFxPanel)

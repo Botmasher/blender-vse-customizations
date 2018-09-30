@@ -10,6 +10,7 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
+- [ ] listener framework for catching events
 - [ ] nonuniform scale slider to rescale factor both values and maintain scale
 	- currently x, y must be calculated and set manually to keep non 1:1 ratios
 - [ ] center object in viewport
