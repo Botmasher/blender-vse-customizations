@@ -75,12 +75,18 @@ def string_to_letters(txt="", spacing=0.0, font=''):
     origin = bpy.context.scene.cursor_location
     offset_x = 0
     letter_objs = []
+    # create font curve object for each letter
     for l in txt:
+
+        # letter data
         letter = bpy.data.curves.new(name="\"{0}\"-letter-{1}".format(txt, l), type="FONT")
         letter.body = l if l != " " else "a"
-        # TODO check loaded fonts - or offer fonts list at ui props time
+
+        # assign selected font
         if font and font in bpy.data.fonts:
-            letter.font = font  # have to load font!
+            letter.font = bpy.data.fonts[font]
+
+        # letter object
         letter_obj = bpy.data.objects.new(letter.name, letter)
         bpy.context.scene.objects.link(letter_obj)
         letter_obj.location = [offset_x, *origin[1:]]
@@ -245,6 +251,7 @@ class TextFxProperties(bpy.types.PropertyGroup):
     randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
     transform = FloatVectorProperty(name="Transform", description="Letter transform (location/rotation/scale) values to keyframe for this effect", default=[0.0, 0.0, 0.0])
+    font = StringProperty(name="Font", description="Loaded font used for letters in effect", default="Bfont")
     effect = EnumProperty(
         name = 'Effect',
         description = 'Overall effect to give when animating the letters',
@@ -270,12 +277,13 @@ class TextFxOperator(bpy.types.Operator):
     def execute(self, ctx):
         props_src = find_text_fx_src()
 
+        print(props_src.font)
         # TODO add effect to obj vs create new obj
 
         #loc_deltas = [-3.0, 0.0, 0.0]
         #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
 
-        anim_txt(props_src.text, fx_name=props_src.effect, fx_delta=props_src.transform[:3], frames=props_src.frames, spacing=props_src.spacing)
+        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform[:3], frames=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
@@ -289,6 +297,7 @@ class TextFxPanel(bpy.types.Panel):
 
     def draw(self, ctx):
         #bpy.context.scene.fonts = [font.name for font in bpy.data.fonts]
+        #self.update_scene_fonts()
         props_src = find_text_fx_src()
         if props_src.id_data:
             self.layout.row().prop(props_src, "text")
@@ -297,11 +306,19 @@ class TextFxPanel(bpy.types.Panel):
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
             self.layout.row().prop(props_src, "time_offset")
-            self.layout.row().prop(bpy.context.scene, "fonts")
+            #self.layout.row().prop(bpy.context.scene, "fonts")
+            self.layout.prop_search(props_src, "font", bpy.data, 'fonts')
             row = self.layout.row()
             row.prop(props_src, "randomize")
             row.prop(props_src, "replace")
             self.layout.row().operator("object.text_fx", text="Create Text Effect")
+
+    def update_scene_fonts(self):
+        print(bpy.context.scene.fonts)
+        for font in bpy.data.fonts:
+            if font.name not in bpy.context.scene.fonts:
+                bpy.context.scene.fonts.add(font.name)
+        return bpy.context.scene.fonts
 
 def register():
     bpy.utils.register_class(TextFxProperties)
@@ -310,12 +327,15 @@ def register():
     # TODO assign class props and store locally on object instead
     create_text_fx_props(bpy.types.Object)  # text_fx empty props
     create_text_fx_props(bpy.types.Scene)   # UI props before text_fx created
-    # TODO repopulate when new fonts loaded into project
-    bpy.types.Scene.fonts = EnumProperty(
-        name="Fonts",
-        description="Loaded fonts available in this scene",
-        items=[(font.name, font.name, "Loaded font at path: {0}".format(font.filepath)) for font in bpy.data.fonts]
-    )
+
+    # TODO repopulate when fonts load into project
+
+    #bpy.types.Scene.fonts = bpy.props.CollectionProperty(type=FontNamesCollection)
+    #bpy.types.Scene.fonts = EnumProperty(
+    #    name="Fonts",
+    #    description="Loaded fonts available in this scene",
+    #    items=[(font.name, font.name, "Loaded font at path: {0}".format(font.filepath)) for font in bpy.data.fonts]
+    #)
 
 def unregister():
     bpy.utils.unregister_class(TextFxPanel)
