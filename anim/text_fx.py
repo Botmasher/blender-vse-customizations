@@ -115,7 +115,7 @@ def keyframe_letter_fx (font_obj, fx={}):
         'name': '',         # like 'SLIDE'
         'attr': '',         # attribute to set on obj
         'to_from': '10',    # point-to-point, cyclical, custom
-        'change': [],       # delta (1) from base value (0)
+        'transform': [],    # delta (1) from base value (0)
         'length': 0         # frames
     }
     """
@@ -136,8 +136,11 @@ def keyframe_letter_fx (font_obj, fx={}):
 
     # TODO keyframe location over frame_length frames
 
+    # TODO change value for specific effects given direction and transform magnitude
+    #   - consider overshoots
+    #   - if direction then set +- x (location left/right), +- y (location up/down), +- xyz (scale) or +- z (rotation)
     start_value = getattr(font_obj, fx['attr']).copy()
-    changed_value = fx['change']
+    changed_value = fx['transform']
 
     # keyframe effect
     for target in fx['to_from']:
@@ -172,7 +175,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
         return
 
     fx['length'] = frames
-    fx['change'] = fx_delta
+    fx['transform'] = fx_delta
 
     offsets = [i * time_offset for i in range(len(letters))]
     randomize and random.shuffle(offsets)
@@ -252,9 +255,21 @@ class TextFxProperties(bpy.types.PropertyGroup):
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
     transform = FloatVectorProperty(name="Transform", description="Letter transform (location/rotation/scale) values to keyframe for this effect", default=[0.0, 0.0, 0.0])
     font = StringProperty(name="Font", description="Loaded font used for letters in effect", default="Bfont")
+    # TODO simplify to a single magnitude and use differently for different fx
+    overshoot = BoolProperty(name="Overshoot", description="Add an overshoot to each letter's animation", default=True)
+    direction = EnumProperty(
+        name = "Direction",
+        description = "Transform direction for directional effects",
+        items = [
+            ("top", "Top", "Transform letters to or from the top"),
+            ("bottom", "Bottom", "Transform letters to or from the bottom"),
+            ("left", "Left", "Transform letters to or from the left side"),
+            ("right", "Right", "Transform letters to or from the right side")
+        ]
+    )
     effect = EnumProperty(
-        name = 'Effect',
-        description = 'Overall effect to give when animating the letters',
+        name = "Effect",
+        description = "Overall effect to give when animating the letters",
         items = format_fx_enum()
     )
 
@@ -306,6 +321,8 @@ class TextFxPanel(bpy.types.Panel):
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
             self.layout.row().prop(props_src, "time_offset")
+            self.layout.row().prop(props_src, "direction")
+            self.layout.row().prop(props_src, "overshoot")
             #self.layout.row().prop(bpy.context.scene, "fonts")
             self.layout.prop_search(props_src, "font", bpy.data, 'fonts')
             row = self.layout.row()
