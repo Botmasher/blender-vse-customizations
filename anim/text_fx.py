@@ -109,7 +109,7 @@ def string_to_letters(txt="", spacing=0.0, font=''):
     return letter_objs
 
 # temp method for constructing fx
-def keyframe_letter_fx (font_obj, fx={}, overshoot=True):
+def keyframe_letter_fx (font_obj, fx={}, start_value, target_value, overshoot_value, overshoot=True):
     """Keyframe an effect on a letter based on an fx dict
 
     fx = {
@@ -135,53 +135,33 @@ def keyframe_letter_fx (font_obj, fx={}, overshoot=True):
         bpy.context.scene.frame_current += frame_skip
         return kf
 
-    def overshoot_kf(obj, compared_value, attr=None, value=None, frame_skip=0):
-        if 'rotation' in attr:
-            overshoot_value = value * -0.75 * overshoot_direction
-        else:
-            overshoot_direction = 1 if value - compared_value >= 1.0 else -1
-            overshoot_value = value * 1.1 * overshoot_direction
-        kf = set_kf(obj, attr=attr, value=value, frame_skip=frame_skip)
-        return kf
-
     # TODO keyframe location over frame_length frames
 
-    # TODO change value for specific effects given direction and transform magnitude
-    #   - consider overshoots
-    #   - if direction then set +- x (location left/right), +- y (location up/down), +- xyz (scale) or +- z (rotation)
-    start_value = getattr(font_obj, fx['attr']).copy()
-    changed_value = fx['transform']
-
     # keyframe effect
-    last_target = None
+    previous_target = None
     frame_skip = fx['length']
     overshot_value = None
     compared_value = None
     for target in fx['to_from']:
-        last_target = target
         # keyframe to user value
         if target == '1':
             # time an overshoot recovery
             if last_target == 'o': frame_skip = int(round(bpy.context.scene.render.fps * 0.13))
             set_kf(font_obj, attr=fx['attr'], value=changed_value, frame_skip=fx['length'])
             # reset frame skip from overshoot
-            if last_target == 'o': frame_skip = fx['length']
+            if previous_target == 'o': frame_skip = fx['length']
         # keyframe to obj value
         elif target == '0':
             set_kf(font_obj, attr=fx['attr'], value=start_value, frame_skip=fx['length'])
         # keyframe overshoot
         elif target == 'o':
-            if target == '1':
-                overshot_value = changed_value
-                compared_value = start_value
-            elif target == '0':
-                overshot_value = start_value
-                compared_value = changed_value
+            if previous_target:
+                set_kf(font_obj, attr=fx['attr'], value=overshoot_value, frame_skip=fx['length'])
             else:
-                continue
-            overshoot_kf(font_obj, compared_value, attr=fx['attr'], value=overshot_value, frame_skip=fx['length'])
+                pass
         else:
-            continue
+            pass
+        previous_target = target
 
     # track if overshoot was performed
     did_overshoot = overshot_value != None
@@ -214,19 +194,8 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     if not fx:
         return
 
-    transform_vector = None
-    if 'location' in fx['attr']:
-        # TODO switch x/y depending on direction prop
-        transform_vector = (fx_delta, 0.0)
-    elif 'scale' in fx['attr']:
-        transform_vector = (fx_delta, fx_delta, fx_delta)
-    elif 'rotation' in fx['attr']:
-        transform_vector = (0.0, 0.0, fx_delta)
-    else:
-        return
-
     fx['length'] = frames
-    fx['transform'] = transform_vector
+    fx['transform'] = fx_delta
 
     offsets = [i * time_offset for i in range(len(letters))]
     randomize and random.shuffle(offsets)
@@ -257,6 +226,30 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     for i in range(len(letters)):
         letter = letters[i]
 
+        # TODO change overshoot based on start/transform 0 or 1 in fx
+
+        transform_vector = None
+        if 'location' in fx['attr']:
+            # TODO switch x/y depending on direction prop
+            start_vector = (letter.location.x, letter.location.y, letter.location.z)
+            transform_vector = (letter.parent.location.x + fx_delta, letter.location.y, letter.location.z)
+            overshoot_direction = 1 if (letter.parent.location.x + fx_delta) - letter.location.x >= 1.0 else -1
+            overshoot_value = (fx_delta + letter.parent.location.x) * 1.1 * overshoot_direction
+            overshoot_vector = (overshoot_value, letter.location.y, letter.location.z)
+        elif 'scale' in fx['attr']:
+            start_vector = (letter.scale.x, letter.scale.y, letter.scale.z)
+            transform_vector = (letter.scale.x * fx_delta, letter.scale.y * fx_delta, letter.scale.z * fx_delta)
+            overshoot_direction = 1 if (fx_delta * letter.scale.x) - letter.scale.x >= 1.0 else -1
+            overshoot_value = fx_delta * 1.1 * overshoot_direction
+            overshoot_vector = (letter.scale.x * overshoot_value, letter.scale.y * overshoot_value, letter.scale.z * overshoot_value)
+        elif 'rotation' in fx['attr']:
+            start_vector = (letter.rotation_euler.x, letter.rotation_euler.y, letter.rotation_euler.z)
+            transform_vector = (letter.rotation_euler.x, letter.rotation_euler.y, fx_delta)
+            overshoot_value = letter.rotation_euler.x * -0.6
+            overshoot_vector = (letter.rotation_euler.x, letter.rotation_euler.y, overshoot_value)
+        else:
+            return
+
         # attach to parent but remove offset
         letter.parent = letters_parent
         letter.matrix_parent_inverse = letters_parent.matrix_world.inverted()
@@ -264,7 +257,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
         frame = start_frame + offsets[i]
         bpy.context.scene.frame_current = frame
 
-        keyframe_letter_fx(letter, fx, overshoot)
+        keyframe_letter_fx(letter, fx, start_vector, transform_vector, overshoot_vector, overshoot)
 
         # TODO calc randomized values on return fx
 
