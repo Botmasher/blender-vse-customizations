@@ -118,7 +118,7 @@ def string_to_letters(txt="", spacing=0.0, font=''):
     return letter_objs
 
 # temp method for constructing fx
-def keyframe_letter_fx (font_obj, fx={}, start_value, target_value, overshoot_value, overshoot=True):
+def keyframe_letter_fx (font_obj, fx={}, target_value=None, frames=0):
     """Keyframe an effect on a letter based on an fx dict
 
     fx = {
@@ -130,7 +130,7 @@ def keyframe_letter_fx (font_obj, fx={}, start_value, target_value, overshoot_va
     }
     """
 
-    if not fx or not hasattr(font_obj, fx['attr']):
+    if not fx or not value or not frames or not hasattr(font_obj, fx['attr']):
         return
 
     if not hasattr(font_obj, 'type') or font_obj.type != 'FONT' or not 'attr' in fx:
@@ -144,39 +144,19 @@ def keyframe_letter_fx (font_obj, fx={}, start_value, target_value, overshoot_va
         bpy.context.scene.frame_current += frame_skip
         return kf
 
-    # TODO keyframe location over frame_length frames
+    start_frame = bpy.context.scene.frame_current
 
-    # keyframe effect
-    previous_target = None
-    frame_skip = fx['length']
-    overshot_value = None
-    compared_value = None
-    for target in fx['kf_arc']:
-        # keyframe to user value
-        if target == '1':
-            # time an overshoot recovery
-            if last_target == 'o': frame_skip = int(round(bpy.context.scene.render.fps * 0.13))
-            set_kf(font_obj, attr=fx['attr'], value=changed_value, frame_skip=fx['length'])
-            # reset frame skip from overshoot
-            if previous_target == 'o': frame_skip = fx['length']
-        # keyframe to obj value
-        elif target == '0':
-            set_kf(font_obj, attr=fx['attr'], value=start_value, frame_skip=fx['length'])
-        # keyframe overshoot
-        elif target == 'o':
-            if previous_target:
-                set_kf(font_obj, attr=fx['attr'], value=overshoot_value, frame_skip=fx['length'])
-            else:
-                pass
-        else:
-            pass
-        previous_target = target
-
-    # track if overshoot was performed
-    did_overshoot = overshot_value != None
+    # keyframe along effect arc
+    for kf_mults in fx['kf_arc']:
+        # multiply user settings by effect factors to get each kf
+        frame_mult = kf_mults[0]
+        value_mult = kf_mults[1]
+        kf_value = target_value * value_mult
+        kf_frames = frames * frame_mult
+        set_kf(font_obj, attr=fx['attr'], value=kf_value, frame_skip=kf_frames)
 
     # undo last frame skip since not adding another kf
-    bpy.context.scene.frame_current -= fx['length']
+    bpy.context.scene.frame_current = start_frame
 
     return font_obj
 
@@ -190,7 +170,7 @@ def center_letter_fx(letters_parent):
     letters_parent.location.x -= distance
     return letters_parent
 
-def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, font='', overshoot=True, randomize=False):
+def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, font='', randomize=False):
 
     if not (txt and type(txt) is str and fx_delta):
         return
@@ -235,30 +215,6 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     for i in range(len(letters)):
         letter = letters[i]
 
-        # TODO change overshoot based on start/transform 0 or 1 in fx
-
-        transform_vector = None
-        if 'location' in fx['attr']:
-            # TODO switch x/y depending on direction prop
-            start_vector = (letter.location.x, letter.location.y, letter.location.z)
-            transform_vector = (letter.parent.location.x + fx_delta, letter.location.y, letter.location.z)
-            overshoot_direction = 1 if (letter.parent.location.x + fx_delta) - letter.location.x >= 1.0 else -1
-            overshoot_value = (fx_delta + letter.parent.location.x) * 1.1 * overshoot_direction
-            overshoot_vector = (overshoot_value, letter.location.y, letter.location.z)
-        elif 'scale' in fx['attr']:
-            start_vector = (letter.scale.x, letter.scale.y, letter.scale.z)
-            transform_vector = (letter.scale.x * fx_delta, letter.scale.y * fx_delta, letter.scale.z * fx_delta)
-            overshoot_direction = 1 if (fx_delta * letter.scale.x) - letter.scale.x >= 1.0 else -1
-            overshoot_value = fx_delta * 1.1 * overshoot_direction
-            overshoot_vector = (letter.scale.x * overshoot_value, letter.scale.y * overshoot_value, letter.scale.z * overshoot_value)
-        elif 'rotation' in fx['attr']:
-            start_vector = (letter.rotation_euler.x, letter.rotation_euler.y, letter.rotation_euler.z)
-            transform_vector = (letter.rotation_euler.x, letter.rotation_euler.y, fx_delta)
-            overshoot_value = letter.rotation_euler.x * -0.6
-            overshoot_vector = (letter.rotation_euler.x, letter.rotation_euler.y, overshoot_value)
-        else:
-            return
-
         # attach to parent but remove offset
         letter.parent = letters_parent
         letter.matrix_parent_inverse = letters_parent.matrix_world.inverted()
@@ -266,7 +222,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
         frame = start_frame + offsets[i]
         bpy.context.scene.frame_current = frame
 
-        keyframe_letter_fx(letter, fx, start_vector, transform_vector, overshoot_vector, overshoot)
+        keyframe_letter_fx(letter, fx, fx_delta, frames)
 
         # TODO calc randomized values on return fx
 
@@ -306,10 +262,8 @@ class TextFxProperties(bpy.types.PropertyGroup):
     time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
     randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
-    transform = FloatProperty(name="Transform", description="Value to keyframe letter location/rotation/scale (depending on effect)", default=0.0)
+    transform = FloatProperty(name="Transform", description="Target value for letter location/rotation/scale (depending on effect)", default=0.0)
     font = StringProperty(name="Font", description="Loaded font used for letters in effect", default="Bfont")
-    # TODO simplify to a single magnitude and use differently for different fx
-    overshoot = BoolProperty(name="Overshoot", description="Add an overshoot to each letter's animation", default=True)
     direction = EnumProperty(
         name = "Direction",
         description = "Transform direction for directional effects",
@@ -345,11 +299,7 @@ class TextFxOperator(bpy.types.Operator):
     def execute(self, ctx):
         props_src = find_text_fx_src()
 
-        print(props_src.font)
         # TODO add effect to obj vs create new obj
-
-        #loc_deltas = [-3.0, 0.0, 0.0]
-        #anim_txt("slide the text", fx_name='SLIDE_IN', fx_delta=loc_deltas, frames=4)
 
         anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, frames=props_src.frames, spacing=props_src.spacing)
 
@@ -374,7 +324,6 @@ class TextFxPanel(bpy.types.Panel):
             self.layout.row().prop(props_src, "time_offset")
             self.layout.prop_search(props_src, "font", bpy.data, 'fonts')
             self.layout.row().prop(props_src, "direction")
-            self.layout.row().prop(props_src, "overshoot")
             row = self.layout.row()
             row.prop(props_src, "randomize")
             row.prop(props_src, "replace")
