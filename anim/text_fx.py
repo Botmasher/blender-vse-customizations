@@ -18,16 +18,25 @@ class TextEffectsMap(Singleton):
         POP_OUT= 'POP_OUT'
         # 1 target, 0 base, o overshoot
         self.map = {
-            WIGGLE: self.create_fx_entry(name=WIGGLE, attr='rotation_euler', to_from='01o0'),
-            SLIDE_IN: self.create_fx_entry(name=SLIDE_IN, attr='location', to_from='o10'),
-            SLIDE_OUT: self.create_fx_entry(name=SLIDE_OUT, attr='location', to_from='0o1'),
-            POP_IN: self.create_fx_entry(name=POP_IN, attr='scale', to_from='0o1'),
-            POP_OUT: self.create_fx_entry(name=POP_OUT, attr='scale', to_from='o10')
+            WIGGLE: self.create_fx_entry(name=WIGGLE, attr='rotation_euler', kf_arc=[(0, 0), (0.5, 1), (0.5, -0.5), (0.25, 0)]),
+            SLIDE_IN: self.create_fx_entry(name=SLIDE_IN, attr='location', kf_arc=[(0, 1), (1, 1), (0.25, 0)]),
+            SLIDE_OUT: self.create_fx_entry(name=SLIDE_OUT, attr='location', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
+            POP_IN: self.create_fx_entry(name=POP_IN, attr='scale', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
+            POP_OUT: self.create_fx_entry(name=POP_OUT, attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)])
             # TODO support layered fx
             #'WOBBLE': ['rotation_euler', 'location'],
             #'SCALE_UP': [], ...
             #'SCALE_DOWN': [], ...
         }
+
+    def edit_kf_arc(self, name, kf_arc):
+        if type(kf_arc) != tuple:
+            print "Failed to assign kf_arc to text_fx {0} - expected tuple".format(name)
+            return
+        if name in self.map:
+            self.map[name]['kf_arc'] = kf_arc
+            return True
+        return False
 
     def get_map(self):
         return self.map
@@ -43,24 +52,24 @@ class TextEffectsMap(Singleton):
             return
         return self.map[name]
 
-    def check_fx_vals(self, name, attr, to_from):
-        if name and attr and to_from and type(name) == str and type(attr) == str and type(to_from) == str:
+    def check_fx_vals(self, name, attr, kf_arc):
+        if name and attr and kf_arc and type(name) == str and type(attr) == str and type(kf_arc) == tuple:
             return True
         return False
 
-    def create_fx_entry(self, name='', attr='', to_from=''):
-        if not self.check_fx_vals(name, attr, to_from):
+    def create_fx_entry(self, name='', attr='', kf_arc={}):
+        if not self.check_fx_vals(name, attr, kf_arc):
             return
         return {
             'name': name,
             'attr': attr,
-            'to_from': to_from
+            'kf_arc': kf_arc
         }
 
-    def set_fx(self, name='', attr='', to_from='01'):
-        if not self.check_fx_vals(name, attr, to_from):
+    def set_fx(self, name='', attr='', kf_arc=[(0, 0), (1, 1)]):
+        if not self.check_fx_vals(name, attr, kf_arc):
             return
-        self.map[name] = self.create_fx_entry(name=name, attr=attr, to_from=to_from)
+        self.map[name] = self.create_fx_entry(name=name, attr=attr, kf_arc=kf_arc)
         return self.map[name]
 
 fx_map = TextEffectsMap()
@@ -115,9 +124,9 @@ def keyframe_letter_fx (font_obj, fx={}, start_value, target_value, overshoot_va
     fx = {
         'name': '',         # like 'SLIDE'
         'attr': '',         # attribute to set on obj
-        'to_from': '10',    # point-to-point, cyclical, custom
-        'transform': [],    # delta (1) from base value (0)
-        'length': 0         # frames
+        'kf_arc': [],       # (frame_mult, value_mult) pairs
+        'transform': [],    # delta multiplied by value_mult and added to base value at each kf set
+        'length': 0         # frame count multiplied by frame_mult at each kf set
     }
     """
 
@@ -142,7 +151,7 @@ def keyframe_letter_fx (font_obj, fx={}, start_value, target_value, overshoot_va
     frame_skip = fx['length']
     overshot_value = None
     compared_value = None
-    for target in fx['to_from']:
+    for target in fx['kf_arc']:
         # keyframe to user value
         if target == '1':
             # time an overshoot recovery
