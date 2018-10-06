@@ -29,14 +29,16 @@ class TextEffectsMap(Singleton):
             #'SCALE_DOWN': [], ...
         }
 
-    def edit_kf_arc(self, name, kf_arc):
-        if type(kf_arc) != tuple:
-            print "Failed to assign kf_arc to text_fx {0} - expected tuple".format(name)
+    def set_kf_arc(self, name, kf_arc):
+        if type(kf_arc) != list:
+            print("Failed to assign kf_arc to text_fx {0} - expected list".format(name))
             return
         if name in self.map:
             self.map[name]['kf_arc'] = kf_arc
             return True
         return False
+
+    # TODO edit kf_arc list values for given effect
 
     def get_map(self):
         return self.map
@@ -49,16 +51,18 @@ class TextEffectsMap(Singleton):
 
     def get_fx(self, name=''):
         if not name in self.map:
+            print("Text effect fx_map - unrecognized effect name {0}".format(name))
             return
         return self.map[name]
 
     def check_fx_vals(self, name, attr, kf_arc):
-        if name and attr and kf_arc and type(name) == str and type(attr) == str and type(kf_arc) == tuple:
+        if type(name) == str and type(attr) == str and type(kf_arc) == list:
             return True
         return False
 
-    def create_fx_entry(self, name='', attr='', kf_arc={}):
+    def create_fx_entry(self, name='', attr='', kf_arc=[]):
         if not self.check_fx_vals(name, attr, kf_arc):
+            print("Unable to map text fx {0} to effect arc {1}".format(name, attr, kf_arc))
             return
         return {
             'name': name,
@@ -118,7 +122,7 @@ def string_to_letters(txt="", spacing=0.0, font=''):
     return letter_objs
 
 # temp method for constructing fx
-def keyframe_letter_fx (font_obj, fx={}, target_value=None, frames=0):
+def keyframe_letter_fx (font_obj, fx={}, frames=0):
     """Keyframe an effect on a letter based on an fx dict
 
     fx = {
@@ -130,33 +134,56 @@ def keyframe_letter_fx (font_obj, fx={}, target_value=None, frames=0):
     }
     """
 
-    if not fx or not value or not frames or not hasattr(font_obj, fx['attr']):
+    if not hasattr(font_obj, 'type') or font_obj.type != 'FONT' or not 'attr' in fx:
+        print("Failed to keyframe letter effect on {0} - expected a font curve".format(font_obj))
         return
 
-    if not hasattr(font_obj, 'type') or font_obj.type != 'FONT' or not 'attr' in fx:
+    if not fx or not hasattr(font_obj, fx['attr']) or 'transform' in fx:
+        print("Failed to set letter effect keyframe on {1} - unrecognized attribute or value".format(font_obj, f['attr']))
         return
 
     def set_kf(obj, attr=None, value=None, frame_skip=0):
         if not hasattr(obj, attr) or not hasattr(obj, 'keyframe_insert') or not value:
+            print("Failed to set keyframe on {0} for attribute {1}".format(obj, attr))
             return
+        print(value)
         setattr(obj, attr, value)
         kf = obj.keyframe_insert(data_path=attr)
         bpy.context.scene.frame_current += frame_skip
         return kf
 
-    start_frame = bpy.context.scene.frame_current
+    value_base = None
+    if 'location' in fx['attr']:
+        value_base = font_obj.location[:]
+    elif 'rotation' in fx['attr']:
+        value_base = font_obj.rotation_euler[:]
+    elif 'scale' in fx['attr']:
+        value_base = font_obj.scale[:]
+    else:
+        print("Did not recognize attr {0} on text object {1} for known text effects".format(attr, obj))
 
     # keyframe along effect arc
+    print("Keyframing along {0} effect arc for letter {1}".format(fx['name'], font_obj))
     for kf_mults in fx['kf_arc']:
         # multiply user settings by effect factors to get each kf
         frame_mult = kf_mults[0]
         value_mult = kf_mults[1]
-        kf_value = target_value * value_mult
+        kf_value = value_mult * fx['transform']
         kf_frames = frames * frame_mult
-        set_kf(font_obj, attr=fx['attr'], value=kf_value, frame_skip=kf_frames)
 
-    # undo last frame skip since not adding another kf
-    bpy.context.scene.frame_current = start_frame
+        target_value = None
+        # TODO recognize x/y differences for slide
+        if 'location' in fx['attr']:
+            target_value = (value_base.x + kf_value, value_base.y, value_base.z)
+        # TODO recognize clockwise/counterclockwise for rotation
+        elif 'rotation' in fx['attr']:
+            value_base = (value_base.x, value_base.y, value_base.z + kf_value)
+        elif 'scale' in fx['attr']:
+            value_base = (value_base.x * kf_value, value_base.y * kf_value, value_base.z * kf_value)
+        else:
+            print("Did not recognize attr {0} on text object {1} for known text effects".format(attr, obj))
+
+        set_kf(font_obj, attr=fx['attr'], value=kf_value, frame_skip=kf_frames)
 
     return font_obj
 
@@ -172,7 +199,7 @@ def center_letter_fx(letters_parent):
 
 def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, font='', randomize=False):
 
-    if not (txt and type(txt) is str and fx_delta):
+    if not (txt and type(txt) is str and fx_delta != None):
         return
 
     letters = string_to_letters(txt, spacing=spacing, font=font)
@@ -181,6 +208,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     fx = fx_map.get_fx(fx_name)
 
     if not fx:
+        print("Did not recognize fx_map data for text effect: {0}".format(fx))
         return
 
     fx['length'] = frames
@@ -222,7 +250,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
         frame = start_frame + offsets[i]
         bpy.context.scene.frame_current = frame
 
-        keyframe_letter_fx(letter, fx, fx_delta, frames)
+        keyframe_letter_fx(letter, fx, frames)
 
         # TODO calc randomized values on return fx
 
@@ -262,7 +290,7 @@ class TextFxProperties(bpy.types.PropertyGroup):
     time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
     randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
-    transform = FloatProperty(name="Transform", description="Target value for letter location/rotation/scale (depending on effect)", default=0.0)
+    transform = FloatProperty(name="Transform", description="Added value for letter location/rotation/scale (depending on effect)", default=1.0)
     font = StringProperty(name="Font", description="Loaded font used for letters in effect", default="Bfont")
     direction = EnumProperty(
         name = "Direction",
