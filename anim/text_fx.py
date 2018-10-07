@@ -49,11 +49,16 @@ class TextEffectsMap(Singleton):
     def values(self):
         return self.map.values()
 
+    def normalize_name(self, name):
+        if type(name) != str: return
+        return name.upper().replace(" ", "_")
+
     def get_fx(self, name=''):
-        if not name in self.map:
-            print("Text effect fx_map - unrecognized effect name {0}".format(name))
+        normalized_name = self.normalize_name(name)
+        if not normalized_name in self.map:
+            print("Unrecognized effect name {0} in text effects fx_map".format(normalized_name))
             return
-        return self.map[name]
+        return self.map[normalized_name]
 
     def check_fx_vals(self, name, attr, kf_arc):
         if type(name) == str and type(attr) == str and type(kf_arc) == list:
@@ -121,7 +126,17 @@ def string_to_letters(txt="", spacing=0.0, font=''):
 
     return letter_objs
 
-# temp method for constructing fx
+def set_kf(obj, attr=None, value=None, frames_before=0, frames_after=0):
+    if not hasattr(obj, attr) or not hasattr(obj, 'keyframe_insert') or value == None:
+        print("Failed to set keyframe on {0} for attribute {1}".format(obj, attr))
+        return
+    bpy.context.scene.frame_current += frames_before
+    setattr(obj, attr, value)
+    kf = obj.keyframe_insert(data_path=attr)
+    bpy.context.scene.frame_current += frames_after
+    return kf
+
+# construct fx
 def keyframe_letter_fx (font_obj, fx={}, frames=0):
     """Keyframe an effect on a letter based on an fx dict
 
@@ -138,19 +153,9 @@ def keyframe_letter_fx (font_obj, fx={}, frames=0):
         print("Failed to keyframe letter effect on {0} - expected a font curve".format(font_obj))
         return
 
-    if not fx or not hasattr(font_obj, fx['attr']) or 'transform' in fx:
-        print("Failed to set letter effect keyframe on {1} - unrecognized attribute or value".format(font_obj, f['attr']))
+    if not fx or not hasattr(font_obj, fx['attr']) or 'transform' not in fx:
+        print("Failed to set letter effect keyframe on {1} - unrecognized attribute or value".format(font_obj, fx['attr']))
         return
-
-    def set_kf(obj, attr=None, value=None, frame_skip=0):
-        if not hasattr(obj, attr) or not hasattr(obj, 'keyframe_insert') or not value:
-            print("Failed to set keyframe on {0} for attribute {1}".format(obj, attr))
-            return
-        print(value)
-        setattr(obj, attr, value)
-        kf = obj.keyframe_insert(data_path=attr)
-        bpy.context.scene.frame_current += frame_skip
-        return kf
 
     value_base = None
     if 'location' in fx['attr']:
@@ -169,21 +174,21 @@ def keyframe_letter_fx (font_obj, fx={}, frames=0):
         frame_mult = kf_mults[0]
         value_mult = kf_mults[1]
         kf_value = value_mult * fx['transform']
-        kf_frames = frames * frame_mult
+        kf_frames = int(round(frames * frame_mult))
 
         target_value = None
         # TODO recognize x/y differences for slide
         if 'location' in fx['attr']:
-            target_value = (value_base.x + kf_value, value_base.y, value_base.z)
+            target_value = (value_base[0] + kf_value, value_base[1], value_base[2])
         # TODO recognize clockwise/counterclockwise for rotation
         elif 'rotation' in fx['attr']:
-            value_base = (value_base.x, value_base.y, value_base.z + kf_value)
+            target_value = (value_base[0], value_base[1], value_base[2] + kf_value)
         elif 'scale' in fx['attr']:
-            value_base = (value_base.x * kf_value, value_base.y * kf_value, value_base.z * kf_value)
+            target_value = (value_base[0] * kf_value, value_base[1] * kf_value, value_base[2] * kf_value)
         else:
             print("Did not recognize attr {0} on text object {1} for known text effects".format(attr, obj))
 
-        set_kf(font_obj, attr=fx['attr'], value=kf_value, frame_skip=kf_frames)
+        set_kf(font_obj, attr=fx['attr'], value=target_value, frames_before=kf_frames)
 
     return font_obj
 
@@ -285,7 +290,7 @@ def format_fx_enum():
 
 class TextFxProperties(bpy.types.PropertyGroup):
     text = StringProperty(name="Text", description="Text that was split into animated letters", default="")
-    frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=5)
+    frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=10)
     spacing = FloatProperty(name="Spacing", description="Distance between letters", default=0.1)
     time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
     randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
