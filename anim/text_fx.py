@@ -16,13 +16,15 @@ class TextEffectsMap(Singleton):
         SLIDE_OUT = 'SLIDE_OUT'
         POP_IN = 'POP_IN'
         POP_OUT= 'POP_OUT'
-        # 1 target, 0 base, o overshoot
+        NONE = 'NONE'
+        # (frames_factor, value_factor) arc
         self.map = {
             WIGGLE: self.create_fx_entry(name=WIGGLE, attr='rotation_euler', kf_arc=[(0, 0), (0.5, 1), (0.5, -0.5), (0.25, 0)]),
             SLIDE_IN: self.create_fx_entry(name=SLIDE_IN, attr='location', kf_arc=[(0, 1), (1, 1), (0.25, 0)]),
             SLIDE_OUT: self.create_fx_entry(name=SLIDE_OUT, attr='location', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
             POP_IN: self.create_fx_entry(name=POP_IN, attr='scale', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
-            POP_OUT: self.create_fx_entry(name=POP_OUT, attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)])
+            POP_OUT: self.create_fx_entry(name=POP_OUT, attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)]),
+            NONE: self.create_fx_entry(name=NONE, attr='', kf_arc=[])
             # TODO support layered fx
             #'WOBBLE': ['rotation_euler', 'location'],
             #'SCALE_UP': [], ...
@@ -67,7 +69,7 @@ class TextEffectsMap(Singleton):
 
     def create_fx_entry(self, name='', attr='', kf_arc=[]):
         if not self.check_fx_vals(name, attr, kf_arc):
-            print("Unable to map text fx {0} to effect arc {1}".format(name, attr, kf_arc))
+            print("Unable to map text fx {0} to {1} effect arc {2}".format(name, attr, kf_arc))
             return
         return {
             'name': name,
@@ -180,6 +182,7 @@ def keyframe_letter_fx (font_obj, fx={}, frames=0):
         # TODO recognize x/y differences for slide
         if 'location' in fx['attr']:
             target_value = (value_base[0] + kf_value, value_base[1], value_base[2])
+            print(target_value)
         # TODO recognize clockwise/counterclockwise for rotation
         elif 'rotation' in fx['attr']:
             target_value = (value_base[0], value_base[1], value_base[2] + kf_value)
@@ -202,6 +205,28 @@ def center_letter_fx(letters_parent):
     letters_parent.location.x -= distance
     return letters_parent
 
+def parent_anim_letters(letters, fx, parent=None, frames=0, start_frame=0, kf_handler=keyframe_letter_fx):
+    """Attach letters to fx parent and keyframe each letter's effect based on fx data"""
+    kfs = []
+
+    for i in range(len(letters)):
+        letter = letters[i]
+
+        # attach to parent but remove offset
+        if parent:
+            letter.parent = parent
+            letter.matrix_parent_inverse = parent.matrix_world.inverted()
+
+        # TODO reenable calculating frame offset between each letter's arc for better/worse spacing
+        #frame = start_frame + offsets[i]
+        #bpy.context.scene.frame_current = frame
+
+        fx['attr'] and fx['kf_arc'] and kfs.append(keyframe_letter_fx(letter, fx, frames))
+
+        # TODO calc randomized values on return fx
+
+    return kfs
+
 def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, font='', randomize=False):
 
     if not (txt and type(txt) is str and fx_delta != None):
@@ -219,8 +244,8 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     fx['length'] = frames
     fx['transform'] = fx_delta
 
-    offsets = [i * time_offset for i in range(len(letters))]
-    randomize and random.shuffle(offsets)
+    #offsets = [i * time_offset for i in range(len(letters))]
+    #randomize and random.shuffle(offsets)
     start_frame = bpy.context.scene.frame_current
 
     # TODO think through tricky cases where fx have:
@@ -245,19 +270,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     # TODO use parent to align letters (without realignment they grow to right)
 
     # keyframe effect for each letter
-    for i in range(len(letters)):
-        letter = letters[i]
-
-        # attach to parent but remove offset
-        letter.parent = letters_parent
-        letter.matrix_parent_inverse = letters_parent.matrix_world.inverted()
-
-        frame = start_frame + offsets[i]
-        bpy.context.scene.frame_current = frame
-
-        keyframe_letter_fx(letter, fx, frames)
-
-        # TODO calc randomized values on return fx
+    parent_anim_letters(letters, fx, parent=letters_parent, frames=frames, start_frame=start_frame)
 
     bpy.context.scene.frame_current = start_frame
 
