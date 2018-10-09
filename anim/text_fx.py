@@ -20,7 +20,7 @@ class TextEffectsMap(Singleton):
         # (frames_factor, value_factor) arc
         self.map = {
             WIGGLE: self.create_fx_entry(name=WIGGLE, attr='rotation_euler', kf_arc=[(0, 0), (0.5, 1), (0.5, -0.5), (0.25, 0)]),
-            SLIDE_IN: self.create_fx_entry(name=SLIDE_IN, attr='location', kf_arc=[(0, 1), (1, 1), (0.25, 0)]),
+            SLIDE_IN: self.create_fx_entry(name=SLIDE_IN, attr='location', kf_arc=[(0, 1), (1, -0.05), (0.25, 0)]),
             SLIDE_OUT: self.create_fx_entry(name=SLIDE_OUT, attr='location', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
             POP_IN: self.create_fx_entry(name=POP_IN, attr='scale', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
             POP_OUT: self.create_fx_entry(name=POP_OUT, attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)]),
@@ -181,8 +181,11 @@ def keyframe_letter_fx (font_obj, fx={}, frames=0):
         target_value = None
         # TODO recognize x/y differences for slide
         if 'location' in fx['attr']:
-            target_value = (value_base[0] + kf_value, value_base[1], value_base[2])
-            print(target_value)
+            # calc fixed loc for all location kfs
+            new_fixed_target_all_letters = font_obj.parent.location.x + fx['transform']
+            #target_x_diff = (font_obj.matrix_world.translation.x - font_obj.parent.location.x) + kf_value
+            target_x = lerp_step(origin=font_obj.matrix_world.translation.x, target=new_fixed_target_all_letters, factor=value_mult)
+            target_value = (target_x, value_base[1], value_base[2])
         # TODO recognize clockwise/counterclockwise for rotation
         elif 'rotation' in fx['attr']:
             target_value = (value_base[0], value_base[1], value_base[2] + kf_value)
@@ -194,6 +197,13 @@ def keyframe_letter_fx (font_obj, fx={}, frames=0):
         set_kf(font_obj, attr=fx['attr'], value=target_value, frames_before=kf_frames)
 
     return font_obj
+
+def lerp_step(origin=0, target=1, factor=0):
+    """Step interpolate between origin and target values by a delta factor"""
+
+    # TODO
+
+    return (origin + ((target - origin) * factor))
 
 def center_letter_fx(letters_parent):
     """Move fx letter parent to simulate switching from left aligned to center aligned text"""
