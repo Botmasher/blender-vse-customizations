@@ -101,7 +101,7 @@ def string_to_letters(txt="", spacing=0.0, font=''):
 
         # letter data
         letter = bpy.data.curves.new(name="\"{0}\"-letter-{1}".format(txt, l), type="FONT")
-        letter.body = l if l != " " else "a"
+        letter.body = l if l != " " else ""
 
         # assign selected font
         if font and font in bpy.data.fonts:
@@ -139,7 +139,7 @@ def set_kf(obj, attr=None, value=None, frames_before=0, frames_after=0):
     return kf
 
 # construct fx
-def keyframe_letter_fx (font_obj, fx={}, frames=0):
+def keyframe_letter_fx (font_obj, fx={}):
     """Keyframe an effect on a letter based on an fx dict
 
     fx = {
@@ -147,7 +147,8 @@ def keyframe_letter_fx (font_obj, fx={}, frames=0):
         'attr': '',         # attribute to set on obj
         'kf_arc': [],       # (frame_mult, value_mult) pairs
         'transform': [],    # delta multiplied by value_mult and added to base value at each kf set
-        'length': 0         # frame count multiplied by frame_mult at each kf set
+        'length': 0         # each letter anim's frame count - multiplied by frame_mult at each kf set
+        'offset': 0         # gap between letter anims to stagger each letter's effect
     }
     """
 
@@ -176,7 +177,7 @@ def keyframe_letter_fx (font_obj, fx={}, frames=0):
         frame_mult = kf_mults[0]
         value_mult = kf_mults[1]
         kf_value = value_mult * fx['transform']
-        kf_frames = int(round(frames * frame_mult))
+        kf_frames = int(round(fx['length'] * frame_mult))
 
         target_value = None
         # TODO recognize x/y differences for slide
@@ -200,9 +201,6 @@ def keyframe_letter_fx (font_obj, fx={}, frames=0):
 
 def lerp_step(origin=0, target=1, factor=0):
     """Step interpolate between origin and target values by a delta factor"""
-
-    # TODO
-
     return (origin + ((target - origin) * factor))
 
 def center_letter_fx(letters_parent):
@@ -215,7 +213,7 @@ def center_letter_fx(letters_parent):
     letters_parent.location.x -= distance
     return letters_parent
 
-def parent_anim_letters(letters, fx, parent=None, frames=0, start_frame=0, kf_handler=keyframe_letter_fx):
+def parent_anim_letters(letters, fx, parent=None, start_frame=0, kf_handler=keyframe_letter_fx):
     """Attach letters to fx parent and keyframe each letter's effect based on fx data"""
     kfs = []
 
@@ -231,13 +229,17 @@ def parent_anim_letters(letters, fx, parent=None, frames=0, start_frame=0, kf_ha
         #frame = start_frame + offsets[i]
         #bpy.context.scene.frame_current = frame
 
-        fx['attr'] and fx['kf_arc'] and kfs.append(keyframe_letter_fx(letter, fx, frames))
+        fx['attr'] and fx['kf_arc'] and kfs.append(keyframe_letter_fx(letter, fx))
 
-        # TODO calc randomized values on return fx
+        print("Anim frames: {0} -- Anim offset: {1} -- Current frame: {2}".format(fx['length'], fx['offset'], bpy.context.scene.frame_current))
+
+        bpy.context.scene.frame_current += fx['offset']
 
     return kfs
 
-def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing=0.0, font='', randomize=False):
+def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, anim_length=5, anim_stagger=0, spacing=0.0, font='', randomize=False):
+
+    # anim_stagger=props_src.time_offset, anim_length=props_src.frames
 
     if not (txt and type(txt) is str and fx_delta != None):
         return
@@ -251,7 +253,8 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
         print("Did not recognize fx_map data for text effect: {0}".format(fx))
         return
 
-    fx['length'] = frames
+    fx['length'] = anim_length
+    fx['offset'] = anim_stagger
     fx['transform'] = fx_delta
 
     #offsets = [i * time_offset for i in range(len(letters))]
@@ -271,7 +274,8 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
     letters_parent.empty_draw_size = 1.0
 
     # store properties in empty
-    letters_parent.text_fx.frames = frames
+    letters_parent.text_fx.frames = anim_length
+    letters_parent.text_fx.time_offset = anim_stagger
     letters_parent.text_fx.spacing = spacing
     letters_parent.text_fx.randomize = randomize
     letters_parent.text_fx.name = fx_name
@@ -279,8 +283,10 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, frames=0, spacing
 
     # TODO use parent to align letters (without realignment they grow to right)
 
+    # TODO reverse letters for certain directions (like slide in from left)
+
     # keyframe effect for each letter
-    parent_anim_letters(letters, fx, parent=letters_parent, frames=frames, start_frame=start_frame)
+    parent_anim_letters(letters, fx, parent=letters_parent, start_frame=start_frame)
 
     bpy.context.scene.frame_current = start_frame
 
@@ -330,6 +336,7 @@ class TextFxProperties(bpy.types.PropertyGroup):
             ("right", "Right", "Transform letters to or from the right side")
         ]
     )
+    clockwise = BoolProperty(name="Clockwise", description="Rotate letters clockwise", default=True)
     effect = EnumProperty(
         name = "Effect",
         description = "Overall effect to give when animating the letters",
@@ -357,7 +364,7 @@ class TextFxOperator(bpy.types.Operator):
 
         # TODO add effect to obj vs create new obj
 
-        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, frames=props_src.frames, spacing=props_src.spacing)
+        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
@@ -371,9 +378,13 @@ class TextFxPanel(bpy.types.Panel):
 
     def draw(self, ctx):
         props_src = find_text_fx_src()
+        location_fx = ['SLIDE_IN', 'SLIDE_OUT']
+        rotation_fx = ['WIGGLE']
         if props_src.id_data:
             self.layout.row().prop(props_src, "text")
             self.layout.row().prop(props_src, "effect")
+            props_src.effect in location_fx and self.layout.row().prop(props_src, "direction")
+            props_src.effect in rotation_fx and self.layout.row().prop(props_src, "clockwise")
             self.layout.row().prop(props_src, "transform")
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
@@ -384,13 +395,6 @@ class TextFxPanel(bpy.types.Panel):
             row.prop(props_src, "randomize")
             row.prop(props_src, "replace")
             self.layout.row().operator("object.text_fx", text="Create Text Effect")
-
-    def update_scene_fonts(self):
-        print(bpy.context.scene.fonts)
-        for font in bpy.data.fonts:
-            if font.name not in bpy.context.scene.fonts:
-                bpy.context.scene.fonts.add(font.name)
-        return bpy.context.scene.fonts
 
 def register():
     bpy.utils.register_class(TextFxProperties)
