@@ -19,9 +19,10 @@ class TextEffectsMap(Singleton):
         NONE = 'NONE'
         # (frames_factor, value_factor) arc
         self.map = {
+            # TODO set slide, pop, other surrounding-letter-touching overshoots based on letter spacing
             WIGGLE: self.create_fx_entry(name=WIGGLE, attr='rotation_euler', kf_arc=[(0, 0), (0.5, 1), (0.5, -0.5), (0.25, 0)]),
             SLIDE_IN: self.create_fx_entry(name=SLIDE_IN, attr='location', kf_arc=[(0, 1), (1, -0.05), (0.25, 0)]),
-            SLIDE_OUT: self.create_fx_entry(name=SLIDE_OUT, attr='location', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
+            SLIDE_OUT: self.create_fx_entry(name=SLIDE_OUT, attr='location', kf_arc=[(0, 0), (0.25, -0.05), (1, 1)]),
             POP_IN: self.create_fx_entry(name=POP_IN, attr='scale', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
             POP_OUT: self.create_fx_entry(name=POP_OUT, attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)]),
             NONE: self.create_fx_entry(name=NONE, attr='', kf_arc=[])
@@ -217,17 +218,12 @@ def parent_anim_letters(letters, fx, parent=None, start_frame=0, kf_handler=keyf
     """Attach letters to fx parent and keyframe each letter's effect based on fx data"""
     kfs = []
 
-    for i in range(len(letters)):
-        letter = letters[i]
+    for letter in letters:
 
         # attach to parent but remove offset
         if parent:
             letter.parent = parent
             letter.matrix_parent_inverse = parent.matrix_world.inverted()
-
-        # TODO reenable calculating frame offset between each letter's arc for better/worse spacing
-        #frame = start_frame + offsets[i]
-        #bpy.context.scene.frame_current = frame
 
         fx['attr'] and fx['kf_arc'] and kfs.append(keyframe_letter_fx(letter, fx))
 
@@ -237,7 +233,17 @@ def parent_anim_letters(letters, fx, parent=None, start_frame=0, kf_handler=keyf
 
     return kfs
 
-def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, anim_length=5, anim_stagger=0, spacing=0.0, font='', randomize=False):
+def is_reverse_fx(fx_name, fx_direction):
+    # TODO support other writing system directions
+    # alternatively allow this to be set as a prop
+    if fx_name == 'SLIDE_OUT' and fx_direction == 'right':
+        return True
+    elif fx_name == 'SLIDE_IN' and fx_direction == 'left':
+        return True
+    else:
+        return True
+
+def anim_txt(txt="", time_offset=1, fx_name='', fx_direction=None, fx_delta=None, anim_length=5, anim_stagger=0, spacing=0.0, font='', randomize=False):
 
     # anim_stagger=props_src.time_offset, anim_length=props_src.frames
 
@@ -256,6 +262,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, anim_length=5, an
     fx['length'] = anim_length
     fx['offset'] = anim_stagger
     fx['transform'] = fx_delta
+    fx['direction'] = fx_direction
 
     #offsets = [i * time_offset for i in range(len(letters))]
     #randomize and random.shuffle(offsets)
@@ -270,6 +277,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, anim_length=5, an
     # set up parent for holding letters
     letters_parent = bpy.data.objects.new("text_fx", None)
     bpy.context.scene.objects.link(letters_parent)
+    letters_parent.location = bpy.context.scene.cursor_location
     letters_parent.empty_draw_type = 'ARROWS'
     letters_parent.empty_draw_size = 1.0
 
@@ -283,7 +291,11 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, anim_length=5, an
 
     # TODO use parent to align letters (without realignment they grow to right)
 
-    # TODO reverse letters for certain directions (like slide in from left)
+    if randomize:
+        letters = random.range(letters)
+    # reverse letters for certain directions (like slide in from left)
+    elif is_reverse_fx(fx['name'], fx['direction']):
+        letters = reversed(letters)
 
     # keyframe effect for each letter
     parent_anim_letters(letters, fx, parent=letters_parent, start_frame=start_frame)
@@ -291,6 +303,8 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_delta=None, anim_length=5, an
     bpy.context.scene.frame_current = start_frame
 
     return letters
+
+# TODO letters are created in line with cursor at least along y but parent is not
 
 def find_text_fx_src():
     scene = bpy.context.scene
@@ -363,8 +377,9 @@ class TextFxOperator(bpy.types.Operator):
         props_src = find_text_fx_src()
 
         # TODO add effect to obj vs create new obj
+        #   - example: font changed
 
-        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
+        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, fx_direction=props_src.direction, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
