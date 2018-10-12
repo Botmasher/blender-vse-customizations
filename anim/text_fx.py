@@ -94,7 +94,7 @@ def is_text(obj):
 
 ## take txt input and turn it into single-letter text objects
 def string_to_letters(txt="", spacing=0.0, font=''):
-    origin = bpy.context.scene.cursor_location
+    origin = (0, 0, 0)
     offset_x = 0
     letter_objs = []
     # create font curve object for each letter
@@ -243,12 +243,26 @@ def is_reverse_fx(fx_name, fx_direction):
     else:
         return True
 
+def translate_letters(parent=None, target_location=None, default_location=(0,0,0), use_cursor=True):
+    if not parent: return
+    if use_cursor:
+        parent.location = bpy.context.scene.cursor_location
+    elif target_location:
+        parent.location = target_location
+    else:
+        parent.location = default_location
+
 def anim_txt(txt="", time_offset=1, fx_name='', fx_direction=None, fx_delta=None, anim_length=5, anim_stagger=0, spacing=0.0, font='', randomize=False):
 
     # anim_stagger=props_src.time_offset, anim_length=props_src.frames
 
     if not (txt and type(txt) is str and fx_delta != None):
         return
+
+    if bpy.context.scene.objects.active:
+        target_location = bpy.context.scene.objects.active
+    else:
+        target_location = bpy.context.scene.cursor_location
 
     letters = string_to_letters(txt, spacing=spacing, font=font)
 
@@ -277,7 +291,6 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_direction=None, fx_delta=None
     # set up parent for holding letters
     letters_parent = bpy.data.objects.new("text_fx", None)
     bpy.context.scene.objects.link(letters_parent)
-    letters_parent.location = bpy.context.scene.cursor_location
     letters_parent.empty_draw_type = 'ARROWS'
     letters_parent.empty_draw_size = 1.0
 
@@ -300,11 +313,22 @@ def anim_txt(txt="", time_offset=1, fx_name='', fx_direction=None, fx_delta=None
     # keyframe effect for each letter
     parent_anim_letters(letters, fx, parent=letters_parent, start_frame=start_frame)
 
+    translate_letters(parent=letters_parent, target_location=target_location)
+
     bpy.context.scene.frame_current = start_frame
 
     return letters
 
 # TODO letters are created in line with cursor at least along y but parent is not
+
+# TODO allow multiple fonts
+def set_font(letters_parent, font_name):
+    """Update the font for each letter in a text effect object"""
+    if not hasattr(letters_parent, 'children'): return
+    if not font_name in bpy.data.fonts: return
+    for letter in letters_parent.children:
+        letter.data.font = font_name
+    return font_name
 
 def find_text_fx_src():
     scene = bpy.context.scene
