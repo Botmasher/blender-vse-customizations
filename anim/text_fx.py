@@ -179,12 +179,27 @@ def keyframe_letter_fx (font_obj, fx={}):
 
         target_value = None
         # TODO recognize x/y differences for slide
+        # using fx['direction'] for IN and OUT!
+        #   - 'left' x factor subtracted from 0 to 1
+        #   - 'right' x factor added from 0 to 1
+        #   - 'top' y factor added from 0 to 1
+        #   - 'bottom' y factor subtracted from 0 to 1
         if 'location' in fx['attr']:
             # calc fixed loc for all location kfs
-            new_fixed_target_all_letters = font_obj.parent.location.x + fx['transform']
-            #target_x_diff = (font_obj.matrix_world.translation.x - font_obj.parent.location.x) + kf_value
-            target_x = lerp_step(origin=font_obj.matrix_world.translation.x, target=new_fixed_target_all_letters, factor=value_mult)
-            target_value = (target_x, value_base[1], value_base[2])
+            if fx['direction'] in ['top', 'bottom']:
+                transform = fx['transform'] * -1 if fx['direction'] == 'bottom' else fx['transform']
+                new_fixed_target_all_letters = font_obj.parent.location.y + transform
+                updated_target = lerp_step(origin=font_obj.matrix_world.translation.y, target=new_fixed_target_all_letters, factor=value_mult)
+                target_value = (value_base[0], updated_target, value_base[2])
+            elif fx['direction'] in ['left', 'right']:
+                transform = fx['transform'] * -1 if fx['direction'] == 'left' else fx['transform']
+                new_fixed_target_all_letters = font_obj.parent.location.x + fx['transform']
+                updated_target = lerp_step(origin=font_obj.matrix_world.translation.x, target=new_fixed_target_all_letters, factor=value_mult)
+                target_value = (updated_target, value_base[1], value_base[2])
+            else:
+                # location not recognized
+                print("Did not recognize location keyframes for text fx - failed to animate letters")
+                return
         # TODO recognize clockwise/counterclockwise for rotation
         elif 'rotation' in fx['attr']:
             target_value = (value_base[0], value_base[1], value_base[2] + kf_value)
@@ -249,7 +264,7 @@ def translate_letters(parent=None, target_location=None, default_location=(0,0,0
     else:
         parent.location = default_location
 
-def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_delta=None, anim_length=5, anim_stagger=0, spacing=0.0, font=''):
+def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_delta=None, direction="", anim_length=5, anim_stagger=0, spacing=0.0, font=''):
 
     if not (txt and type(txt) is str and fx_delta != None):
         return
@@ -270,7 +285,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_delta=
     fx['length'] = anim_length
     fx['offset'] = anim_stagger
     fx['transform'] = fx_delta
-    #fx['direction'] = fx_direction
+    fx['direction'] = direction
 
     #offsets = [i * time_offset for i in range(len(letters))]
     #randomize and random.shuffle(offsets)
@@ -377,12 +392,12 @@ class TextFxProperties(bpy.types.PropertyGroup):
             ("right", "Right", "Transform letters to or from the right side")
         ]
     )
-    order = EnumProperty(
+    letters_order = EnumProperty(
         name = "Order",
         description = "Letter animation order",
         items = [
-            ("forwards", "Forwards", "Animate text from first to last"),
-            ("backwards", "Backwards", "Animate text letters from last to first"),
+            ("forwards", "Forwards", "Animate text from first to last letter"),
+            ("backwards", "Backwards", "Animate text from last to first letter"),
             ("random", "Random", "Animate text letters in random order")
         ]
     )
@@ -415,7 +430,7 @@ class TextFxOperator(bpy.types.Operator):
         # TODO add effect to obj vs create new obj
         #   - example: font changed
 
-        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, anim_order=props_src.order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
+        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, direction=direction, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
@@ -436,7 +451,7 @@ class TextFxPanel(bpy.types.Panel):
             self.layout.row().prop(props_src, "effect")
             props_src.effect in location_fx and self.layout.row().prop(props_src, "direction")
             props_src.effect in rotation_fx and self.layout.row().prop(props_src, "clockwise")
-            self.layout.row().prop(props_src, "order")
+            self.layout.row().prop(props_src, "letters_order")
             self.layout.row().prop(props_src, "transform")
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
