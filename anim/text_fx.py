@@ -53,17 +53,28 @@ class TextEffectsMap(Singleton):
         if type(name) != str: return
         return name.upper().replace(" ", "_")
 
+    def exists(self, name):
+        if not name in self.map:
+            print("Unrecognized effect name {0} in text effects fx_map".format(name))
+            return False
+        return True
+
     def get_fx(self, name=''):
         normalized_name = self.normalize_name(name)
-        if not normalized_name in self.map:
-            print("Unrecognized effect name {0} in text effects fx_map".format(normalized_name))
-            return
-        return self.map[normalized_name]
+        if self.exists(normalized_name):
+            return self.map[normalized_name]
+        return
 
     def check_fx_vals(self, name, attr, kf_arc):
         if type(name) == str and type(attr) == str and type(kf_arc) == list:
             return True
         return False
+
+    def get_attr(self, name=''):
+        effect = self.get_fx(name)
+        if effect:
+            return effect['attr']
+        return
 
     def create_fx_entry(self, name='', attr='', kf_arc=[]):
         if not self.check_fx_vals(name, attr, kf_arc):
@@ -200,9 +211,12 @@ def keyframe_letter_fx (font_obj, fx={}):
                 # location not recognized
                 print("Did not recognize location keyframes for text fx - failed to animate letters")
                 return
-        # TODO recognize clockwise/counterclockwise for rotation
         elif 'rotation' in fx['attr']:
-            target_value = (value_base[0], value_base[1], value_base[2] + kf_value)
+            print('Animating rotation and using direction {0}'.format(fx['direction']))
+            if fx['direction'] == 'clockwise':
+                target_value = (value_base[0], value_base[1], value_base[2] - kf_value)
+            else:
+                target_value = (value_base[0], value_base[1], value_base[2] + kf_value)
         elif 'scale' in fx['attr']:
             target_value = (value_base[0] * kf_value, value_base[1] * kf_value, value_base[2] * kf_value)
         else:
@@ -412,8 +426,6 @@ class TextFxProperties(bpy.types.PropertyGroup):
 #   - are created fx mutable?
 #   - replace each time vs stack effects?
 #   - keep record of each object's effects and props for those fx?
-# effects = SomeProperty(name="Applied effects", array_length=99, default=[None for i in range(99)])
-# TODO randomize effects
 
 def create_text_fx_props(bpy_type, fx_collection=False):
     bpy_type.text_fx = bpy.props.PointerProperty(type=TextFxProperties)
@@ -429,6 +441,11 @@ class TextFxOperator(bpy.types.Operator):
 
         # TODO add effect to obj vs create new obj
         #   - example: font changed
+
+        if fx_map.get_attr(name=props_src.effect) == 'location':
+            direction = props_src.direction
+        else:
+            direction = 'clockwise' if props_src.clockwise else 'counterclockwise'
 
         anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, direction=direction, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
 
@@ -452,10 +469,14 @@ class TextFxPanel(bpy.types.Panel):
             props_src.effect in location_fx and self.layout.row().prop(props_src, "direction")
             props_src.effect in rotation_fx and self.layout.row().prop(props_src, "clockwise")
             self.layout.row().prop(props_src, "letters_order")
+
+            # TODO update to default recommended values based on effect if no effect values stored
+            #   - store values per effect? or kf'd attr?
             self.layout.row().prop(props_src, "transform")
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
             self.layout.row().prop(props_src, "time_offset")
+
             self.layout.prop_search(props_src, "font", bpy.data, 'fonts')
             self.layout.row().prop(props_src, "direction")
             self.layout.row().prop(props_src, "replace")
