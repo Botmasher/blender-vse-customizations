@@ -195,21 +195,25 @@ def keyframe_letter_fx (font_obj, fx={}):
         #   - 'right' x factor added from 0 to 1
         #   - 'top' y factor added from 0 to 1
         #   - 'bottom' y factor subtracted from 0 to 1
+        print(fx['transform'])
         if 'location' in fx['attr']:
             # calc fixed loc for all location kfs
-            if fx['direction'] in ['top', 'bottom']:
-                transform = fx['transform'] * -1 if fx['direction'] == 'bottom' else fx['transform']
+            transform = fx['transform']
+            if fx['axis'] == 'y':
                 new_fixed_target_all_letters = font_obj.parent.location.y + transform
                 updated_target = lerp_step(origin=font_obj.matrix_world.translation.y, target=new_fixed_target_all_letters, factor=value_mult)
                 target_value = (value_base[0], updated_target, value_base[2])
-            elif fx['direction'] in ['left', 'right']:
-                transform = fx['transform'] * -1 if fx['direction'] == 'left' else fx['transform']
-                new_fixed_target_all_letters = font_obj.parent.location.x + fx['transform']
+            elif fx['axis'] == 'x':
+                new_fixed_target_all_letters = font_obj.parent.location.x + transform
                 updated_target = lerp_step(origin=font_obj.matrix_world.translation.x, target=new_fixed_target_all_letters, factor=value_mult)
                 target_value = (updated_target, value_base[1], value_base[2])
+            elif fx['axis'] == 'z':
+                new_fixed_target_all_letters = font_obj.parent.location.z + transform
+                updated_target = lerp_step(origin=font_obj.matrix_world.translation.z, target=new_fixed_target_all_letters, factor=value_mult)
+                target_value = (value_base[0], value_base[1], updated_target)
             else:
                 # location not recognized
-                print("Did not recognize location keyframes for text fx - failed to animate letters")
+                print("Did not recognize location axis for text fx - failed to animate letters")
                 return
         elif 'rotation' in fx['attr']:
             print('Animating rotation and using direction {0}'.format(fx['direction']))
@@ -259,15 +263,18 @@ def parent_anim_letters(letters, fx, parent=None, start_frame=0, kf_handler=keyf
 
     return kfs
 
-def is_reverse_fx(fx_name, fx_direction):
+# NOTE remove or rebuild
+# or automatically reverse letters for backwards slide effects (in from left)
+def reverse_fx(fx_name, fx_origin, fx_target):
+    # TODO if continue to use, do custom comparisons for each effect
     # TODO support other writing system directions
     # alternatively allow this to be set as a prop
-    if fx_name == 'SLIDE_OUT' and fx_direction == 'right':
-        return True
-    elif fx_name == 'SLIDE_IN' and fx_direction == 'left':
-        return True
+    if fx_name == 'SLIDE_OUT' and fx_origin < fx_target:
+        reversed = True
+    elif fx_name == 'SLIDE_IN' and fx_origin > fx_target:
+        reversed = True
     else:
-        return True
+        reversed = False
 
 def translate_letters(parent=None, target_location=None, default_location=(0,0,0), use_cursor=True):
     if not parent: return
@@ -278,7 +285,7 @@ def translate_letters(parent=None, target_location=None, default_location=(0,0,0
     else:
         parent.location = default_location
 
-def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_delta=None, direction="", anim_length=5, anim_stagger=0, spacing=0.0, font=''):
+def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_delta=None, axis="", anim_length=5, anim_stagger=0, spacing=0.0, font=''):
 
     if not (txt and type(txt) is str and fx_delta != None):
         return
@@ -299,7 +306,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_delta=
     fx['length'] = anim_length
     fx['offset'] = anim_stagger
     fx['transform'] = fx_delta
-    fx['direction'] = direction
+    fx['axis'] = axis
 
     #offsets = [i * time_offset for i in range(len(letters))]
     #randomize and random.shuffle(offsets)
@@ -337,9 +344,6 @@ def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_delta=
     #     letters = reversed(letters)
     # else:
     #     letters = letters
-
-    # automatically reverse letters for backwards slide effects (in from left)
-    #letters = reversed(letters) if is_reverse_fx(fx['name'], fx['direction']) else letters
 
     # keyframe effect for each letter
     parent_anim_letters(letters, fx, parent=letters_parent, start_frame=start_frame)
@@ -396,15 +400,18 @@ class TextFxProperties(bpy.types.PropertyGroup):
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
     transform = FloatProperty(name="Transform", description="Added value for letter location/rotation/scale (depending on effect)", default=1.0)
     font = StringProperty(name="Font", description="Loaded font used for letters in effect", default="Bfont")
-    direction = EnumProperty(
-        name = "Direction",
-        description = "Transform direction for directional effects",
+    # TODO just horiz vs vert down pipeline
+    #   - so user selects axis and transform calc determines left/right, top/bottom position
+    #   - also add Z for depth/stacked
+    axis = EnumProperty(
+        name = "Axis",
+        description = "Transform axis for directional effects",
         items = [
-            ("top", "Top", "Transform letters to or from the top"),
-            ("bottom", "Bottom", "Transform letters to or from the bottom"),
-            ("left", "Left", "Transform letters to or from the left side"),
-            ("right", "Right", "Transform letters to or from the right side")
-        ]
+            ("x", "Horizontal", "Transform letters along the x axis"),
+            ("y", "Vertical", "Transform letters along the y axis"),
+            ("z", "Depth", "Transform letters along the z axis")
+        ],
+        default='x'
     )
     letters_order = EnumProperty(
         name = "Order",
@@ -442,12 +449,22 @@ class TextFxOperator(bpy.types.Operator):
         # TODO add effect to obj vs create new obj
         #   - example: font changed
 
-        if fx_map.get_attr(name=props_src.effect) == 'location':
-            direction = props_src.direction
-        else:
-            direction = 'clockwise' if props_src.clockwise else 'counterclockwise'
+        modified_attr = fx_map.get_attr(name=props_src.effect)
 
-        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=props_src.transform, direction=direction, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
+        if modified_attr == 'location':
+            axis = props_src.axis
+            transform =props_src.transform
+        elif 'rotation' in modified_attr:
+            axis = 'clockwise' if props_src.clockwise else 'counterclockwise'
+            transform = props_src.transform
+        elif 'scale' in modified_attr:
+            transform = 1.0
+            axis = props_src.axis
+        else:
+            print("No location/rotation/scale attr recognized for effect - cancelling text effect")
+            return {'FINISHED'}
+
+        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=transform, axis=axis, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
@@ -461,24 +478,26 @@ class TextFxPanel(bpy.types.Panel):
 
     def draw(self, ctx):
         props_src = find_text_fx_src()
-        location_fx = ['SLIDE_IN', 'SLIDE_OUT']
-        rotation_fx = ['WIGGLE']
+        location_str = 'location'
+        rotation_str = 'rotation'
+        scale_str = 'scale'
+        modified_attr = fx_map.get_attr(name=props_src.effect)
         if props_src.id_data:
             self.layout.row().prop(props_src, "text")
+            # TODO load a new font not just select loaded font
+            self.layout.prop_search(props_src, "font", bpy.data, 'fonts')
             self.layout.row().prop(props_src, "effect")
-            props_src.effect in location_fx and self.layout.row().prop(props_src, "direction")
-            props_src.effect in rotation_fx and self.layout.row().prop(props_src, "clockwise")
+            location_str in modified_attr and self.layout.row().prop(props_src, "axis")
+            rotation_str in modified_attr and self.layout.row().prop(props_src, "clockwise")
             self.layout.row().prop(props_src, "letters_order")
 
             # TODO update to default recommended values based on effect if no effect values stored
             #   - store values per effect? or kf'd attr?
-            self.layout.row().prop(props_src, "transform")
+            scale_str not in modified_attr and self.layout.row().prop(props_src, "transform")
             self.layout.row().prop(props_src, "frames")
             self.layout.row().prop(props_src, "spacing")
             self.layout.row().prop(props_src, "time_offset")
 
-            self.layout.prop_search(props_src, "font", bpy.data, 'fonts')
-            self.layout.row().prop(props_src, "direction")
             self.layout.row().prop(props_src, "replace")
             self.layout.row().operator("object.text_fx", text="Create Text Effect")
 
