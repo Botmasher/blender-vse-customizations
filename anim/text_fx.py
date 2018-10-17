@@ -431,9 +431,29 @@ class TextFxProperties(bpy.types.PropertyGroup):
 #   - replace each time vs stack effects?
 #   - keep record of each object's effects and props for those fx?
 
-def create_text_fx_props(bpy_type, fx_collection=False):
-    bpy_type.text_fx = bpy.props.PointerProperty(type=TextFxProperties)
-    return bpy_type.text_fx
+def create_text_fx_props(bl_types=[], text_fx_attr='text_fx'):
+    text_fx_attrs = []
+    for bl_type in bl_types:
+        if hasattr(bpy.types, bl_type):
+            bpy_types_object = getattr(bpy.types, bl_type)
+            bpy_types_object.text_fx = bpy.props.PointerProperty(type=TextFxProperties)
+            text_fx_attrs.append(bpy_types_object.text_fx)
+    return text_fx_attrs
+
+def remove_text_fx_props(bl_types=[], text_fx_attr='text_fx', from_scene=False, from_object=False):
+    if from_scene:
+        del bpy.types.Scene.text_fx
+    if from_object:
+        del bpy.types.Object.text_fx
+    del_types = []
+    for bl_type in bl_types:
+        if hasattr(bpy.types, bl_type):
+            try:
+                bl_type_text_fx = getattr(getattr(bpy.types, bl_type), text_fx_attr)
+                del bl_type_text_fx
+            except:
+                print("Failed to delete attribute {0} from type {1}".format())
+    return
 
 class TextFxOperator(bpy.types.Operator):
     bl_label = "Text FX Operator"
@@ -508,14 +528,14 @@ def register():
     bpy.utils.register_class(TextFxProperties)
     bpy.utils.register_class(TextFxOperator)
     bpy.utils.register_class(TextFxPanel)
-    # TODO assign class props and store locally on object instead
-    create_text_fx_props(bpy.types.Object)  # text_fx empty props
-    create_text_fx_props(bpy.types.Scene)   # UI props before text_fx created
+    # ui props - scene stores data before objects created, object stores created effect
+    create_text_fx_props(bl_types=['Scene', 'Object'])
 
 def unregister():
+    remove_text_fx_props(bl_types=['Object', 'Scene'])
     bpy.utils.unregister_class(TextFxPanel)
     bpy.utils.unregister_class(TextFxOperator)
-    bpy.utils.register_class(TextFxProperties)
+    bpy.utils.unregister_class(TextFxProperties)
 
 if __name__ == '__main__':
-    register()
+    unregister()
