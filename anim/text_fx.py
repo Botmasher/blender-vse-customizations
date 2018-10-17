@@ -400,9 +400,6 @@ class TextFxProperties(bpy.types.PropertyGroup):
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
     transform = FloatProperty(name="Transform", description="Added value for letter location/rotation/scale (depending on effect)", default=1.0)
     font = StringProperty(name="Font", description="Loaded font used for letters in effect", default="Bfont")
-    # TODO just horiz vs vert down pipeline
-    #   - so user selects axis and transform calc determines left/right, top/bottom position
-    #   - also add Z for depth/stacked
     axis = EnumProperty(
         name = "Axis",
         description = "Transform axis for directional effects",
@@ -483,23 +480,29 @@ class TextFxPanel(bpy.types.Panel):
         scale_str = 'scale'
         modified_attr = fx_map.get_attr(name=props_src.effect)
         if props_src.id_data:
-            self.layout.row().prop(props_src, "text")
-            # TODO load a new font not just select loaded font
-            self.layout.prop_search(props_src, "font", bpy.data, 'fonts')
-            self.layout.row().prop(props_src, "effect")
-            location_str in modified_attr and self.layout.row().prop(props_src, "axis")
-            rotation_str in modified_attr and self.layout.row().prop(props_src, "clockwise")
-            self.layout.row().prop(props_src, "letters_order")
+            layout = self.layout
+            for prop_name in props_src.keys():
+                # fall back to scene data if letters prop is undefined
+                if hasattr(props_src, prop_name) and getattr(props_src, prop_name) is not None:
+                    fx_data = props_src
+                else:
+                    fx_data = bpy.context.scene.text_fx
 
-            # TODO update to default recommended values based on effect if no effect values stored
-            #   - store values per effect? or kf'd attr?
-            scale_str not in modified_attr and self.layout.row().prop(props_src, "transform")
-            self.layout.row().prop(props_src, "frames")
-            self.layout.row().prop(props_src, "spacing")
-            self.layout.row().prop(props_src, "time_offset")
+                if prop_name == 'font':
+                    layout.prop_search(fx_data, prop_name, bpy.data, 'fonts')
+                    # TODO load a new font not just select loaded font
+                    #row = layout.split(percentage=0.25)
+                    #row.template_ID(ctx.curve, prop_name, open="font.open", unlink="font.unlink")
+                elif prop_name == 'axis':
+                    location_str in modified_attr and self.layout.row().prop(fx_data, "axis")
+                elif prop_name == 'clockwise':
+                    rotation_str in modified_attr and self.layout.row().prop(fx_data, "clockwise")
+                elif prop_name == 'transform':
+                    scale_str not in modified_attr and self.layout.row().prop(fx_data, "transform")
+                else:
+                    layout.row().prop(fx_data, prop_name)
 
-            self.layout.row().prop(props_src, "replace")
-            self.layout.row().operator("object.text_fx", text="Create Text Effect")
+            layout.row().operator("object.text_fx", text="Create Text Effect")
 
 def register():
     bpy.utils.register_class(TextFxProperties)
