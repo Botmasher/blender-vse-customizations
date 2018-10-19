@@ -10,24 +10,16 @@ class Singleton:
         return super().__new__(singleton) if not singleton.instance else singleton.instance
 
 class TextEffectsMap(Singleton):
-    def __init__(self):
-        WIGGLE = 'WIGGLE'
-        SLIDE_IN = 'SLIDE_IN'
-        SLIDE_OUT = 'SLIDE_OUT'
-        POP_IN = 'POP_IN'
-        POP_OUT= 'POP_OUT'
-        NONE = 'NONE'
-        # (frames_factor, value_factor) arc
-        self.map = {
-            # TODO set slide, pop, other surrounding-letter-touching overshoots based on letter spacing
-            WIGGLE: self.create_fx_entry(name=WIGGLE, attr='rotation_euler', kf_arc=[(0, 0), (0.5, 1), (0.5, -0.5), (0.25, 0)]),
-            SLIDE_IN: self.create_fx_entry(name=SLIDE_IN, attr='location', kf_arc=[(0, 1), (1, -0.05), (0.25, 0)]),
-            SLIDE_OUT: self.create_fx_entry(name=SLIDE_OUT, attr='location', kf_arc=[(0, 0), (0.25, -0.02), (1, 1)]),
-            POP_IN: self.create_fx_entry(name=POP_IN, attr='scale', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)]),
-            POP_OUT: self.create_fx_entry(name=POP_OUT, attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)]),
-            NONE: self.create_fx_entry(name=NONE, attr='', kf_arc=[])
-            # TODO support layered fx
-        }
+    self.map = {}
+    def __init__(self, default_fx=True):
+        # TODO set slide, pop, other surrounding-letter-touching overshoots based on letter spacing
+        if default_fx:
+            self.create_fx(name='WIGGLE', attr='rotation_euler', kf_arc=[(0, 0), (0.5, 1), (0.5, -0.5), (0.25, 0)])
+            self.create_fx(name='SLIDE_IN', attr='location', kf_arc=[(0, 1), (1, -0.05), (0.25, 0)])
+            self.create_fx(name='SLIDE_OUT', attr='location', kf_arc=[(0, 0), (0.25, -0.02), (1, 1)])
+            self.create_fx(name='POP_IN', attr='scale', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)])
+            self.create_fx(name='POP_OUT', attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)])
+            self.create_fx(name='NONE', attr='', kf_arc=[])
 
     def set_kf_arc(self, name, kf_arc):
         if type(kf_arc) != list:
@@ -59,10 +51,24 @@ class TextEffectsMap(Singleton):
             return False
         return True
 
-    def get_fx(self, name=''):
+    def get_fx_entry(self, name='', normalize=True):
+        if normalize:
+            name = self.normalize_name(name)
+        if self.exists(name):
+            return self.map[name]
+
+    def get_compound_fx(self, name=''):
         normalized_name = self.normalize_name(name)
+        effects = []
         if self.exists(normalized_name):
-            return self.map[normalized_name]
+            if type(self.map[normalized_name]) is list:
+                try:
+                    effects = [self.map[effect_name] for effect_name in self.map[normalize_name]]
+                except:
+                    print("Error building compound fx list for effect {0}".format(normalized_name))
+            else:
+                entry = self.get_fx_entry(normalized_name, normalize=False)
+                entry and effects.append(entry)
         return
 
     def check_fx_vals(self, name, attr, kf_arc):
@@ -76,11 +82,27 @@ class TextEffectsMap(Singleton):
             return effect['attr']
         return
 
-    def create_fx_entry(self, name='', attr='', kf_arc=[]):
+    def create_compound_fx(self, name='', effects=[]):
+        known_fx = []
+        if name and effects:
+            for effect in effects:
+                if type(effect) is str and self.exists(effect):
+                    known_fx.append(effect)
+            self.map[name] = effects
+
+    def add_compound_fx(self, name='', effect):
+        if self.exists(name) and self.exists(effect) and type(self.map[name]) is list:
+            self.map[name].append(effect)
+
+    def remove_compound_fx(self, name='', effect):
+        if self.exists(name) and self.exists(effect) and type(self.map[name]) is list and effect in self.map[name]:
+            self.map[name].remove(effect)
+
+    def create_fx(self, name='', attr='', kf_arc=[]):
         if not self.check_fx_vals(name, attr, kf_arc):
             print("Unable to map text fx {0} to {1} effect arc {2}".format(name, attr, kf_arc))
             return
-        return {
+        self.map[name] = {
             'name': name,
             'attr': attr,
             'kf_arc': kf_arc
@@ -89,7 +111,7 @@ class TextEffectsMap(Singleton):
     def set_fx(self, name='', attr='', kf_arc=[(0, 0), (1, 1)]):
         if not self.check_fx_vals(name, attr, kf_arc):
             return
-        self.map[name] = self.create_fx_entry(name=name, attr=attr, kf_arc=kf_arc)
+        self.map[name] = self.create_fx(name=name, attr=attr, kf_arc=kf_arc)
         return self.map[name]
 
 fx_map = TextEffectsMap()
