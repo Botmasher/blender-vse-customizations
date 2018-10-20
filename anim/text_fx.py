@@ -76,11 +76,12 @@ class TextEffectsMap(Singleton):
             return True
         return False
 
-    def get_attr(self, name=''):
-        effect = self.get_fx(name)
-        if effect:
-            return effect['attr']
-        return
+    def get_attrs(self, name=''):
+        effects = self.get_compound_fx(name)
+        fx_attrs = []
+        if effects:
+            fx_attrs = [effect['attr'] for effect in effects]
+        return fx_attrs
 
     def create_compound_fx(self, name='', effects=[]):
         known_fx = []
@@ -420,17 +421,29 @@ class TextFxProperties(bpy.types.PropertyGroup):
     time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
     #randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
     replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
-    transform = FloatProperty(name="Transform", description="Added value for letter location/rotation/scale (depending on effect)", default=1.0)
+    transform_location = FloatProperty(name="Location change", description="Added value for letter location effect", default=1.0)
+    transform_rotation = FloatProperty(name="Rotation change", description="Added value for letter rotation effect", default=1.0)
+    transform_scale = FloatProperty(name="Scale change", description="Added value for letter scale effect", default=1.0)
     font = StringProperty(name="Font", description="Loaded font used for letters in effect", default="Bfont")
-    axis = EnumProperty(
+    axis_location = EnumProperty(
         name = "Axis",
-        description = "Transform axis for directional effects",
+        description = "Transform axis for location effects",
         items = [
-            ("x", "Horizontal", "Transform letters along the x axis"),
-            ("y", "Vertical", "Transform letters along the y axis"),
-            ("z", "Depth", "Transform letters along the z axis")
+            ("x", "Horizontal", "Move letters along the x axis"),
+            ("y", "Vertical", "Move letters along the y axis"),
+            ("z", "Depth", "Move letters along the z axis")
         ],
         default='x'
+    )
+    axis_rotation = EnumProperty(
+        name = "Axis",
+        description = "Transform axis for rotation effects",
+        items = [
+            ("x", "X", "Rotate letters along the x axis"),
+            ("y", "Y", "Rotate letters along the y axis"),
+            ("z", "Z", "Rotate letters along the z axis")
+        ],
+        default='z'
     )
     letters_order = EnumProperty(
         name = "Order",
@@ -466,22 +479,27 @@ class TextFxOperator(bpy.types.Operator):
         # TODO add effect to obj vs create new obj
         #   - example: font changed
 
+        # TODO list all modified attrs for compound fx
         modified_attr = fx_map.get_attr(name=props_src.effect)
 
-        if modified_attr == 'location':
-            axis = props_src.axis
-            transform =props_src.transform
-        elif 'rotation' in modified_attr:
-            axis = 'clockwise' if props_src.clockwise else 'counterclockwise'
-            transform = props_src.transform
-        elif 'scale' in modified_attr:
-            transform = 1.0
-            axis = props_src.axis
-        else:
-            print("No location/rotation/scale attr recognized for effect - cancelling text effect")
-            return {'FINISHED'}
+        transform = {
+            'location': props_src.transform_location,
+            'rotation': props_src.transform_rotation,
+            'scale': props_src.transform_scale
+        }
 
-        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_delta=transform, axis=axis, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
+        axis = {
+            'location': props_src.axis_location,
+            'rotation': 'clockwise' if props_src.clockwise else 'counterclockwise',
+            'scale': props_src.axis_scale
+        }
+
+        #for attr in effects_attrs:
+        #   if not hasattr(obj, attr):
+        #       print("No location/rotation/scale attr recognized for effect - cancelling text effect")
+        #       return {'FINISHED'}
+
+        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_deltas=transforms, axis=axis, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
@@ -495,10 +513,7 @@ class TextFxPanel(bpy.types.Panel):
 
     def draw(self, ctx):
         props_src = find_text_fx_src()
-        location_str = 'location'
-        rotation_str = 'rotation'
-        scale_str = 'scale'
-        modified_attr = fx_map.get_attr(name=props_src.effect)
+        modified_attrs = fx_map.get_attr(name=props_src.effect)
         if props_src.id_data:
             layout = self.layout
             for prop_name in props_src.keys():
@@ -513,12 +528,22 @@ class TextFxPanel(bpy.types.Panel):
                     # TODO load a new font not just select loaded font
                     #row = layout.split(percentage=0.25)
                     #row.template_ID(ctx.curve, prop_name, open="font.open", unlink="font.unlink")
-                elif prop_name == 'axis':
+                elif prop_name == 'axis_location' or prop_name == 'transform_location':
+                    for modified_attr in modified_attrs
+                        if 'location' in modified_attr:
+                            self.layout.row().prop(fx_data, prop_name)
+                            break
                     location_str in modified_attr and self.layout.row().prop(fx_data, "axis")
-                elif prop_name == 'clockwise':
-                    rotation_str in modified_attr and self.layout.row().prop(fx_data, "clockwise")
-                elif prop_name == 'transform':
-                    scale_str not in modified_attr and self.layout.row().prop(fx_data, "transform")
+                elif prop_name == 'clockwise' or prop_name == 'axis_rotation' or prop_name == 'transform_rotation':
+                    for modified_attr in modified_attrs
+                        if 'rotation' in modified_attr:
+                            self.layout.row().prop(fx_data, prop_name)
+                            break
+                elif prop_name == 'transform_scale':
+                    for modified_attr in modified_attrs
+                        if 'scale' in modified_attr:
+                            self.layout.row().prop(fx_data, "transform_scale")
+                            break
                 else:
                     layout.row().prop(fx_data, prop_name)
 
