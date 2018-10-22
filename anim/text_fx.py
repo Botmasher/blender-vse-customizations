@@ -196,19 +196,15 @@ def keyframe_letter_fx (font_obj, effect={}, transforms={}, axis={}):
     value_base = None
     transform = None
     axis = None
-    clockwise = False   # TODO handle clock/counterclock data for text effect (see 'direction' key below)
     if 'location' in effect['attr']:
         value_base = font_obj.location[:]
         transform = transforms['location']
-        axis = axis['location']
     elif 'rotation' in effect['attr']:
         value_base = font_obj.rotation_euler[:]
         transform = transforms['rotation']
-        axis = axis['rotation']
     elif 'scale' in effect['attr']:
         value_base = font_obj.scale[:]
         transform = transforms['scale']
-        axis = axis['scale']
     else:
         print("Did not recognize attr {0} on text object {1} for known text effects".format(attr, obj))
 
@@ -230,22 +226,24 @@ def keyframe_letter_fx (font_obj, effect={}, transforms={}, axis={}):
         #   - 'bottom' y factor subtracted from 0 to 1
         if 'location' in effect['attr']:
             # calc fixed loc for all location kfs
-            if axis == 'y':
-                new_fixed_target_all_letters = font_obj.parent.location.y + transform
-                updated_target = lerp_step(origin=font_obj.matrix_world.translation.y, target=new_fixed_target_all_letters, factor=value_mult)
-                target_value = (value_base[0], updated_target, value_base[2])
-            elif axis == 'x':
-                new_fixed_target_all_letters = font_obj.parent.location.x + transform
-                updated_target = lerp_step(origin=font_obj.matrix_world.translation.x, target=new_fixed_target_all_letters, factor=value_mult)
-                target_value = (updated_target, value_base[1], value_base[2])
-            elif axis == 'z':
-                new_fixed_target_all_letters = font_obj.parent.location.z + transform
-                updated_target = lerp_step(origin=font_obj.matrix_world.translation.z, target=new_fixed_target_all_letters, factor=value_mult)
-                target_value = (value_base[0], value_base[1], updated_target)
-            else:
-                # location not recognized
-                print("Did not recognize location axis for text fx - failed to animate letters")
-                return
+            # TODO recalculate since all axes passed in, but some add 0.0
+            for axis in transform:
+                if axis == 'y':
+                    new_fixed_target_all_letters = font_obj.parent.location.y + transform
+                    updated_target = lerp_step(origin=font_obj.matrix_world.translation.y, target=new_fixed_target_all_letters, factor=value_mult)
+                    target_value = (value_base[0], updated_target, value_base[2])
+                elif axis == 'x':
+                    new_fixed_target_all_letters = font_obj.parent.location.x + transform
+                    updated_target = lerp_step(origin=font_obj.matrix_world.translation.x, target=new_fixed_target_all_letters, factor=value_mult)
+                    target_value = (updated_target, value_base[1], value_base[2])
+                elif axis == 'z':
+                    new_fixed_target_all_letters = font_obj.parent.location.z + transform
+                    updated_target = lerp_step(origin=font_obj.matrix_world.translation.z, target=new_fixed_target_all_letters, factor=value_mult)
+                    target_value = (value_base[0], value_base[1], updated_target)
+                else:
+                    # location not recognized
+                    print("Did not recognize location axis for text fx - failed to animate letters")
+                    return
         elif 'rotation' in effect['attr']:
             print('Animating rotation and using direction {0}'.format(fx['direction']))
             if effect['direction'] == 'clockwise':
@@ -318,21 +316,29 @@ def translate_letters(parent=None, target_location=None, default_location=(0,0,0
     else:
         parent.location = default_location
 
-def is_transform_map(d):
-    """Check if a transform map contains location, rotation, scale keys and values"""
-    has_keys = True
-    has_values = True
-    transform_value_types = (float, int)
-    transform_keys = ['location', 'rotation', 'scale']
-    for k in transform_keys:
-        if k not in d:
-            has_keys = False
-        if type(d[k])) not in transform_value_types:
-            has_values = False
-    return has_keys and has_values and len(d.keys()) == 3
+def is_transform_map(d, transform_keys=['location', 'rotation', 'scale'], axis_keys=['x', 'y', 'z']):
+    """Check if dict contains location, rotation, scale keys with nested axis values"""
+    # transform = {
+    #   location: { x, y, z }
+    #   rotation: { x, y, z }
+    #   scale: { x, y, z }
+    # }
+    transform_value_types = (dict)
+    axis_value_types = (float, int)
+    for transform in transform_keys:
+        if transform not in d:
+            return False
+        if type(d[transform]) not in transform_value_types:
+            return False
+        if len(d[transform].keys()) != 3:
+            return False
+        for axis in axis_keys:
+            if axis not in d[transform]:
+                return False
+    return True     # has_keys and has_values and len(d.keys()) == 3
 
-def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_deltas={}, axis={}, anim_length=5, anim_stagger=0, spacing=0.0, font=''):
-
+def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_deltas={}, anim_length=5, anim_stagger=0, spacing=0.0, font=''):
+    # TODO use clockwise to set rot +- for transformed x,y,z
     if not (txt and type(txt) is str and fx_deltas != None):
         return
 
@@ -345,7 +351,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_deltas
     letters = string_to_letters(txt, spacing=spacing, font=font)
 
     # check format of axis and delta maps
-    if not is_transform_map(axis) or not is_transform_map(fx_deltas):
+    if not is_transform_map(fx_deltas):
         return
 
     # build fx dict
@@ -359,7 +365,6 @@ def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_deltas
     fx['length'] = anim_length
     fx['offset'] = anim_stagger
     fx['transforms'] = fx_deltas
-    fx['axis'] = axis
 
     #offsets = [i * time_offset for i in range(len(letters))]
     #randomize and random.shuffle(offsets)
@@ -512,24 +517,23 @@ class TextFxOperator(bpy.types.Operator):
         # TODO list all modified attrs for compound fx
         modified_attr = fx_map.get_attr(name=props_src.effect)
 
-        transform = {
-            'location': props_src.transform_location,
-            'rotation': props_src.transform_rotation,
-            'scale': props_src.transform_scale
+        # compile map of all transform x, y, z deltas
+        axes = ['x', 'y', 'z']
+        transforms = {
+            'location': {axis: props_src.transform_location if axis == props_src.axis_location else 0.0 for axis in axes}
+            'rotation': {axis: props_src.transform_rotation if axis == props_src.axis_rotation else 0.0 for axis in axes}
+            'scale': {axis: props_src.transform_scale for axis in axes}
         }
-
-        axis = {
-            'location': props_src.axis_location,
-            'rotation': 'clockwise' if props_src.clockwise else 'counterclockwise',
-            'scale': props_src.axis_scale
-        }
+        if not props_src.clockwise:
+            for axis in transforms['rotation']:
+                transforms['rotation'][axis] = -transforms['rotation'][axis]
 
         #for attr in effects_attrs:
         #   if not hasattr(obj, attr):
         #       print("No location/rotation/scale attr recognized for effect - cancelling text effect")
         #       return {'FINISHED'}
 
-        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_deltas=transforms, axis=axis, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
+        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_deltas=transforms, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
 
         return {'FINISHED'}
 
