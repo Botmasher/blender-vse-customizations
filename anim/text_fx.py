@@ -10,7 +10,7 @@ class Singleton:
         return super().__new__(singleton) if not singleton.instance else singleton.instance
 
 class TextEffectsMap(Singleton):
-    self.map = {}
+    map = {}
     def __init__(self, default_fx=True):
         # TODO set slide, pop, other surrounding-letter-touching overshoots based on letter spacing
         if default_fx:
@@ -60,16 +60,20 @@ class TextEffectsMap(Singleton):
     def get_compound_fx(self, name=''):
         normalized_name = self.normalize_name(name)
         effects = []
-        if self.exists(normalized_name):
-            if type(self.map[normalized_name]) is list:
-                try:
-                    effects = [self.map[effect_name] for effect_name in self.map[normalize_name]]
-                except:
-                    print("Error building compound fx list for effect {0}".format(normalized_name))
-            else:
-                entry = self.get_fx_entry(normalized_name, normalize=False)
-                entry and effects.append(entry)
-        return
+        # no known effect
+        if not self.exists(normalized_name):
+            return effects
+        # known compound effect
+        if type(self.map[normalized_name]) is list:
+            try:
+                effects = [self.map[effect_name] for effect_name in self.map[normalize_name]]
+                return effects
+            except:
+                print("Error building compound fx list for effect {0}".format(normalized_name))
+        # known individual effect
+        else:
+            effects.append(self.get_fx_entry(normalized_name, normalize=False))
+            return effects
 
     def check_fx_vals(self, name, attr, kf_arc):
         if type(name) == str and type(attr) == str and type(kf_arc) == list:
@@ -79,9 +83,18 @@ class TextEffectsMap(Singleton):
     def get_attrs(self, name=''):
         effects = self.get_compound_fx(name)
         fx_attrs = []
+        def simplify_transform_attr(attr_name):
+            if 'location' in attr_name:
+                return 'location'
+            elif 'rotation' in attr_name:
+                return 'rotation'
+            elif 'scale' in attr_name:
+                return 'scale'
+            else:
+                return ''
         if effects:
-            fx_attrs = [effect['attr'] for effect in effects]
-        return fx_attrs
+            fx_attrs = {simplify_transform_attr(effect['attr']) for effect in effects}
+        return list(fx_attrs)
 
     def create_compound_fx(self, name='', effects=[]):
         known_fx = []
@@ -91,11 +104,11 @@ class TextEffectsMap(Singleton):
                     known_fx.append(effect)
             self.map[name] = effects
 
-    def add_compound_fx(self, name='', effect):
+    def add_compound_fx(self, effect, name=''):
         if self.exists(name) and self.exists(effect) and type(self.map[name]) is list:
             self.map[name].append(effect)
 
-    def remove_compound_fx(self, name='', effect):
+    def remove_compound_fx(self, effect, name=''):
         if self.exists(name) and self.exists(effect) and type(self.map[name]) is list and effect in self.map[name]:
             self.map[name].remove(effect)
 
@@ -323,12 +336,11 @@ def is_transform_map(d, transform_keys=['location', 'rotation', 'scale'], axis_k
     #   rotation: { x, y, z }
     #   scale: { x, y, z }
     # }
-    transform_value_types = (dict)
     axis_value_types = (float, int)
     for transform in transform_keys:
         if transform not in d:
             return False
-        if type(d[transform]) not in transform_value_types:
+        if type(d[transform]) is not dict:
             return False
         if len(d[transform].keys()) != 3:
             return False
@@ -415,7 +427,6 @@ def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_deltas
 
 # TODO letters are created in line with cursor at least along y but parent is not
 
-# TODO allow multiple fonts
 def set_font(letters_parent, font_name):
     """Update the font for each letter in a text effect object"""
     if not hasattr(letters_parent, 'children'): return
@@ -428,8 +439,8 @@ def find_text_fx_src():
     scene = bpy.context.scene
     obj = scene.objects.active
     if obj and hasattr(obj, "text_fx") and is_text(obj) and obj.text_fx.text:
-        return obj.text_fx
-    return scene.text_fx
+        return obj
+    return scene
 
 
 ## Text FX interface
@@ -449,36 +460,16 @@ def format_fx_enum():
         fx_items.append((k, item_name, item_description))
     return fx_items
 
+# checklist for ui prop names
+text_fx_prop_names = ['text', 'font', 'effect', 'letters_order', 'frames', 'spacing', 'time_offset', 'replace', 'transform_location', 'axis_location', 'transform_rotation', 'axis_rotation', 'transform_scale', 'clockwise']
+
 class TextFxProperties(bpy.types.PropertyGroup):
     text = StringProperty(name="Text", description="Text that was split into animated letters", default="")
-    frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=10)
-    spacing = FloatProperty(name="Spacing", description="Distance between letters", default=0.1)
-    time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
-    #randomize = BoolProperty(name="Randomize", description="Vary the time offset for each letter's animation", default=False)
-    replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
-    transform_location = FloatProperty(name="Location change", description="Added value for letter location effect", default=1.0)
-    transform_rotation = FloatProperty(name="Rotation change", description="Added value for letter rotation effect", default=1.0)
-    transform_scale = FloatProperty(name="Scale change", description="Added value for letter scale effect", default=1.0)
     font = StringProperty(name="Font", description="Loaded font used for letters in effect", default="Bfont")
-    axis_location = EnumProperty(
-        name = "Axis",
-        description = "Transform axis for location effects",
-        items = [
-            ("x", "Horizontal", "Move letters along the x axis"),
-            ("y", "Vertical", "Move letters along the y axis"),
-            ("z", "Depth", "Move letters along the z axis")
-        ],
-        default='x'
-    )
-    axis_rotation = EnumProperty(
-        name = "Axis",
-        description = "Transform axis for rotation effects",
-        items = [
-            ("x", "X", "Rotate letters along the x axis"),
-            ("y", "Y", "Rotate letters along the y axis"),
-            ("z", "Z", "Rotate letters along the z axis")
-        ],
-        default='z'
+    effect = EnumProperty(
+        name = "Effect",
+        description = "Overall effect to give when animating the letters",
+        items = format_fx_enum()
     )
     letters_order = EnumProperty(
         name = "Order",
@@ -489,12 +480,34 @@ class TextFxProperties(bpy.types.PropertyGroup):
             ("random", "Random", "Animate text letters in random order")
         ]
     )
-    clockwise = BoolProperty(name="Clockwise", description="Rotate letters clockwise", default=True)
-    effect = EnumProperty(
-        name = "Effect",
-        description = "Overall effect to give when animating the letters",
-        items = format_fx_enum()
+    frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=10)
+    spacing = FloatProperty(name="Spacing", description="Distance between letters", default=0.1)
+    time_offset = IntProperty(name="Timing", description="Frames to wait between each letter's animation", default=1)
+    replace = BoolProperty(name="Replace", description="Replace the current effect (otherwise added to letters)", default=False)
+    transform_location = FloatProperty(name="Location change", description="Added value for letter location effect", default=1.0)
+    transform_rotation = FloatProperty(name="Rotation change", description="Added value for letter rotation effect", default=1.0)
+    transform_scale = FloatProperty(name="Scale change", description="Added value for letter scale effect", default=1.0)
+    axis_location = EnumProperty(
+        name = "Axis",
+        description = "Transform axis for location effects",
+        items = [
+            ("z", "Z", "Move letters along the z axis"),
+            ("y", "Y", "Move letters along the y axis"),
+            ("x", "X", "Move letters along the x axis")
+        ],
+        default='x'
     )
+    axis_rotation = EnumProperty(
+        name = "Axis",
+        description = "Transform axis for rotation effects",
+        items = [
+            ("z", "Z", "Rotate letters along the z axis"),
+            ("y", "Y", "Rotate letters along the y axis"),
+            ("x", "X", "Rotate letters along the x axis")
+        ],
+        default='z'
+    )
+    clockwise = BoolProperty(name="Clockwise", description="Rotate letters clockwise", default=True)
 
 # TODO layer effects vs replace effects
 #   - are created fx mutable?
@@ -504,27 +517,28 @@ class TextFxProperties(bpy.types.PropertyGroup):
 # TODO handler to delete all letters on fx object deleted
 
 class TextFxOperator(bpy.types.Operator):
-    bl_label = "Text FX Operator"
+    bl_label = "Text FX"
     bl_idname = "object.text_fx"
     bl_description = "Create and configure text effect"
 
     def execute(self, ctx):
         props_src = find_text_fx_src()
+        text_fx = props_src.text_fx
 
         # TODO add effect to obj vs create new obj
         #   - example: font changed
 
         # TODO list all modified attrs for compound fx
-        modified_attr = fx_map.get_attr(name=props_src.effect)
+        modified_attrs = fx_map.get_attrs(name=text_fx.effect)
 
         # compile map of all transform x, y, z deltas
         axes = ['x', 'y', 'z']
         transforms = {
-            'location': {axis: props_src.transform_location if axis == props_src.axis_location else 0.0 for axis in axes}
-            'rotation': {axis: props_src.transform_rotation if axis == props_src.axis_rotation else 0.0 for axis in axes}
-            'scale': {axis: props_src.transform_scale for axis in axes}
+            'location': {axis: text_fx.transform_location if axis == text_fx.axis_location else 0.0 for axis in axes},
+            'rotation': {axis: text_fx.transform_rotation if axis == text_fx.axis_rotation else 0.0 for axis in axes},
+            'scale': {axis: text_fx.transform_scale for axis in axes}
         }
-        if not props_src.clockwise:
+        if not text_fx.clockwise:
             for axis in transforms['rotation']:
                 transforms['rotation'][axis] = -transforms['rotation'][axis]
 
@@ -533,12 +547,12 @@ class TextFxOperator(bpy.types.Operator):
         #       print("No location/rotation/scale attr recognized for effect - cancelling text effect")
         #       return {'FINISHED'}
 
-        anim_txt(props_src.text, fx_name=props_src.effect, font=props_src.font, fx_deltas=transforms, anim_order=props_src.letters_order, anim_stagger=props_src.time_offset, anim_length=props_src.frames, spacing=props_src.spacing)
+        anim_txt(text_fx.text, fx_name=props_src.effect, font=text_fx.font, fx_deltas=transforms, anim_order=text_fx.letters_order, anim_stagger=text_fx.time_offset, anim_length=text_fx.frames, spacing=text_fx.spacing)
 
         return {'FINISHED'}
 
 class TextFxPanel(bpy.types.Panel):
-    bl_label = "Text FX Panel"
+    bl_label = "Text FX Tools"
     bl_idname = "object.text_fx_panel"
     bl_category = "TextFX"
     bl_context = "objectmode"
@@ -547,13 +561,16 @@ class TextFxPanel(bpy.types.Panel):
 
     def draw(self, ctx):
         props_src = find_text_fx_src()
-        modified_attrs = fx_map.get_attr(name=props_src.effect)
-        if props_src.id_data:
+        modified_attrs = fx_map.get_attrs(name=props_src.text_fx.effect)
+        print()
+        if props_src:
             layout = self.layout
-            for prop_name in props_src.keys():
+            text_fx = props_src.text_fx
+
+            for prop_name in text_fx_prop_names:
                 # fall back to scene data if letters prop is undefined
-                if hasattr(props_src, prop_name) and getattr(props_src, prop_name) is not None:
-                    fx_data = props_src
+                if hasattr(text_fx, prop_name) and getattr(text_fx, prop_name) is not None:
+                    fx_data = text_fx
                 else:
                     fx_data = bpy.context.scene.text_fx
 
@@ -562,22 +579,12 @@ class TextFxPanel(bpy.types.Panel):
                     # TODO load a new font not just select loaded font
                     #row = layout.split(percentage=0.25)
                     #row.template_ID(ctx.curve, prop_name, open="font.open", unlink="font.unlink")
-                elif prop_name == 'axis_location' or prop_name == 'transform_location':
-                    for modified_attr in modified_attrs
-                        if 'location' in modified_attr:
-                            self.layout.row().prop(fx_data, prop_name)
-                            break
-                    location_str in modified_attr and self.layout.row().prop(fx_data, "axis")
-                elif prop_name == 'clockwise' or prop_name == 'axis_rotation' or prop_name == 'transform_rotation':
-                    for modified_attr in modified_attrs
-                        if 'rotation' in modified_attr:
-                            self.layout.row().prop(fx_data, prop_name)
-                            break
+                elif prop_name in ['transform_location', 'axis_location']:
+                    'location' in modified_attrs and self.layout.row().prop(fx_data, prop_name)
+                elif prop_name in ['transform_rotation', 'axis_rotation', 'clockwise']:
+                    'rotation' in modified_attrs and self.layout.row().prop(fx_data, prop_name)
                 elif prop_name == 'transform_scale':
-                    for modified_attr in modified_attrs
-                        if 'scale' in modified_attr:
-                            self.layout.row().prop(fx_data, "transform_scale")
-                            break
+                    'scale' in modified_attrs and self.layout.row().prop(fx_data, prop_name)
                 else:
                     layout.row().prop(fx_data, prop_name)
 
@@ -587,55 +594,34 @@ class TextFxPanel(bpy.types.Panel):
 # - scene stores data before objects created
 # - empty objects store created effect
 
-class TextFxRegister():
-    def __init__(self):
-        self.is_registered = False
-        self.registered_types = []
-        self.text_fx_attr = 'text_fx'
+def create_text_fx_props():
+    bpy.types.Object.text_fx = bpy.props.PointerProperty(type=TextFxProperties)
+    bpy.types.Scene.text_fx = bpy.props.PointerProperty(type=TextFxProperties)
+    return
 
-    def register(self, text_fx_types=[]):
-        bpy.utils.register_class(TextFxProperties)
-        bpy.utils.register_class(TextFxOperator)
-        bpy.utils.register_class(TextFxPanel)
-        text_fx_types and self.create_text_fx_props(bl_types=text_fx_types, PropsClass=TextFxProperties)
-        self.is_registered = True
+def remove_text_fx_props():
+    try:
+        del bpy.types.Object.text_fx
+    except:
+        print("Failed to delete text_fx props from bpy.types.Object")
+    try:
+        del bpy.types.Scene.text_fx
+    except:
+        print("Failed to delete text_fx props from bpy.types.Scene")
+    return
 
-    def unregister(self):
-        self.remove_text_fx_props()
-        bpy.utils.unregister_class(TextFxOperator)
-        bpy.utils.unregister_class(TextFxPanel)
-        bpy.utils.register_class(TextFxProperties)
-        self.is_registered = False
+def register():
+    remove_text_fx_props()
+    bpy.utils.register_class(TextFxProperties)
+    bpy.utils.register_class(TextFxOperator)
+    bpy.utils.register_class(TextFxPanel)
+    create_text_fx_props()
 
-    def create_text_fx_props(self, bl_types=[], PropsClass=None):
-        if not bl_types or not PropsClass:
-            return []
-        text_fx_attrs = []
-        for bl_type in bl_types:
-            if bl_type not in self.registered_types and hasattr(bpy.types, bl_type):
-                bpy_types_object = getattr(bpy.types, bl_type)
-                bpy_types_object.text_fx = bpy.props.PointerProperty(type=PropsClass)
-                text_fx_attrs.append(bpy_types_object.text_fx)
-                self.registered_types.append(bl_type)
-        return text_fx_attrs
+def unregister():
+    remove_text_fx_props()
+    bpy.utils.unregister_class(bpy.types.TextFxProperties)
+    bpy.utils.unregister_class(bpy.types.OBJECT_OT_text_fx)
+    bpy.utils.unregister_class(TextFxPanel)
 
-    def remove_text_fx_props(self):
-        del_types = []
-        for bl_type in self.registered_types:
-            if hasattr(bpy.types, bl_type):
-                bpy_type = getattr(bpy.types, bl_type)
-                if hasattr(bpy_type, self.text_fx_attr):
-                    bl_type_text_fx = getattr(getattr(bpy.types, bl_type), self.text_fx_attr)
-                    try:
-                        del bl_type_text_fx
-                    except:
-                        print("Failed to delete attribute {0}".format(bl_type_text_fx))
-                else:
-                    continue
-            else:
-                continue
-        return
-
-registration = TextFxRegister()
-#__name__ == '__main__' and registration.register(text_fx_types=['Object', 'Scene'])
-__name__ == '__main__' and registration.unregister()
+__name__ == '__main__' and register()
+#__name__ == '__main__' and unregister()
