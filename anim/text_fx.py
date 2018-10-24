@@ -24,6 +24,10 @@ from bpy.props import *
 ##      - currently loose methods; TODO encapsulate
 ##
 
+# TODO define axes on effects map instead of props
+#   - changing axis may change fx, e.g. slide X/Y vs perspective Z
+#   - allow action control in fx map data (rotate: wiggle Z vs turn Y)
+
 ## Effects data
 
 class Singleton:
@@ -36,12 +40,14 @@ class TextEffectsMap(Singleton):
     def __init__(self, default_fx=True):
         # TODO set slide, pop, other surrounding-letter-touching overshoots based on letter spacing
         if default_fx:
-            self.create_fx(name='WIGGLE', attr='rotation_euler', kf_arc=[(0, 0), (0.5, 1), (0.5, -0.5), (0.25, 0)])
-            self.create_fx(name='SLIDE_IN', attr='location', kf_arc=[(0, 1), (1, -0.05), (0.25, 0)])
-            self.create_fx(name='SLIDE_OUT', attr='location', kf_arc=[(0, 0), (0.25, -0.02), (1, 1)])
-            self.create_fx(name='POP_IN', attr='scale', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)])
-            self.create_fx(name='POP_OUT', attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)])
-            self.create_fx(name='NONE', attr='', kf_arc=[])
+            self.create_fx(name='WIGGLE', attr='rotation_euler', kf_arc=[(0, 0), (0.5, 1), (0.5, -0.5), (0.25, 0)], axis=['z'])
+            self.create_fx(name='PUSH_IN', attr='location', kf_arc=[(0, 1), (1, -0.05), (0.25, 0)], axis=['x'])
+            self.create_fx(name='PUSH_OUT', attr='location', kf_arc=[(0, 0), (0.25, -0.02), (1, 1)], axis=['x'])
+            self.create_fx(name='FALL_IN', attr='location', kf_arc=[(0, 1), (1, -0.05), (0.25, 0)], axis=['y'])
+            self.create_fx(name='FALL_OUT', attr='location', kf_arc=[(0, 0), (0.25, -0.02), (1, 1)], axis=['y'])
+            self.create_fx(name='POP_IN', attr='scale', kf_arc=[(0, 0), (1, 1.1), (0.25, 1)], axis=['x', 'y', 'z'])
+            self.create_fx(name='POP_OUT', attr='scale', kf_arc=[(0, 1.1), (0.25, 1), (1, 0)], axis=['x', 'y', 'z'])
+            self.create_fx(name='NONE', attr='', kf_arc=[], axis=[])
 
     def set_kf_arc(self, name, kf_arc):
         if type(kf_arc) != list:
@@ -97,8 +103,8 @@ class TextEffectsMap(Singleton):
             effects.append(self.get_fx_entry(normalized_name, normalize=False))
             return effects
 
-    def check_fx_vals(self, name, attr, kf_arc):
-        if type(name) == str and type(attr) == str and type(kf_arc) == list:
+    def check_fx_vals(self, name, attr, kf_arc, axis):
+        if type(name) == str and type(attr) == str and type(kf_arc) == list and type(axis) == list:
             return True
         return False
 
@@ -134,20 +140,21 @@ class TextEffectsMap(Singleton):
         if self.exists(name) and self.exists(effect) and type(self.map[name]) is list and effect in self.map[name]:
             self.map[name].remove(effect)
 
-    def create_fx(self, name='', attr='', kf_arc=[]):
+    def create_fx(self, name='', attr='', kf_arc=[], axis=[]):
         if not self.check_fx_vals(name, attr, kf_arc):
             print("Unable to map text fx {0} to {1} effect arc {2}".format(name, attr, kf_arc))
             return
         self.map[name] = {
             'name': name,
             'attr': attr,
-            'kf_arc': kf_arc
+            'kf_arc': kf_arc,
+            'axis': axis
         }
 
-    def set_fx(self, name='', attr='', kf_arc=[(0, 0), (1, 1)]):
-        if not self.check_fx_vals(name, attr, kf_arc):
+    def set_fx(self, name='', attr='', kf_arc=[(0, 0), (1, 1)], axis=['x', 'y', 'z']):
+        if not self.check_fx_vals(name, attr, kf_arc, axis):
             return
-        self.map[name] = self.create_fx(name=name, attr=attr, kf_arc=kf_arc)
+        self.map[name] = self.create_fx(name=name, attr=attr, kf_arc=kf_arc, axis=axis)
         return self.map[name]
 
 fx_map = TextEffectsMap()
@@ -211,10 +218,11 @@ def keyframe_letter_fx (font_obj, effect={}, transforms={}, axis={}):
 
     fx = {
         'name': '',         # like 'SLIDE'
-        'attr': '',         # attribute to set on obj
+        'attr': '',         # attribute to set on obj (location, rotation, scale)
         'kf_arc': [],       # (frame_mult, value_mult) pairs
-        ?'transform': [],    # delta multiplied by value_mult and added to base value at each kf set
-        'length': 0         # each letter anim's frame count - multiplied by frame_mult at each kf set
+        'transform': {},    # location, rotation, scale magnitudes multiplied by value_mult and added to base value at each kf set
+        'axis': [],         # direcitonal axes along which to apply transforms
+        'length': 0,        # each letter anim's frame count - multiplied by frame_mult at each kf set
         'offset': 0         # gap between letter anims to stagger each letter's effect
     }
     """
@@ -230,7 +238,7 @@ def keyframe_letter_fx (font_obj, effect={}, transforms={}, axis={}):
 
     value_base = None
     transform = None
-    axis = None
+    axis = [dir.lower() for dir in effect['axis']]
     if 'location' in effect['attr']:
         value_base = font_obj.location[:]
         transform = transforms['location']
@@ -242,9 +250,11 @@ def keyframe_letter_fx (font_obj, effect={}, transforms={}, axis={}):
         transform = transforms['scale']
     else:
         print("Did not recognize attr {0} on text object {1} for known text effects".format(attr, obj))
+        return
 
     # keyframe along effect arc
     print("Keyframing along {0} effect arc for letter {1}".format(effect['name'], font_obj))
+
     for kf_mults in effect['kf_arc']:
         # multiply user settings by effect factors to get each kf
         frame_mult = kf_mults[0]
@@ -252,44 +262,46 @@ def keyframe_letter_fx (font_obj, effect={}, transforms={}, axis={}):
         kf_value = value_mult * transform
         kf_frames = int(round(effect['length'] * frame_mult))
 
-        target_value = None
-        # TODO recognize x/y differences for slide
-        # using fx['direction'] for IN and OUT!
-        #   - 'left' x factor subtracted from 0 to 1
-        #   - 'right' x factor added from 0 to 1
-        #   - 'top' y factor added from 0 to 1
-        #   - 'bottom' y factor subtracted from 0 to 1
+        target_transform = {'x': value_base[0], 'y': value_base[1], 'z': value_base[2]}
+
         if 'location' in effect['attr']:
             # calc fixed loc for all location kfs
             # TODO recalculate since all axes passed in, but some add 0.0
-            for axis in transform:
-                if axis == 'y':
-                    new_fixed_target_all_letters = font_obj.parent.location.y + transform
-                    updated_target = lerp_step(origin=font_obj.matrix_world.translation.y, target=new_fixed_target_all_letters, factor=value_mult)
-                    target_value = (value_base[0], updated_target, value_base[2])
-                elif axis == 'x':
-                    new_fixed_target_all_letters = font_obj.parent.location.x + transform
-                    updated_target = lerp_step(origin=font_obj.matrix_world.translation.x, target=new_fixed_target_all_letters, factor=value_mult)
-                    target_value = (updated_target, value_base[1], value_base[2])
-                elif axis == 'z':
-                    new_fixed_target_all_letters = font_obj.parent.location.z + transform
-                    updated_target = lerp_step(origin=font_obj.matrix_world.translation.z, target=new_fixed_target_all_letters, factor=value_mult)
-                    target_value = (value_base[0], value_base[1], updated_target)
-                else:
+            for dir in axis:
+                try:
+                    # transform magnitude for this direction relative to parent
+                    new_fixed_target = getattr(font_obj.parent.location, dir) + transform
+                    # global world object origin for this direction
+                    world_origin = getattr(font_obj.matrix_world.translation, dir)
+                    #  step to new value for this direction
+                    dir_value = lerp_step(origin=world_origin, target=new_fixed_target, factor=value_mult)
+                    # store keyframe values for all axes
+                    target_transform = {k:v for k in target_transform if k != dir else k:dir_value}
+                except:
                     # location not recognized
-                    print("Did not recognize location axis for text fx - failed to animate letters")
+                    print("Did not recognize {0} axis '{1}' for text fx - failed to animate letters".format(effect['attr'], dir))
                     return
         elif 'rotation' in effect['attr']:
-            print('Animating rotation and using direction {0}'.format(fx['direction']))
-            if effect['direction'] == 'clockwise':
-                target_value = (value_base[0], value_base[1], value_base[2] - kf_value)
-            else:
-                target_value = (value_base[0], value_base[1], value_base[2] + kf_value)
+            # TODO double check clockwise/counterclockwise (plus vs minus)
+            for dir in axis:
+                try:
+                    dir_value = target_transform[dir] - kf_value
+                    target_transform = {k:v for k in target_transform if k != dir else k:dir_value}
+                except:
+                    print("Did not recognize {0} axis '{1}' for text fx - failed to animate letters".format(effect['attr'], dir))
+                    return
         elif 'scale' in effect['attr']:
-            target_value = (value_base[0] * kf_value, value_base[1] * kf_value, value_base[2] * kf_value)
+            for dir in axis:
+                try:
+                    dir_value = target_transform[dir] * kf_value
+                    target_transform = {k:v for k in target_transform if k != dir else k:dir_value}
+                except:
+                    print("Did not recognize {0} axis '{1}' for text fx - failed to animate letters".format(effect['attr'], dir))
+                    return
         else:
             print("Did not recognize attr {0} on text object {1} for known text effects".format(attr, obj))
 
+        target_value = [target_transform['x'], target_transform['y'], target_transform['z']]
         set_kf(font_obj, attr=effect['attr'], value=target_value, frames_before=kf_frames)
 
     return font_obj
@@ -323,7 +335,7 @@ def parent_anim_letters(letters, fx, parent=None, start_frame=0, kf_handler=keyf
 
             effect['attr'] and effect['kf_arc'] and kfs.append(keyframe_letter_fx(letter, effect))
 
-            print("Anim frames: {0} -- Anim offset: {1} -- Current frame: {2}".format(fx['length'], fx['offset'], bpy.context.scene.frame_current))
+            #print("Anim frames: {0} -- Anim offset: {1} -- Current frame: {2}".format(fx['length'], fx['offset'], bpy.context.scene.frame_current))
 
             bpy.context.scene.frame_current += fx['offset']
 
@@ -351,25 +363,17 @@ def translate_letters(parent=None, target_location=None, default_location=(0,0,0
     else:
         parent.location = default_location
 
-def is_transform_map(d, transform_keys=['location', 'rotation', 'scale'], axis_keys=['x', 'y', 'z']):
-    """Check if dict contains location, rotation, scale keys with nested axis values"""
-    # transform = {
-    #   location: { x, y, z }
-    #   rotation: { x, y, z }
-    #   scale: { x, y, z }
-    # }
-    axis_value_types = (float, int)
+def is_transform_map(d, transform_keys=['location', 'rotation', 'scale']):
+    """Check if map contains location, rotation, scale keys with transform values"""
+    value_types = (float, int)
+    if len(d.keys()) != len(transform_keys):
+        return False
     for transform in transform_keys:
         if transform not in d:
             return False
-        if type(d[transform]) is not dict:
+        if type(d[transform]) not in value_types:
             return False
-        if len(d[transform].keys()) != 3:
-            return False
-        for axis in axis_keys:
-            if axis not in d[transform]:
-                return False
-    return True     # has_keys and has_values and len(d.keys()) == 3
+    return True
 
 def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_deltas={}, anim_length=5, anim_stagger=0, spacing=0.0, font=''):
     # TODO use clockwise to set rot +- for transformed x,y,z
@@ -398,7 +402,7 @@ def anim_txt(txt="", time_offset=1, fx_name='', anim_order="forwards", fx_deltas
     fx['effects'] = effects
     fx['length'] = anim_length
     fx['offset'] = anim_stagger
-    fx['transforms'] = fx_deltas
+    fx['transforms'] = fx_deltas    # magnitude only; axis set in effects map
 
     #offsets = [i * time_offset for i in range(len(letters))]
     #randomize and random.shuffle(offsets)
@@ -482,8 +486,24 @@ def format_fx_enum():
         fx_items.append((k, item_name, item_description))
     return fx_items
 
-# checklist for ui prop names
-text_fx_prop_names = ['text', 'font', 'effect', 'letters_order', 'frames', 'spacing', 'time_offset', 'replace', 'transform_location', 'axis_location', 'transform_rotation', 'axis_rotation', 'transform_scale', 'clockwise']
+# UI checklist for prop names
+# add, remove, reorder props to determine UI visibility
+text_fx_prop_names = [
+    'text',
+    'font',
+    'effect',
+    'letters_order',
+    'frames',
+    'spacing',
+    'time_offset',
+    'replace',
+    'transform_location',
+    #'axis_location',
+    'transform_rotation',
+    #'axis_rotation',
+    'transform_scale',
+    'clockwise'
+]
 
 class TextFxProperties(bpy.types.PropertyGroup):
     text = StringProperty(name="Text", description="Text that was split into animated letters", default="")
@@ -556,9 +576,9 @@ class TextFxOperator(bpy.types.Operator):
         # compile map of all transform x, y, z deltas
         axes = ['x', 'y', 'z']
         transforms = {
-            'location': {axis: text_fx.transform_location if axis == text_fx.axis_location else 0.0 for axis in axes},
-            'rotation': {axis: text_fx.transform_rotation if axis == text_fx.axis_rotation else 0.0 for axis in axes},
-            'scale': {axis: text_fx.transform_scale for axis in axes}
+            'location': transform_scale,
+            'rotation': transform_rotation,
+            'scale': transform_scale
         }
         if not text_fx.clockwise:
             for axis in transforms['rotation']:
