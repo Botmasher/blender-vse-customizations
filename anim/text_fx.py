@@ -2,7 +2,29 @@ import bpy
 import random
 from bpy.props import *
 
-## Text FX data
+## Text FX
+## Blender Python script by Joshua R (Botmasher)
+##
+## Create letter-by-letter text effects
+##
+## NOTE: clarify semantics of "effects" / "fx" (used interchangeably)
+##  - "effects" ambiguity: fx data vs fx'd letters vs fx letters parents
+##
+## Intended use:
+##  - place a new text effect in the scene
+##      - each effect has separate letter objects attached to an empty parent
+##      - empty parent stores the fx props data
+##  - modify (or simulate modification of) an existing text effect
+##      - select text fx letters parent to retrieve data and change through UI
+##
+## Structure:
+##  - tool ui:  text_fx props, panel, operator (including registration and prop assignment)
+##  - fx data:  stored and accessed with TextEffectsMap
+##  - fx logic: apply effects to create fx letters & parent
+##      - currently loose methods; TODO encapsulate
+##
+
+## Effects data
 
 class Singleton:
     instance = None
@@ -129,9 +151,9 @@ class TextEffectsMap(Singleton):
         return self.map[name]
 
 fx_map = TextEffectsMap()
+fx_map_1 = TextEffectsMap()     # singleton test
 
-
-## Text FX calcs
+## Effects application
 
 def is_text(obj):
     return obj and hasattr(obj, 'type') and obj.type == 'FONT'
@@ -443,7 +465,7 @@ def find_text_fx_src():
     return scene
 
 
-## Text FX interface
+## Effects interface
 
 # TODO set up props menu on empty (also shows up on letter select?)
 #   - modify the existing fx
