@@ -1,6 +1,7 @@
 import bpy
 import random
 from bpy.props import *
+from collections import deque
 
 ## Text FX
 ## Blender Python script by Joshua R (Botmasher)
@@ -165,14 +166,14 @@ class TextEffectsMaker:
         self.set_fx_map(fx_map)
 
     def set_fx_map(self, fx_map):
-        """Update the TextFxMap instance used for effects data"""
-        if type(fx_map) is not TextFxMap:
+        """Update the TextEffectsMap instance used for effects data"""
+        if type(fx_map) is not TextEffectsMap:
             return False
         self.fx_map = fx_map
         return True
 
     def get_fx_map(self):
-        """Update the TextFxMap instance used for effects data"""
+        """Update the TextEffectsMap instance used for effects data"""
         return self.fx_map
 
     def is_text(self, obj):
@@ -183,14 +184,14 @@ class TextEffectsMaker:
         if type(letter) is not str or type(text) is not str:
             return
         # letter data
-        name = "\"{0}\"-letter-{1}".format(txt, l)
-        letter = bpy.data.curves.new(name=name, type='FONT')
-        letter.body = letter if letter != " " else ""
+        name = "\"{0}\"-letter-{1}".format(text, letter)
+        letter_data = bpy.data.curves.new(name=name, type='FONT')
+        letter_data.body = letter if letter != " " else ""
         # assign selected font
         if font and font in bpy.data.fonts:
-            letter.font = bpy.data.fonts[font]
+            letter_data.font = bpy.data.fonts[font]
         # letter object
-        letter_obj = bpy.data.objects.new(letter.name, letter)
+        letter_obj = bpy.data.objects.new(letter_data.name, letter_data)
         bpy.context.scene.objects.link(letter_obj)
         return letter_obj
 
@@ -298,7 +299,7 @@ class TextEffectsMaker:
                         # global world object origin for this direction
                         world_origin = getattr(font_obj.matrix_world.translation, dir)
                         #  step to new value for this direction
-                        dir_value = lerp_step(origin=world_origin, target=new_fixed_target, factor=value_mult)
+                        dir_value = self.lerp_step(origin=world_origin, target=new_fixed_target, factor=value_mult)
                         # store keyframe values for all axes
                         target_transform = {k: v if k != dir else dir_value for k, v in target_transform.items()}
                     except:
@@ -362,7 +363,7 @@ class TextEffectsMaker:
                 letter.parent = parent
                 letter.matrix_parent_inverse = parent.matrix_world.inverted()
 
-                effect['attr'] and effect['kf_arc'] and kfs.append(keyframe_letter_fx(letter, effect))
+                effect['attr'] and effect['kf_arc'] and kfs.append(self.keyframe_letter_fx(letter, effect))
 
                 #print("Anim frames: {0} -- Anim offset: {1} -- Current frame: {2}".format(fx['length'], fx['offset'], bpy.context.scene.frame_current))
 
@@ -406,7 +407,7 @@ class TextEffectsMaker:
         letters = self.string_to_letters(txt, spacing=spacing, font=font)
 
         # check format of axis and delta maps
-        if not is_transform_map(fx_deltas):
+        if not self.is_transform_map(fx_deltas):
             return
 
         # build fx dict
@@ -478,15 +479,13 @@ class TextEffectsMaker:
             letter.data.font = font_name
         return font_name
 
-
-## Helper methods
-
-def find_text_fx_src():
-    scene = bpy.context.scene
-    obj = scene.objects.active
-    if obj and hasattr(obj, "text_fx") and is_text(obj) and obj.text_fx.text:
-        return obj
-    return scene
+    def find_text_fx_src(self):
+        """Return the active text fx object or scene if there is none"""
+        scene = bpy.context.scene
+        obj = scene.objects.active
+        if obj and hasattr(obj, "text_fx") and self.is_text(obj) and obj.text_fx.text:
+            return obj
+        return scene
 
 
 ## Effects interface
@@ -503,13 +502,18 @@ fx = TextEffectsMaker(fx_map)   # logic
 #       - accept named text_editor object
 
 def format_fx_enum():
-    fx_items = []
-    fx_names_alphasort = sorted(fx_map.keys())
+    fx_items = deque([])
+    fx_names_alphasort = sorted(fx_map.keys(), reverse=True)
     for k in fx_names_alphasort:
         item_name = "{0}{1}".format(k[0].upper(), k[1:].lower().replace("_", " "))
+        if k.lower() == 'none':
+            item_description = "Add no effect to text"
+            fx_items.appendleft((k, item_name, item_description))
+            continue
         item_description = "Add {0} effect to text".format(k.lower())
         fx_items.append((k, item_name, item_description))
-    return fx_items
+    fx_items.reverse()
+    return list(fx_items)
 
 # UI checklist for prop names
 # add, remove, reorder props to determine UI visibility
@@ -542,9 +546,9 @@ class TextFxProperties(bpy.types.PropertyGroup):
         name = "Order",
         description = "Letter animation order",
         items = [
-            ("forwards", "Forwards", "Animate text from first to last letter"),
+            ("random", "Random", "Animate text letters in random order"),
             ("backwards", "Backwards", "Animate text from last to first letter"),
-            ("random", "Random", "Animate text letters in random order")
+            ("forwards", "Forwards", "Animate text from first to last letter")
         ]
     )
     frames = IntProperty(name="Frames", description="Frame duration of effect on each letter", default=10)
@@ -589,7 +593,7 @@ class TextFxOperator(bpy.types.Operator):
     bl_description = "Create and configure text effect"
 
     def execute(self, ctx):
-        props_src = find_text_fx_src()
+        props_src = fx.find_text_fx_src()
         text_fx = props_src.text_fx
 
         # TODO add effect to obj vs create new obj
@@ -626,7 +630,7 @@ class TextFxPanel(bpy.types.Panel):
     bl_region_type = "TOOLS"
 
     def draw(self, ctx):
-        props_src = find_text_fx_src()
+        props_src = fx.find_text_fx_src()
         modified_attrs = fx_map.get_attrs(name=props_src.text_fx.effect)
 
         if props_src:
