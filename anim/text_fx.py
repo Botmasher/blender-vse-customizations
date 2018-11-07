@@ -3,8 +3,11 @@ import random
 from bpy.props import *
 from collections import deque
 
+## NOTE: Deprecated! - visit the current project at https://github.com/Botmasher/blender-text-fx
+
 ## Text FX
 ## Blender Python script by Joshua R (Botmasher)
+##
 ##
 ## Create letter-by-letter text effects
 ##

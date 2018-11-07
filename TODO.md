@@ -25,7 +25,7 @@
 - [X] auto set alpha tex img to have nontransparent solid color bg
 - [X] auto blend texture setup (including blend direction side-to-side, top-to-bottom, ...)
 - [X] scene popin objects (scale-overshoot-settle keyframes)
-- [ ] fancy animated text (make array of letters/words, set fx, chain fx, allow random)
+- [X] fancy animated text (make array of letters/words, set fx, chain fx, allow random)
 	- check out work from [other authors](https://gitlab.com/bkurdali/blender-addon-experiments/blob/master/text_fx.py)
 - [X] allow for automatic manipulation (with unpacking then repacking) of metastrips
 - [X] create materials from common color names
