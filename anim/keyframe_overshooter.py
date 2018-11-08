@@ -36,8 +36,7 @@ class KeyframeOvershooter():
 		try:
 			self.setattr(kf, attr_name, attr_value)
 		except:
-			print("Failed trying to set keyframe {0} attribute {1} to {2}".format(kf, attr_name, attr_value))
-			continue
+			raise Exception("Failed trying to set keyframe {0} attribute {1} to {2}".format(kf, attr_name, attr_value))
 		return kf
 
 	def interpolate_selected_kfs(self, obj, interpolation_type='BACK'):
@@ -48,24 +47,63 @@ class KeyframeOvershooter():
 			self.set_kf_attr(kf, 'interpolation', interpolation_type)
 		return keyframes
 
-	def overshoot(self, obj, attr, value, frames=5, overshoot_frames=2, overshoot_percent=1.1):
+	def is_number(self, value):
+		"""Check if a value is of a number type"""
+		value_type = type(value)
+		return (value_type is int or value_type is float)
+
+	def calculate_vector_overshoot(self, source_v, target_v, overshoot_percent):
+		"""Build a new vector with calculated overshoots based on source-target deltas"""
+		if len(source_v) != len(target_v) or not self.is_number(overshoot_percent):
+			print ("Unable to compare vectors")
+			return
+		v = []
+		for i in range(len(source_v)):
+			diff = target_v[i] - source_v[i]
+			overshoot = diff * overshoot_percent
+			v.append(overshoot)
+		return v
+
+	def calculate_plain_overshoot(self, target_v, overshoot_percent):
+		"""Build a new vector with calculated overshoots beyond a target value"""
+		if len(target_v) != 3 or not self.is_number(overshoot_percent):
+			return
+		return [value * overshoot_percent for value in target_v]
+
+	def set_kf(self, obj, attr, value, frame):
+		"""Insert a keyframe on an object attribute"""
+		bpy.context.scene.frame_current = frame
+		obj.keyframe_insert(attr)
+		setattr(obj, attr, value)
+		obj.keyframe_insert(attr)
+
+	def overshoot_transform(self, obj, attr, target_value, frames=5, overshoot_frames=2, overshoot_percent=1.1):
 		"""Give current selected keyframes a dynamic interpolation"""
 		if not hasattr(obj, attr):
 			return
 
-		start_frame = bpy.context.scene.frame_current
-		obj.keyframe_insert(attr)
-		bpy.context.scene.frame_current += frames
-		obj.keyframe_insert(attr)
-		setattr(obj, attr, value * overshoot_percent)
-		obj.keyframe_insert(attr)
-		bpy.context.scene.frame_current += overshoot_frames
-		obj.keyframe_insert(attr)
-		setattr(obj, attr, value)
-		obj.keyframe_insert(attr)
+		# frames to kf
+		scene = bpy.context.scene
+		start_frame = scene.frame_current
+		overshoot_frame = start_frame + frames
+		final_frame = overshoot_frame + overshoot_frames
+
+		# initial kf
+		start_value = getattr(obj, attr)
+		print(start_value)
+		self.set_kf(obj, attr, start_value, start_frame)
+
+		# overshoot kf
+		overshoot_value = self.calculate_vector_overshoot(start_value, target_value, overshoot_percent)
+		self.set_kf(obj, attr, overshoot_value, overshoot_frame)
+
+		# target kf
+		self.set_kf(obj, attr, target_value, final_frame)
+
+		# reset playhead
 		bpy.context.scene.frame_current = start_frame
 
 		return obj.animation_data.action.fcurves
 
 kfer = KeyframeOvershooter()
-kfer.overshoot(bpy.context.scene.objects.active, 'location', (2,0,0), frames=6, overshoot_frames=3)
+kfer.overshoot_transform(bpy.context.scene.objects.active, 'location', (2,0,0), frames=6, overshoot_frames=3)
