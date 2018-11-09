@@ -52,21 +52,65 @@ class KeyframeOvershooter():
 		value_type = type(value)
 		return (value_type is int or value_type is float)
 
-	def calculate_vector_overshoot(self, source_v, target_v, overshoot_percent):
+	def is_number_list(self, v):
+		"""Check if a value is a list containing only numbers"""
+		for value in v:
+			value_type = type(value)
+			if value_type is not int and value_type is not float:
+				return False
+		return True
+
+	def is_transform_list(self, v):
+		"""Check if a value is a location/rotation/scale transform list"""
+		if len(v) == 3 and self.is_number_list(v):
+			return True
+		return False
+
+	def test_compare_overshoot_methods(self, v_source, v_target):
+		# sample inputs given overshoot_percent=1.1
+		# (target - source) * overshoot_percent
+		# [0, 0, 0] 		-> 		[1, 1, 1]
+		# 	result:		[1.1, 1.1, 1.1]
+		# 	expected: [1.1, 1.1, 1.1]
+		# [-1, 0, 2] 		->		[1, -1, 0]
+		# 	result:		[2.2, -1.1, -2.2]
+		# 	expected: [1.2, -1.1, -0.2]
+		# [-1, -1, -1] 	-> 		[1, 1, 1]
+		# 	result: 	[2.2, 2.2, 2.2]
+		# 	expected: [1.2, 1.2, 1.2]
+		# [1, 1, 1] 		-> 		[1, 1, 1]
+		# 	result: 	[0, 0, 0]
+		# 	expected: [0, 0, 0]
+		# [0, -15, 0] 	-> 		[20, 15, 20]
+		# 	result: 	[22, 33, 22]
+		# 	expected: [22, 18, 22]
+		# [1, 1, 0] 		-> 		[-20, -15, -20]
+		# 	result: 	[-23.1, -17.6, -22]
+		# 	expected: [-22.1, -16.6, -22]
+		# target + ((target - source) * (overshoot_percent - 1))
+		methods = [
+			lambda x,y: [(x[i] - y[i]) * overshoot_percent for i in range(len(x))],
+			lambda x,y: [x[i] + (x[i] - y[i]) * (overshoot_percent - 1) for i in range(len(x))]
+		]
+		results = [method(v_source, v_target) for method in methods]
+		return results
+
+	# TODO account for speed (distance/frames)
+	def calculate_distanced_overshoot(self, source_v, target_v, overshoot_percent):
 		"""Build a new vector with calculated overshoots based on source-target deltas"""
-		if len(source_v) != len(target_v) or not self.is_number(overshoot_percent):
-			print ("Unable to compare vectors")
+		if not self.is_transform_list(source_v) or not self.is_transform_list(target_v) or not self.is_number(overshoot_percent):
+			print ("Unable to compare transforms and calculate overshoot")
 			return
 		v = []
 		for i in range(len(source_v)):
-			diff = target_v[i] - source_v[i]
-			overshoot = diff * overshoot_percent
-			v.append(overshoot)
+			overshoot = (target_v[i] - source_v[i]) * (overshoot_percent - 1)
+			target_value = target_v[i] + overshoot
+			v.append(target_value)
 		return v
 
 	def calculate_plain_overshoot(self, target_v, overshoot_percent):
 		"""Build a new vector with calculated overshoots beyond a target value"""
-		if len(target_v) != 3 or not self.is_number(overshoot_percent):
+		if not self.is_transform_list(target_v) or not self.is_number(overshoot_percent):
 			return
 		return [value * overshoot_percent for value in target_v]
 
@@ -94,7 +138,7 @@ class KeyframeOvershooter():
 		self.set_kf(obj, attr, start_value, start_frame)
 
 		# overshoot kf
-		overshoot_value = self.calculate_vector_overshoot(start_value, target_value, overshoot_percent)
+		overshoot_value = self.calculate_distanced_overshoot(start_value, target_value, overshoot_percent)
 		self.set_kf(obj, attr, overshoot_value, overshoot_frame)
 
 		# target kf
