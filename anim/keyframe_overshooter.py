@@ -6,8 +6,6 @@ import bpy
 ## Overshoot i% over n frames before settling into a final animated value.
 ##
 
-# NOTE big overhaul - now goes through selected keyframes in graph/dopesheet
-
 # TODO add visual to dopesheet showing which interpolation used by selected kfs
 
 class KeyframeOvershooter():
@@ -150,4 +148,61 @@ class KeyframeOvershooter():
 		return obj.animation_data.action.fcurves
 
 kfer = KeyframeOvershooter()
-kfer.overshoot_transform(bpy.context.scene.objects.active, 'location', (2,0,0), frames=6, overshoot_frames=3)
+
+# TODO overshoot props
+# 	- example call: bpy.context.scene.objects.active, 'location', (2,0,0), frames=6, overshoot_frames=3
+
+class KfOvershootOperator(bpy.types.Operator):
+    bl_label = "Keyframe Overshooter"
+    bl_idname = "object.keyframe_overshooter"
+    bl_description = "Keyframe transform past target before settling into final value"
+
+    def execute(self, context):
+		scene = context.scene
+		obj = scene.objects.active
+
+		overshoot_props = {
+			'attr': scene.overshoot_attr,
+			'start': scene.overshoot_source,
+			'end': scene.overshoot_target,
+			'percent': scene.overshoot_percent,
+			'frames': scene.overshoot_pre_frames,
+			'overshoot_frames': scene.overshoot_post_frames,
+			'use_distance': scene.overshoot_use_distance
+		}
+
+		# TODO wrap method call to pass in just dict and obj
+		kfer.overshoot_transform(obj, overshoot_props['attr'], overshoot_props['end'], frames=overshoot_props['frames'], overshoot_frames=overshoot_props['overshoot_frames'])
+        return {'FINISHED'}
+
+class TextFxPanel(bpy.types.Panel):
+    bl_label = "Keyframe Overshooter Tools"
+    bl_idname = "object.keyframe_overshooter_panel"
+    bl_category = "Keyframe Overshooter"
+    bl_context = "objectmode"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+
+    def draw(self, context):
+		layout = self.layout
+
+		# TODO add prop names
+		for prop_name in prop_names:
+			layout.row().prop(scene, prop_name)
+        layout.row().operator("object.keyframe_overshooter", text="Animate")
+
+# props container
+# - scene stores data before objects created
+# - empty objects store created effect
+
+def register():
+    bpy.utils.register_class(KeyframeOvershooter)
+    bpy.utils.register_class(KeyframeOvershooterPanel)
+
+def unregister():
+    bpy.utils.unregister_class(KeyframeOvershooterPanel)
+    bpy.utils.unregister_class(KeyframeOvershooter)
+
+if __name__ == '__main__':
+	register()
+#__name__ == '__main__' and unregister()
