@@ -149,8 +149,24 @@ class KeyframeOvershooter():
 
 kfer = KeyframeOvershooter()
 
-# TODO overshoot props
-# 	- example call: bpy.context.scene.objects.active, 'location', (2,0,0), frames=6, overshoot_frames=3
+# props
+# TODO set frames defaults based on render settings
+class KfOvershootProperties(bpy.types.PropertyGroup):
+	attr = EnumProperty(
+        name = "Attribute",
+        description = "Transform axis for rotation effects",
+        items = [
+            ("location", "Location", "Keyframe the object's location"),
+            ("rotation_euler", "Rotation", "Keyframe the object's rotation"),
+            ("scale", "Scale", "Keyframe the object's scale")
+        ]
+    )
+	#attr_raw = StringProperty(name="Raw attribute", description="Name of attribute to keyframe", default="")
+	target = FloatVectorProperty(name="Target", description="Final value for object transform to settle on", size=3)
+	percent = FloatProperty(name="Multiplier", description="Target value multiplier for the overshoot", default=1.1)
+	pre_frames = IntProperty(name="Frames", description="Frames before overshoot value", min=1, default=5)
+	post_frames = IntProperty(name="Overshoot frames", description="Frames after overshoot value", min=1, default=2)
+	use_distance = BoolProperty(name="Use distance", description="Factor in distance when calculaing overshoot", default=False)
 
 class KfOvershootOperator(bpy.types.Operator):
     bl_label = "Keyframe Overshooter"
@@ -175,9 +191,9 @@ class KfOvershootOperator(bpy.types.Operator):
 		kfer.overshoot_transform(obj, overshoot_props['attr'], overshoot_props['end'], frames=overshoot_props['frames'], overshoot_frames=overshoot_props['overshoot_frames'])
         return {'FINISHED'}
 
-class TextFxPanel(bpy.types.Panel):
+class KfOvershootPanel(bpy.types.Panel):
     bl_label = "Keyframe Overshooter Tools"
-    bl_idname = "object.keyframe_overshooter_panel"
+    bl_idname = "object.keyframe_overshoot_panel"
     bl_category = "Keyframe Overshooter"
     bl_context = "objectmode"
     bl_space_type = "VIEW_3D"
@@ -185,23 +201,30 @@ class TextFxPanel(bpy.types.Panel):
 
     def draw(self, context):
 		layout = self.layout
-
-		# TODO add prop names
-		for prop_name in prop_names:
-			layout.row().prop(scene, prop_name)
+		prop_src = context.scene.keyframe_overshoot_data
+		layout.row().prop(prop_src, 'attr')
+		layout.row().prop(prop_src, 'target')
+		layout.row().prop(prop_src, 'percent')
+		layout.row().prop(prop_src, 'pre_frames')
+		layout.row().prop(prop_src, 'post_frames')
+		layout.row().prop(prop_src, 'use_distance')
         layout.row().operator("object.keyframe_overshooter", text="Animate")
 
 # props container
 # - scene stores data before objects created
 # - empty objects store created effect
 
+bpy.types.Scene.keyframe_overshoot_data = bpy.props.PointerProperty(type=TextFxProperties)
+
 def register():
-    bpy.utils.register_class(KeyframeOvershooter)
-    bpy.utils.register_class(KeyframeOvershooterPanel)
+	bpy.utils.register_class(KfOverhootProperties)
+    bpy.utils.register_class(KfOverhootOperator)
+    bpy.utils.register_class(KfOverhootPanel)
 
 def unregister():
-    bpy.utils.unregister_class(KeyframeOvershooterPanel)
-    bpy.utils.unregister_class(KeyframeOvershooter)
+    bpy.utils.unregister_class(KfOvershootPanel)
+    bpy.utils.unregister_class(KfOvershootOperator)
+	bpy.utils.unregister_class(KfOverhootProperties)
 
 if __name__ == '__main__':
 	register()
