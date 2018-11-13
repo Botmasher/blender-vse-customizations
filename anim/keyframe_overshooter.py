@@ -1,4 +1,5 @@
 import bpy
+from bpy.props import *
 
 ## Keyframe Overshooter
 ## script by Joshua R (GitHub user Botmasher)
@@ -152,25 +153,8 @@ kfer = KeyframeOvershooter()
 # ui and props
 
 # TODO set frames defaults based on render settings
-# class KfOvershootProperties(bpy.types.PropertyGroup)
-# 	attr = EnumProperty(
-#         name = "Attribute",
-#         description = "Transform axis for rotation effects",
-#         items = [
-#             ("location", "Location", "Keyframe the object's location"),
-#             ("rotation_euler", "Rotation", "Keyframe the object's rotation"),
-#             ("scale", "Scale", "Keyframe the object's scale")
-#         ]
-#     )
-# 	#attr_raw = StringProperty(name="Raw attribute", description="Name of attribute to keyframe", default="")
-# 	target = FloatVectorProperty(name="Target", description="Final value for object transform to settle on", size=3)
-# 	percent = FloatProperty(name="Multiplier", description="Target value multiplier for the overshoot", default=1.1)
-# 	pre_frames = IntProperty(name="Frames", description="Frames before overshoot value", min=1, default=5)
-# 	post_frames = IntProperty(name="Overshoot frames", description="Frames after overshoot value", min=1, default=2)
-# 	use_distance = BoolProperty(name="Use distance", description="Factor in distance when calculaing overshoot", default=False)
-
-kf_overshoot_props = {
-	'attr': EnumProperty(
+class KfOvershootProperties(bpy.types.PropertyGroup):
+	attr = EnumProperty(
         name = "Attribute",
         description = "Transform axis for rotation effects",
         items = [
@@ -178,100 +162,80 @@ kf_overshoot_props = {
             ("rotation_euler", "Rotation", "Keyframe the object's rotation"),
             ("scale", "Scale", "Keyframe the object's scale")
         ]
-    ),
-	'target': FloatVectorProperty(name="Target", description="Final value for object transform to settle on", size=3),
-	'percent': FloatProperty(name="Multiplier", description="Target value multiplier for the overshoot", default=1.1),
-	'pre_frames': IntProperty(name="Frames", description="Frames before overshoot value", min=1, default=5),
-	'post_frames': IntProperty(name="Overshoot frames", description="Frames after overshoot value", min=1, default=2),
-	'use_distance': BoolProperty(name="Use distance", description="Factor in distance when calculaing overshoot", default=False)
-}
+    )
+	target = FloatVectorProperty(name="Target", description="Final value for object transform to settle on", size=3)
+	percent = FloatProperty(name="Multiplier", description="Target value multiplier for the overshoot", default=1.1)
+	pre_frames = IntProperty(name="Frames", description="Frames before overshoot value", min=1, default=5)
+	post_frames = IntProperty(name="Overshoot frames", description="Frames after overshoot value", min=1, default=2)
+	use_distance = BoolProperty(name="Use distance", description="Factor in distance when calculaing overshoot", default=False)
 
-# TODO set these, iterate through keys when setting props
-props_src_type = bpy.types.Scene
-for prop_name, prop_value in kf_overshoot_props.items():
-	setattr(props_src_type, prop_name, prop_value)
-
-# 	- or consider comments on property() get/set below...
-# class C(object):
-#     def getx(self): return self._x
-#     def setx(self, value): self._x = value
-#     def delx(self): del self._x
-#     x = property(getx, setx, delx, "I'm the 'x' property.")
-# Decorators make defining new properties or modifying existing ones easy:
-# class C(object):
-#     @property
-#     def x(self):
-#         "I am the 'x' property."
-#         return self._x
-#     @x.setter
-#     def x(self, value):
-#         self._x = value
-#     @x.deleter
-#     def x(self):
-#         del self._x
+# TODO display target vector ui in col not single row
+prop_names = [
+	'attr',
+	'target',
+	'percent',
+	'pre_frames',
+	'post_frames',
+	'use_distance'
+]
+prop_group_name = 'kf_overshoot'
 
 def is_overshoot_data(props_dict):
 	if type(props_dict) is not dict:
 		return False
-	for prop_name in kf_overshoot_props.keys():
-		if prop_name not in overshoot_props:
+	for prop_name in prop_names:
+		if prop_name not in props_dict:
 			return False
 	for prop_name in props_dict:
-		if prop_name not in kf_overshoot_props:
+		if prop_name not in prop_names:
 			return False
 	return True
 
 def handle_overshoot(overshoot_props={}):
 	if not is_overshoot_data(overshoot_props):
 		return
-	res = kfer.overshoot_transform(
-		obj,
-		overshoot_props['attr'],
-		overshoot_props['end'],
-		frames=overshoot_props['frames'],
-		overshoot_frames=overshoot_props['overshoot_frames']
-	)
+	res = kfer.overshoot_transform(obj, overshoot_props['attr'], overshoot_props['end'], frames=overshoot_props['frames'], overshoot_frames=overshoot_props['overshoot_frames'])
 	return res
 
 class KfOvershootOperator(bpy.types.Operator):
-    bl_label = "Keyframe Overshooter"
-    bl_idname = "object.keyframe_overshooter"
-    bl_description = "Keyframe transform past target before settling into final value"
+	bl_label = "Keyframe Overshooter"
+	bl_idname = "object.keyframe_overshooter"
+	bl_description = "Keyframe transform past target before settling into final value"
 
-    def execute(self, context):
-		scene = context.scene
-		overshoot_props = {prop_name: getattr(scene, prop_name) for prop_name in kf_overshoot_props.keys()}
-		# TODO wrap method call to pass in just dict and obj
+	def execute(self, context):
+		overshoot_props = {prop_name: getattr(scene, prop_group_name, prop_name) for prop_name in prop_names}
 		handle_overshoot(overshoot_props)
-        return {'FINISHED'}
+		return {'FINISHED'}
 
 class KfOvershootPanel(bpy.types.Panel):
-    bl_label = "Keyframe Overshooter Tools"
-    bl_idname = "object.keyframe_overshoot_panel"
-    bl_category = "Keyframe Overshooter"
-    bl_context = "objectmode"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
+	bl_label = "Keyframe Overshooter Tools"
+	bl_idname = "object.keyframe_overshoot_panel"
+	bl_category = "Keyframe Overshooter"
+	bl_context = "objectmode"
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "TOOLS"
 
-    def draw(self, context):
+	def draw(self, context):
+		prop_src = getattr(context.scene, prop_group_name)
 		layout = self.layout
-		for prop_name in kf_overshoot_props.keys():
-			layout.row().prop(context.scene, prop_name)
-        layout.row().operator("object.keyframe_overshooter", text="Animate")
+		for prop_name in prop_names:
+			layout.row().prop(prop_src, prop_name)
+		layout.row().operator("object.keyframe_overshooter", text="Animate")
 
 def register():
-	bpy.utils.register_class(KfOverhootProperties)
-	bpy.types.Scene.keyframe_overshoot_data = bpy.props.PointerProperty(type=TextFxProperties)
-    bpy.utils.register_class(KfOverhootOperator)
-    bpy.utils.register_class(KfOverhootPanel)
+	bpy.utils.register_class(KfOvershootProperties)
+	bpy.types.Scene, prop_group_name, bpy.props.PointerProperty(type=KfOvershootProperties)
+	bpy.utils.register_class(KfOvershootOperator)
+	bpy.utils.register_class(KfOvershootPanel)
 
 def unregister():
-    bpy.utils.unregister_class(KfOvershootPanel)
+	bpy.utils.unregister_class(KfOvershootPanel)
 	try:
-		delete(bpy.types.keyframe_overshoot_data)
+		props_src = getattr(bpy.context.Scene, prop_group_name)
+		delete(props_src)
 	except:
-		print("Unable to remove keyframe_overshoot_data from bpy.types.Scene")
-    bpy.utils.unregister_class(KfOvershootOperator)
+		print("Unable to remove kf_overshoot data from bpy.types.Scene")
+	bpy.utils.unregister_class(KfOvershootOperator)
 	bpy.utils.unregister_class(KfOverhootProperties)
 
 if __name__ == '__main__':
