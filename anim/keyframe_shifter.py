@@ -1,4 +1,5 @@
 import bpy
+from bpy.props import IntProperty
 
 ## Keyframe Shifter
 ##
@@ -52,8 +53,38 @@ class KeyframeShifter:
         return kfs
 
 # TODO filter by keyframe attr (like transform, shape, ...)
-
 kf_shifter = KeyframeShifter()
-kf_shifter.shift(scene.objects.active, frameshift=10)
 
-# TODO ui
+class KfShifterOperator(bpy.types.Operator):
+	bl_label = "Keyframe Shifter"
+	bl_idname = "object.keyframe_shifter"
+	bl_description = "Move an object's keyframes along timeline"
+
+	def execute(self, ctx):
+        # TODO prop for incr/decr
+        kf_shifter.shift(ctx.scene.objects.active, frameshift=5)
+		return {'FINISHED'}
+
+class KfShifterPanel(bpy.types.Panel):
+	bl_label = "Keyframe Shifter"
+	bl_idname = "object.keyframe_shifter_panel"
+	bl_category = "Keyframe Shifter"
+	bl_context = "objectmode"
+	bl_space_type = "VIEW_3D"
+	bl_region_type = "TOOLS"
+
+	def draw(self, ctx):
+		layout = self.layout
+		layout.row().operator("object.keyframe_shifter", text="Shift Keyframes")
+
+def register():
+	bpy.utils.register_class(KfShifterOperator)
+	bpy.utils.register_class(KfShifterPanel)
+
+def unregister():
+	bpy.utils.unregister_class(KfShifterOperator)
+	bpy.utils.unregister_class(KfShifterProperties)
+
+if __name__ == '__main__':
+	register()
+	#unregister()
