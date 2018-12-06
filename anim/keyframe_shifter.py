@@ -25,19 +25,22 @@ class KeyframeShifter:
         return True
 
     def set_obj(self, obj):
-        if not is_anim_object(obj):
-            return
+        prev_obj = self.current_object
         self.current_object = obj
+        if not self.is_anim_object():
+            self.current_object = prev_obj
+            return
         return self.current_object
 
     def _shift_keyframes(self, frameshift=0):
         """Internal method to shift an object's keyframes forwards or backwards in timeline"""
-        obj_fcurves = [*obj.animation_data.action.fcurves]
+        obj_fcurves = [*self.current_object.animation_data.action.fcurves]
         modified_kfs = []
 
         # set all kfs within all anim fcurves
         for fcurve in obj_fcurves:
             for kf in fcurve.keyframe_points:
+                kf.co.x += frameshift
                 modified_kfs.append(kf)
 
         return modified_kfs
@@ -45,7 +48,7 @@ class KeyframeShifter:
     def shift(self, obj, frameshift=0):
         """Set the current object and run the keyframe shift"""
         current_obj = self.set_obj(obj)
-        kfs = self.shift_keyframes(frameshift=frameshift)
+        kfs = self._shift_keyframes(frameshift=frameshift)
         if not (current_obj and kfs and frameshift):
             return
         # TODO revisit storage after allowing separate attr adjustments
@@ -56,14 +59,14 @@ class KeyframeShifter:
 kf_shifter = KeyframeShifter()
 
 class KfShifterOperator(bpy.types.Operator):
-	bl_label = "Keyframe Shifter"
-	bl_idname = "object.keyframe_shifter"
-	bl_description = "Move an object's keyframes along timeline"
+    bl_label = "Keyframe Shifter"
+    bl_idname = "object.keyframe_shifter"
+    bl_description = "Move an object's keyframes along timeline"
 
-	def execute(self, ctx):
+    def execute(self, ctx):
         # TODO prop for incr/decr
         kf_shifter.shift(ctx.scene.objects.active, frameshift=5)
-		return {'FINISHED'}
+        return {'FINISHED'}
 
 class KfShifterPanel(bpy.types.Panel):
 	bl_label = "Keyframe Shifter"
