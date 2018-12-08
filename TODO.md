@@ -10,9 +10,9 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
-- [ ] existing keyframe shifter
+- [X] existing keyframe shifter
 - [ ] listener framework for catching events
-- [ ] nonuniform scale slider to rescale factor both values and maintain scale
+- [ ] nonuniform transform strip scale slider to rescale factor both values and maintain scale
 	- currently x, y must be calculated and set manually to keep non 1:1 ratios
 - [ ] center object in viewport
 - [X] shape key spikes for keyframing initial-final-initial values
