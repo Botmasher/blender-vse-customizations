@@ -26,8 +26,22 @@ def scale_transform_strip(strip, factor_x=1.0, factor_y=1.0, uniform=False):
         strip.scale_start_y *= factor_y
     return strip
 
-strip = bpy.context.scene.sequence_editor.active_strip
-scale_transform_strip(strip, factor_x=0.5)
+# strip = bpy.context.scene.sequence_editor.active_strip
+# scale_transform_strip(strip, factor_x=0.5)
 
-# TODO get props and ui right (add to existing?)
-#   - only show if not .use_uniform_scale
+# TODO only show if not .use_uniform_scale
+def panel_scale_slider(self, ctx):
+    #user_preferences = ctx.user_preferences
+    #addon_preferences = ctx.user_preferences.addons[__package__].preferences
+    strip = ctx.scene.sequence_editor.active_strip
+    if not is_transform_strip(strip):
+        return
+    layout = self.layout
+    layout.prop(strip, 'scale_factor')
+
+def register():
+    bpy.types.SEQUENCER_PT_effect.append(panel_scale_slider)
+
+if __name__ == '__main__':
+    print(__package__)
+    register()
