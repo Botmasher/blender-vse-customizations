@@ -72,7 +72,7 @@ def cut_anim_substrip(sequence, step=0):
 	sequence.frame_final_duration = step
 	return sequence
 
-def subcut_strip(s=bpy.context.scene.sequence_editor.active_strip, step=0, trail=0, gap=0):
+def subcut_strip(s, step=0, trail=0, gap=0):
 	"""Cut a sequencer strip into uniformly stepped and spaced substrips.
 
 	Arguments:
@@ -87,7 +87,6 @@ def subcut_strip(s=bpy.context.scene.sequence_editor.active_strip, step=0, trail
 	end_frame = start_frame + s.frame_final_duration
 
 	# store and set playhead position
-	original_playhead_frame = bpy.context.scene.frame_current
 	bpy.context.scene.frame_current = start_frame
 
 	# select only the active strip
@@ -96,17 +95,21 @@ def subcut_strip(s=bpy.context.scene.sequence_editor.active_strip, step=0, trail
 
 	# calculate how many strips will be produced (proportional to number of cuts)
 	frames = range(start_frame+1, end_frame)
-	split_strip_count = 0 if step == 0 else len(list(frames)) / step
-	if split_strip_count <= 1.0:
+	cuts_count = 0 if not step else len(list(frames)) / step
+	
+	# avoid processing one-cut strip - send back as its own cut
+	if cuts_count <= 0.0:
+		print("Too few strips to cut")
 		return [s]
+	# account for range and separate handling of first strip
 	else:
-		# account for range and separate handling of first strip
-		cuts_count = int(split_strip_count) + 1
+		cuts_count = int(cuts_count) + 1
 
 	# cut into substrips and create list of subcut strips
 	resulting_strips = []
 	current_strip = s
 
+	# make planned cuts following step and stretch values
 	for cut in range(cuts_count):
 		current_strip.select = True
 		last_strip = current_strip
@@ -128,6 +131,7 @@ def subcut_strip(s=bpy.context.scene.sequence_editor.active_strip, step=0, trail
 
 		last_strip.select = False
 
+	# list of cut strips
 	return resulting_strips
 
 class FramesplitterPanel(bpy.types.Panel):
@@ -138,6 +142,8 @@ class FramesplitterPanel(bpy.types.Panel):
 
 	def draw(self, context):
 		strip = bpy.context.scene.sequence_editor.active_strip
+		if not strip:
+			return
 		self.layout.row().prop(strip, "framesplitter_step")
 		self.layout.row().prop(strip, "framesplitter_trail")
 		self.layout.row().prop(strip, "framesplitter_gap")

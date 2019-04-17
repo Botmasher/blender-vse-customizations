@@ -72,7 +72,7 @@ def on_change_observer(obj, prop, cb):
         new_value = getattr(obj, prop)
     def update():
         try:
-            old_value = new_value.copy()
+            old_value = new_value.copy()    # ERROR new_value referenced before assignment
             new_value = getattr(obj, prop).copy()
         except AttributeError:
             old_value = new_value
