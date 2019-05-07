@@ -10,6 +10,9 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
+- [ ] automate papery furling
+	- image plane -> two-sided paper with plain/other img back
+	- crease edges, loop cut, subdivision subsurface, curve
 - [X] existing keyframe shifter
 - [ ] listener framework for catching events
 - [ ] nonuniform transform strip scale slider to rescale factor both values and maintain scale
