@@ -1,22 +1,6 @@
 import bpy
 import bmesh
 
-# expect to start with a flat image plane
-paper_obj = bpy.context.scene.objects.active
-
-# optionally adjust transparent background to white
-untransparent = True
-if untransparent:
-    # turn off alpha for paper material
-    mat = paper_obj.active_material
-    mat.use_transparent = False
-    # turn off alpha for paper textures
-    for tex_slot in mat.texture_slots:
-        if not tex_slot:
-            continue
-        tex = tex_slot.texture
-        tex.use_map_alpha = False
-
 # turn image plane into unfurlable paper
 # - thicken (extrude) mesh to have front and back
 # - select all edges
@@ -28,12 +12,18 @@ if untransparent:
 # - parent curve to paper
 # Go to edit mode, face selection mode and select all faces
 
+def deselect(obj):
+    obj.select = False
+    return obj
+def select(obj):
+    obj.select = True
+    return obj
+
 # TODO: test and adjust extruding plane face
 # source: https://blender.stackexchange.com/questions/115397/extrude-in-python
-
-def extrude_mesh_face(obj, vector):
+def extrude_mesh_face(obj, magnitude=1.0):
     """Extrude object face in mesh edit mode"""
-    if obj.type != 'MESH':
+    if obj.type != 'MESH' or not hasattr(obj, 'data'):
         return
     
     # change to edit mode and select face
@@ -43,15 +33,40 @@ def extrude_mesh_face(obj, vector):
 
     # create mesh
     mesh = bmesh.new()
-    mesh = bmesh.from_edit_mesh(bpy.context.object.data)
+    mesh = bmesh.from_edit_mesh(obj.data)
 
-    # setup for extruding mesh
-    for f in mesh.faces:
-        face = f.normal
-    r = bmesh.ops.extrude_face_region(mesh, geom=mesh.faces[:])
-    verts = [e for e in r['geom'] if isinstance(e, bmesh.types.BMVert)]
-    # extrude mesh passing in length and verts
-    bmesh.ops.translate(mesh, vec=(face*vector), verts=verts)
+    # # setup for extruding mesh
+    # for f in mesh.faces:
+    #     face = f.normal
+    # r = bmesh.ops.extrude_face_region(mesh, geom=mesh.faces[:])
+    # verts = [e for e in r['geom'] if isinstance(e, bmesh.types.BMVert)]
+    # # extrude mesh passing in length and verts
+    # bmesh.ops.translate(mesh, vec=(face*vector), verts=verts)
+
+    # extrude mesh through bpy.ops instead of above
+    # inspired by https://stackoverflow.com/questions/37808840/selecting-a-face-and-extruding-a-cube-in-blender-via-python-api
+    [deselect(face) for face in mesh.faces]
+    select(mesh.faces[0])
+    bmesh.update_edit_mesh(obj.data, True)
+    bpy.ops.mesh.extrude_faces_move(
+        MESH_OT_extrude_faces_indiv = {
+            "mirror": False
+        },
+        TRANSFORM_OT_shrink_fatten = {
+            "value": -magnitude,
+            "use_even_offset": True,
+            "mirror": False,
+            "proportional": 'DISABLED',
+            "proportional_edit_falloff": 'SMOOTH',
+            "proportional_size": 1,
+            "snap": False,
+            "snap_target": 'CLOSEST',
+            "snap_point": (0, 0, 0), 
+            "snap_align": False,
+            "snap_normal": (0, 0, 0),
+            "release_confirm": False
+        }
+    )
 
     # update & destroy mesh
     bmesh.update_edit_mesh(bpy.context.object.data) # write bmesh back to object mesh
@@ -72,3 +87,74 @@ def extrude_mesh_face(obj, vector):
     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
     
     return obj
+
+def select_and_crease(obj):
+    """Set a hard crease along all edges of the object's mesh"""
+    edges = []
+    for edge in obj.data.edges:
+        edge.crease = 1.0
+        edges.append(edge)
+    return edges
+
+def _create_curve(name="paper-curve", curve_type="CURVE"):
+    return bpy.data.curves.new(
+        name = name,
+        type = curve_type
+    )
+
+def apply_modifiers(obj):
+    modifiers = []
+
+    # create subsurface modifier and set subdivisions
+    subsurf_mod = obj.modifiers.new(
+        name = 'subsurf',
+        type = 'SUBSURF'
+    )
+    subsurf_mod.levels = 4
+    subsurf_mod.render_levels = 4
+    modifiers.append(subsurf_mod)
+
+    # create coiled curve
+    curve = _create_curve()
+
+    # create curve modifier and set curve
+    curve_mod = obj.modifiers.new(
+        name = 'curve',
+        type = 'CURVE'
+    )
+    curve_mod.object = curve
+    curve.parent = obj
+    modifiers.append(curve_mod)
+
+    return modifiers
+
+def _unalpha_texture_slot(texture_slot):
+    texture_slot.texture.use_map_alpha = False
+    return texture_slot.texture
+
+def untransparent_img(obj):
+    """Adjust transparent image plane background to albedo"""
+    # turn off alpha for paper material
+    material = obj.active_material
+    material.use_transparent = False
+    
+    # turn off alpha for paper textures
+    texture_slots = material.texture_slots
+    [
+        _unalpha_texture_slot(slot)
+        for slot in texture_slots if slot
+    ]
+
+    return obj
+
+## NOTE: below - run main functions
+
+# expect to start with a flat image plane
+paper_obj = bpy.context.scene.objects.active
+# set the plane alpha to nontransparent for paper effect
+untransparent_img(paper_obj)
+
+# furl paper
+extrude_mesh_face(paper_obj, 0.5)
+select_and_crease(paper_obj)
+apply_modifiers(paper_obj)
