@@ -1,5 +1,6 @@
 import bpy
 import bmesh
+import math
 
 # turn image plane into unfurlable paper
 # - thicken (extrude) mesh to have front and back
@@ -96,11 +97,55 @@ def select_and_crease(obj):
         edges.append(edge)
     return edges
 
-def _create_curve(name="paper-curve", curve_type="CURVE"):
-    return bpy.data.curves.new(
+def _create_curve(name="paper-curve", curve_type="CURVE", coil_depth=1):
+    """Make a new scroll-like coiled curve"""
+    # create curve object and add to scene
+    curve_data = bpy.data.curves.new(
         name = name,
         type = curve_type
     )
+    curve_obj = bpy.data.objects.new(
+        name = name,
+        data = curve_data
+    )
+    bpy.context.scene.link(curve_obj)
+
+    # curve config
+    curve_data.dimensions = '2D'    # default dimensions
+    curve_data.resolution_u = 0
+    curve_data.bevel_depth = 0.0
+    # create point data
+    # TODO: recursively create up to coil_depth
+    curve_data.splines.new(type='POLY')
+
+    def create_points():
+        coordinates = [
+            (1.0, 0.0, 0.0),    # extra tail
+            # (-1.0, 0.0, 0.0),   # start of first coil
+            # (-1.0, 1.0, 0.0),
+            # (-1.0, 0.2, 0.0)    # end of first coil
+        ]
+        # set lower then upper for each round of inner coiling
+        for n in range(coil_depth):
+            coiling_offset = math.log(n) / 4
+            coordinates.append((-1, coiling_offset, 0))
+            coordinates.append((-1, 1 - coiling_offset, 0))
+        return coordinates
+    points = create_points()
+    
+    # TODO: rework with splines[0].bezier_points
+
+    curve_data.splines[0].points.add(count=len(points)-1)
+    # map point coords to points data
+    def assign_point(point_coord, point_data):
+        point_data.co = (*point_coord, 1)
+        return point_data
+    [
+        assign_point(points[i], point_data)
+        for i, point_data in enumerate(curve_data.splines[0].points)
+    ]
+
+    return curve_obj
 
 def apply_modifiers(obj):
     modifiers = []
