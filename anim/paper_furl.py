@@ -47,6 +47,7 @@ def extrude_mesh_face(obj, magnitude=1.0):
     # extrude mesh through bpy.ops instead of above
     # inspired by https://stackoverflow.com/questions/37808840/selecting-a-face-and-extruding-a-cube-in-blender-via-python-api
     [deselect(face) for face in mesh.faces]
+    mesh.faces.ensure_lookup_table()
     select(mesh.faces[0])
     bmesh.update_edit_mesh(obj.data, True)
     bpy.ops.mesh.extrude_faces_move(
@@ -100,20 +101,11 @@ def select_and_crease(obj):
 def _create_curve(name="paper-curve", curve_type="CURVE", coil_depth=1):
     """Make a new scroll-like coiled curve"""
     # create curve object and add to scene
-    curve_data = bpy.data.curves.new(
-        name = name,
-        type = curve_type
-    )
-    curve_obj = bpy.data.objects.new(
-        name = name,
-        data = curve_data
-    )
-    bpy.context.scene.link(curve_obj)
+    curve_data = bpy.data.curves.new(name, type=curve_type)
+    curve_obj = bpy.data.objects.new(name, object_data=curve_data)
+    bpy.context.scene.objects.link(curve_obj)
 
     # curve config
-    curve_data.dimensions = '2D'    # default dimensions
-    curve_data.resolution_u = 0
-    curve_data.bevel_depth = 0.0
     # create point data
     # TODO: recursively create up to coil_depth
     curve_data.splines.new(type='POLY')
@@ -126,7 +118,7 @@ def _create_curve(name="paper-curve", curve_type="CURVE", coil_depth=1):
             # (-1.0, 0.2, 0.0)    # end of first coil
         ]
         # set lower then upper for each round of inner coiling
-        for n in range(coil_depth):
+        for n in range(1, coil_depth):
             coiling_offset = math.log(n) / 4
             coordinates.append((-1, coiling_offset, 0))
             coordinates.append((-1, 1 - coiling_offset, 0))
@@ -147,7 +139,15 @@ def _create_curve(name="paper-curve", curve_type="CURVE", coil_depth=1):
 
     return curve_obj
 
-def apply_modifiers(obj):
+def assign_existing_curve(obj, curve):
+    if obj.type != 'MESH' or curve.type != 'CURVE':
+        print("Failed to assign curve to object - invalid object or curve")
+        return
+    curve.parent = obj
+    curve_modifier = obj.modifiers.get("curve")
+    curve_modifier.curve = curve
+
+def apply_modifiers(obj, curve=None, create_curve=False):
     modifiers = []
 
     # create subsurface modifier and set subdivisions
@@ -159,47 +159,57 @@ def apply_modifiers(obj):
     subsurf_mod.render_levels = 4
     modifiers.append(subsurf_mod)
 
-    # create coiled curve
-    curve = _create_curve()
-
     # create curve modifier and set curve
     curve_mod = obj.modifiers.new(
         name = 'curve',
         type = 'CURVE'
     )
-    curve_mod.object = curve
-    curve.parent = obj
+    # create coiled curve for paper modifier
+    if create_curve:
+        curve = _create_curve()
+        curve_mod.object = curve
+        curve.parent = obj
+    # assign existing curve to paper modifier
+    else:
+        assign_existing_curve(obj, curve)
+
     modifiers.append(curve_mod)
 
     return modifiers
 
 def _unalpha_texture_slot(texture_slot):
-    texture_slot.texture.use_map_alpha = False
-    return texture_slot.texture
+    texture_slot.use_map_alpha = False
+    return texture_slot
 
 def untransparent_img(obj):
     """Adjust transparent image plane background to albedo"""
     # turn off alpha for paper material
     material = obj.active_material
-    material.use_transparent = False
+    material.use_transparency = False
     
     # turn off alpha for paper textures
     texture_slots = material.texture_slots
-    [
-        _unalpha_texture_slot(slot)
-        for slot in texture_slots if slot
-    ]
+    for slot in texture_slots:
+        slot and _unalpha_texture_slot(slot)
 
     return obj
 
 ## NOTE: below - run main functions
 
 # expect to start with a flat image plane
-paper_obj = bpy.context.scene.objects.active
+selected_objects = [obj for obj in bpy.context.scene.objects.active if obj.select]
+paper_obj = selected_objects[0]
+furl_curve = None
+if len(selected_objects > 1):
+    for obj in selected_objects:
+        if obj.type == 'CURVE':
+            furl_curve = obj
+            break
+
 # set the plane alpha to nontransparent for paper effect
 untransparent_img(paper_obj)
 
 # furl paper
-extrude_mesh_face(paper_obj, 0.5)
+extrude_mesh_face(paper_obj, 0.01)
 select_and_crease(paper_obj)
-apply_modifiers(paper_obj)
+apply_modifiers(paper_obj, furl_curve)
