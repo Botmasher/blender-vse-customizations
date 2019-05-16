@@ -104,38 +104,46 @@ def _create_curve(name="paper-curve", curve_type="CURVE", coil_depth=1):
     curve_data = bpy.data.curves.new(name, type=curve_type)
     curve_obj = bpy.data.objects.new(name, object_data=curve_data)
     bpy.context.scene.objects.link(curve_obj)
+    bpy.context.scene.update()
 
     # curve config
     # create point data
+    curve_data.splines.new(type='BEZIER')
+
     # TODO: recursively create up to coil_depth
-    curve_data.splines.new(type='POLY')
-
-    def create_points():
-        coordinates = [
-            (1.0, 0.0, 0.0),    # extra tail
-            # (-1.0, 0.0, 0.0),   # start of first coil
-            # (-1.0, 1.0, 0.0),
-            # (-1.0, 0.2, 0.0)    # end of first coil
-        ]
+    # def create_coordinates():
+        # coordinates = [(1, 0, 0)]     # starting point
         # set lower then upper for each round of inner coiling
-        for n in range(1, coil_depth):
-            coiling_offset = math.log(n) / 4
-            coordinates.append((-1, coiling_offset, 0))
-            coordinates.append((-1, 1 - coiling_offset, 0))
-        return coordinates
-    points = create_points()
-    
-    # TODO: rework with splines[0].bezier_points
+        # for n in range(1, coil_depth):
+        #     coiling_offset = math.log(n) / 4
+        #     coordinates.append((-1, coiling_offset, 0))
+        #     coordinates.append((-1, 1 - coiling_offset, 0))
+        # return coordinates
+    # coordinates = create_coordinates()
 
-    curve_data.splines[0].points.add(count=len(points)-1)
-    # map point coords to points data
-    def assign_point(point_coord, point_data):
-        point_data.co = (*point_coord, 1)
-        return point_data
-    [
-        assign_point(points[i], point_data)
-        for i, point_data in enumerate(curve_data.splines[0].points)
+    # set up points values for the curve
+    coordinates = [
+        (1.0, 0.0, 0.0),    # extra tail
+        (-1.0, 0.0, 0.0),   # start of first coil
+        (-1.0, 1.0, 0.0),   # top of coil
+        (-1.0, 0.2, 0.0)    # end of first coil
     ]
+
+    # create additional curve points on top of the one default point
+    curve_data.splines[0].bezier_points.add(count=len(coordinates)-1)
+
+    # map point coords to points data
+    handle = (0.5, 0, 0)
+    handle_type = 'ALIGNED'
+    for i, point_data in enumerate(curve_data.splines[0].bezier_points):
+        point_data.co = (*coordinates[i], 1)
+        point_data.handle_left_type = handle_type
+        point_data.handle_right_type = handle_type
+        point_data.handle_left = handle
+        point_data.handle_right = handle
+
+    # TODO: unbreak curve handles and position points correctly
+    # - consider starting from prefab bezier
 
     return curve_obj
 
@@ -196,15 +204,15 @@ def untransparent_img(obj):
 
 ## NOTE: below - run main functions
 
-# expect to start with a flat image plane
-selected_objects = [obj for obj in bpy.context.scene.objects.active if obj.select]
-paper_obj = selected_objects[0]
-furl_curve = None
-if len(selected_objects > 1):
-    for obj in selected_objects:
-        if obj.type == 'CURVE':
-            furl_curve = obj
-            break
+# find curve and paper mesh among selected
+selected_objects = [obj for obj in bpy.context.scene.objects if obj.select]
+paper_obj, furl_curve = (None, None)
+for obj in selected_objects:
+    if obj.type == 'MESH':
+        paper_obj = obj
+    if obj.type == 'CURVE':
+        furl_curve = obj
+        break
 
 # set the plane alpha to nontransparent for paper effect
 untransparent_img(paper_obj)
