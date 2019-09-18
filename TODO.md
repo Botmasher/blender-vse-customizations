@@ -10,6 +10,13 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
+- [ ] auto roll up and drive, crossfade, etc. multiple shape keys
+- [ ] music/audio visualization (envelopes?)
+- [ ] shape keyer menu that manages and combines keys
+	- multiple key values at once for a kind of meta shape
+	- pulse or long action, one-way or return
+- [ ] objects swap places (like semicircle over/under swap motion) with options on motion type
+- [ ] tool for circling/uncircling, underlining, highlighting/unhighlighting target object
 - [ ] automate papery furling
 	- image plane -> two-sided paper with plain/other img back
 	- crease edges, loop cut, subdivision subsurface, curve
