@@ -24,17 +24,37 @@ from bpy.props import IntProperty
 # 		- select right handle
 # 		- move strip handle left to shorten
 
+def config_frame_splitter_props():
+	# set up properties for UI panel
+	frame_splitter_props_data = {
+		'frame_splitter_step': {
+			'name': "Step (frames)",
+			'default': 1,
+			'description': "Number of source frames to cut into each substrip"
+		},
+		'frame_splitter_trail': {
+			'name': "Trail (frames)",
+			'default': 4,
+			'description':  "Number of frames to extend each step cut substrip"
+		},
+		'frame_splitter_gap': {
+			'name': "Gap (frames)",
+			'default': 4,
+			'description': "Number of frames between resulting substrips"
+		}
+	}
+	[
+		setattr(bpy.types.ImageSequence, prop_name, IntProperty(
+			name = int_prop['name'],
+			default = int_prop['default'],
+			description = int_prop['description']
+		)) for prop_name, int_prop in frame_splitter_props_data.items()
+	]
+	return frame_splitter_props_data
+
 class FrameSplitter:
-	def __init__(self, int_props):
-		# set up properties for UI panel
-		map(
-			lambda int_prop: setattr(bpy.types.ImageSequence, IntProperty(
-				name = int_prop['name'],
-				default = int_prop['default'],
-				description = int_prop['description']
-			)),
-			int_props
-		)
+	def __init__(self):
+		return
 
 	def gap_push_strip(self, sequence, gap):
 		"""Insert a gap after the strip and push all subsequent strips ahead"""
@@ -74,6 +94,8 @@ class FrameSplitter:
 		trail -- the left or right hand lengthening in frames applied to each substrip
 		gap -- the empty space in frames to leave between each substrip
 		"""
+		# remember starting playhead position
+		playhead_frame = bpy.context.scene.frame_current
 
 		# store bounding strip frames
 		start_frame = s.frame_start
@@ -124,10 +146,13 @@ class FrameSplitter:
 
 			last_strip.select = False
 
+		# return playhead to original frame
+		bpy.context.scene.frame_current = playhead_frame
+
 		# list of cut strips
 		return resulting_strips
 
-class FramesplitterPanel(bpy.types.Panel):
+class FrameSplitterPanel(bpy.types.Panel):
 	bl_label = "Frame Splitter"
 	bl_idname = "strip.frame_splitter_panel"
 	bl_space_type = "SEQUENCE_EDITOR"
@@ -137,12 +162,12 @@ class FramesplitterPanel(bpy.types.Panel):
 		strip = bpy.context.scene.sequence_editor.active_strip
 		if not strip:
 			return
-		self.layout.row().prop(strip, "framesplitter_step")
-		self.layout.row().prop(strip, "framesplitter_trail")
-		self.layout.row().prop(strip, "framesplitter_gap")
+		self.layout.row().prop(strip, "frame_splitter_step")
+		self.layout.row().prop(strip, "frame_splitter_trail")
+		self.layout.row().prop(strip, "frame_splitter_gap")
 		self.layout.row().operator("strip.frame_splitter", text="Subcut Strip")
 
-class FramesplitterOperator(bpy.types.Operator):
+class FrameSplitterOperator(bpy.types.Operator):
 	bl_idname = "strip.frame_splitter"
 	bl_label = "Frame Splitter Button"
 	bl_description = "Split sequence frames into new substrips"
@@ -155,36 +180,20 @@ class FramesplitterOperator(bpy.types.Operator):
 	def execute(self, context):
 		scene = bpy.context.scene
 		strip = scene.sequence_editor.active_strip
-		step = strip.framesplitter_step
-		trail = strip.framesplitter_trail
-		gap = strip.framesplitter_gap
+		step = strip.frame_splitter_step
+		trail = strip.frame_splitter_trail
+		gap = strip.frame_splitter_gap
 		scene.sequence_editor.frame_splitter.subcut_strip(strip, step, trail, gap)
 		return {'FINISHED'}
 
 def register():
-	fs_props = [
-		{
-			'name': "Step (frames)",
-			'default': 1,
-			'description': "Number of source frames to cut into each substrip"
-		},
-		{
-			'name': "Trail (frames)",
-			'default': 4,
-			'description':  "Number of frames to extend each step cut substrip"
-		},
-		{
-			'name': "Gap (frames)",
-			'default': 4,
-			'description': "Number of frames between resulting substrips"
-		}
-	]
-	bpy.types.SequenceEditor.frame_splitter = FrameSplitter(fs_props)
+	config_frame_splitter_props()
+	bpy.types.SequenceEditor.frame_splitter = FrameSplitter()
 	bpy.utils.register_module(__name__)
 
 def unregister():
 	bpy.utils.unregister_module(__name__)
-	del bpy.types.Scene.frame_splitter
+	del bpy.types.SequenceEditor.frame_splitter
 
 if __name__ == "__main__":
 	register()
