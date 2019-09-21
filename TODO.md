@@ -1,5 +1,9 @@
 # Task List
 
+## Versions
+- [ ] experiment with API changes to 2.8
+- [ ] add user notes that 2.79 > 2.8 changes break these scripts
+
 ## Help for users
 - [ ] a helpful test project
 	- [ ] design a `test.blend` for users to try out the scripts
