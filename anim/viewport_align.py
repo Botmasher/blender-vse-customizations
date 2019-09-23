@@ -110,7 +110,7 @@ def is_alignable(scene=bpy.context.scene):
         return False
     return True
 
-def get_edge_vertices_uv_xy():
+def get_edge_vertices_uv_xy(obj=None, cam=None):
     """Find the rightmost, leftmost, topmost and bottommost vertex in camera view
     Return render UV and the world XY coordinates for these extremes
     """
@@ -335,9 +335,9 @@ def move_vertex_to_cam(vert_data, obj, cam):
     if dist_u == 0 or dist_v == 0:
         return  # already at loc
     obj.location.x += dist_x
-    obj.location.y += disy_y
+    obj.location.y += dist_y
     move_obj(obj, x=dist_x, y=dist_y)
-    return vert
+    return vert_data
 
 # test runs
 #fit_vertices_to_frustum(bpy.context.object, bpy.context.scene.camera)

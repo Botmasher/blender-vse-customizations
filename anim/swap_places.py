@@ -31,6 +31,9 @@ def move_and_keyframe(obj, loc):
     obj.location = loc
     obj.keyframe_insert('location')
 
+def identify_screen_position(obj):
+    return
+
 def swap_objects(objects_list):
     # pair off objects
     obj_pairs = pair_elements(objects_list, True)
