@@ -1,9 +1,5 @@
 import bpy
 
-# config properties
-tastiness = bpy.props.FloatProperty(name="tastiness", default=276.28)
-print(tastiness)
-
 # config property class
 class TastyProps(bpy.types.PropertyGroup):
     flavor : bpy.props.StringProperty(
@@ -26,20 +22,37 @@ class TastyProps(bpy.types.PropertyGroup):
 class TastyPanel(bpy.types.Panel):
     bl_idname = "scene.tasty_panel"
     bl_label = "Tasty Panel"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "object"
+    # where and how tool appears in interface
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"       
+    bl_context_mode = "object"
+    bl_category = "Tasty!"
+
+    # NOTE: display UI other places
+    # space_types = [
+    #   'EMPTY', 'VIEW_3D', 'IMAGE_EDITOR',
+    #   'NODE_EDITOR', 'SEQUENCE_EDITOR', 'CLIP_EDITOR',
+    #   'DOPESHEET_EDITOR', 'GRAPH_EDITOR', 'NLA_EDITOR',
+    #   'TEXT_EDITOR', 'CONSOLE', 'INFO',
+    #   'TOPBAR', 'STATUSBAR', 'OUTLINER',
+    #   'PROPERTIES', 'FILE_BROWSER', 'PREFERENCES'
+    # ]
+    #
+    # region_types = [
+    #   'WINDOW', 'HEADER', 'CHANNELS',
+    #   'TEMPORARY', 'UI', 'TOOLS',
+    #   'TOOL_PROPS', 'PREVIEW', 'HUD',
+    #   'NAVIGATION_BAR', 'EXECUTE', 'FOOTER',
+    #   'TOOL_HEADER'
+    # ]
 
     def draw(self, context):
-        scene = context.scene
-        flavor = scene.flavor
-        colorized = scene.colorized
-        amount = scene.amount
-        layout.prop(flavor, "tasty_props")
-        layout.prop(colorized, "tasty_props")
-        layout.prop(amount, "tasty_props")
-
-        return
+        layout = self.layout
+        tasty_props = context.scene.tasty_props
+        layout.prop(tasty_props, "flavor")
+        layout.prop(tasty_props, "colorized")
+        layout.prop(tasty_props, "amount")
+        layout.operator(TastyOperator.bl_idname)
 
 # operator
 class TastyOperator(bpy.types.Operator):
@@ -58,13 +71,22 @@ class TastyOperator(bpy.types.Operator):
         return self.execute(context)
 
 # registration
-ui_classes = (TastyProps, TastyPanel, TastyOperator)
+def do_classes(action=None):
+    if action:
+        ui_classes = (
+            TastyProps,
+            TastyPanel,
+            TastyOperator
+        )
+        [action(ui_class) for ui_class in ui_classes]
+    return ui_classes
+
 def register():
-    [bpy.utils.register_class(ui_class) for ui_class in ui_classes]
+    do_classes(bpy.utils.register_class)
     bpy.types.Scene.tasty_props = bpy.props.PointerProperty(type=TastyProps)
 
 def unregister():
-    [bpy.utils.unregister_class(ui_class) for ui_class in ui_classes]
+    do_classes(bpy.utils.unregister_class)
     del bpy.types.Scene.tasty_props
 
 if __name__ == '__main__':

@@ -1,6 +1,8 @@
 import bpy
 
 ## Blender API experimentation for 2.80
+# See also:
+# https://blenderartists.org/t/2-80-cheat-sheet-for-updating-add-ons/1148974
 
 # data for scene and view
 scene = bpy.context.scene
