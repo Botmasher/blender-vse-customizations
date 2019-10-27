@@ -14,6 +14,8 @@
 - [ ] go through TODOs in various files and list them here
 
 ## Future plans
+- [ ] 2.8/EEVEE
+	- [ ] mat img swapper to animate changing cel
 - [ ] auto roll up and drive, crossfade, etc. multiple shape keys
 - [ ] music/audio visualization (envelopes?)
 - [ ] shape keyer menu that manages and combines keys

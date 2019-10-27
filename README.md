@@ -2,6 +2,8 @@
 
 A collection of scripts to automate various parts of the production process behind my animations.
 
+*NOTE: I still work on and revisit these scripts but no longer on GitHub. They were made for Blender 2.79. Expect failures in 2.8 or above, with the exceptions of my minimal experiments with the new API in the `v2.8/` folder.*
+
 ## About This Code
 
 These tools perform various bits of the job of putting together Blender animations for an edutainment web series. I've been developing these scripts with my own needs in mind. I have adjusted them as I've worked with other creators with different needs.
